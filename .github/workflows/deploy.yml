@@ -1,0 +1,84 @@
+# =============================================================================
+# Despliegue del frontend estático en GitHub Pages
+#
+# Independiente del workflow de mantenimiento, como exige el prompt §2.3.
+# Requisito previo: Settings → Pages → Source = "GitHub Actions".
+# =============================================================================
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      # El commit mensual de repo-activity.yml no debe redesplegar nada.
+      - 'maintenance/**'
+      - '**/*.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Una sola publicación a la vez; no se cancela una en curso.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Comprobaciones de calidad
+        run: |
+          npm run typecheck
+          npm run lint
+
+      - name: Build
+        env:
+          # La clave anon es pública por diseño y acaba en el bundle: es
+          # correcto. La seguridad real la impone RLS en PostgreSQL.
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          # Para https://<usuario>.github.io/ThesisManager/
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/
+        run: npm run build
+
+      - name: GitHub Pages necesita 404.html para las rutas profundas
+        # Pages sirve 404.html conservando la URL solicitada; al ser una copia
+        # de index.html, React Router resuelve la ruta en el cliente.
+        run: |
+          cp dist/index.html dist/404.html
+          touch dist/.nojekyll
+
+      - name: Verificar que no se publica ningún secreto privilegiado
+        # Decodifica los JWT encontrados en dist/ y aborta si alguno tiene rol
+        # privilegiado. No basta con un grep: la propia librería de Supabase
+        # contiene la cadena "sb_secret_" y daría un falso positivo, y el rol
+        # de un JWT no es legible sin decodificar el payload.
+        run: ./scripts/check-no-secrets.sh dist
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

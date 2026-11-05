@@ -1,0 +1,22 @@
+node_modules/
+dist/
+dist-ssr/
+*.local
+.env
+.env.local
+.env.*.local
+.DS_Store
+*.log
+npm-debug.log*
+coverage/
+.vite/
+.vscode/*
+!.vscode/extensions.json
+.idea/
+supabase/.temp/
+supabase/.branches/
+# Volcados de base de datos: JAMÁS en un repositorio público (ver BACKUP.md)
+*.dump
+*.sql.gz
+thesis-manager-*.sql
+datos-*.sql

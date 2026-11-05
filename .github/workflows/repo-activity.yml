@@ -1,0 +1,79 @@
+# =============================================================================
+# Actividad mensual del repositorio
+#
+# PROBLEMA QUE RESUELVE: GitHub desactiva automáticamente los workflows
+# programados de un repositorio público cuando no ha habido actividad en el
+# repositorio durante 60 días. Si eso ocurre, `keepalive.yml` deja de
+# ejecutarse en silencio, Supabase pausa el proyecto una semana después y la
+# aplicación se cae sin que nadie haya tocado nada.
+#
+# Importante: NI las visitas a la web publicada NI las ejecuciones de los
+# propios cron cuentan como actividad del repositorio. Lo que cuenta es un
+# commit. Este workflow hace exactamente uno al mes, mínimo y trazable.
+#
+# HONESTIDAD: GitHub no documenta expresamente que un push hecho por
+# GITHUB_TOKEN reinicie el contador de 60 días. La experiencia de la comunidad
+# indica que sí. Por eso esto es la PRIMERA línea de defensa, no la única: el
+# aviso de `keepalive.last_ping_at` en el panel de administración es el que
+# detecta el fallo sin depender de GitHub.
+# =============================================================================
+name: Actividad del repositorio
+
+on:
+  schedule:
+    # Día 3 de cada mes, 06:41 UTC. Margen amplísimo frente a los 60 días.
+    - cron: '41 6 3 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repo-activity
+  cancel-in-progress: false
+
+jobs:
+  touch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Registrar la marca de actividad
+        run: |
+          set -euo pipefail
+          mkdir -p maintenance
+          {
+            echo "Marca de actividad del repositorio."
+            echo "Evita que GitHub desactive los workflows programados por inactividad."
+            echo "Ver .github/workflows/repo-activity.yml y FREE_TIER.md seccion 5.1"
+            echo ""
+            echo "Ultima actualizacion: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+          } > maintenance/last-activity.txt
+
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add maintenance/last-activity.txt
+
+          if git diff --cached --quiet; then
+            echo "Sin cambios que registrar."
+            exit 0
+          fi
+
+          # [skip ci] + paths-ignore en deploy.yml: este commit no redespliega.
+          git commit -m "chore: marca de actividad mensual del repositorio [skip ci]"
+          git push
+
+      - name: Resumen
+        if: always()
+        run: |
+          {
+            echo "### Actividad del repositorio"
+            echo ""
+            echo "Commit mensual para que GitHub no desactive los workflows programados."
+            echo ""
+            echo "- Fecha: $(date -u '+%Y-%m-%d %H:%M UTC')"
+            echo "- Resultado: ${{ job.status }}"
+            echo ""
+            echo "Comprueba también que *Keepalive Supabase* sigue activo."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,132 @@
+# =============================================================================
+# Mantenimiento periódico de Supabase Free (requisito prioritario §2.3)
+#
+# Supabase pausa los proyectos Free que reciben muy pocas peticiones a la base
+# de datos durante 7 días. Este workflow hace un SELECT real cada 8 horas,
+# independientemente de que alguien visite la aplicación.
+#
+# Usa EXCLUSIVAMENTE la clave anon/publishable. Nunca service_role.
+# =============================================================================
+name: Keepalive Supabase
+
+on:
+  schedule:
+    # Minuto 17 para no coincidir con el pico de cron en punto, donde GitHub
+    # acumula más retrasos. Modificable sin tocar nada más.
+    - cron: '17 */8 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    name: SELECT a la tabla keepalive
+    runs-on: ubuntu-latest
+    timeout-minutes: 5          # evita ejecuciones bloqueadas
+
+    steps:
+      - name: Comprobar configuración
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          missing=0
+          [ -z "${SUPABASE_URL:-}" ]      && { echo "::error::Falta el secret SUPABASE_URL"; missing=1; }
+          [ -z "${SUPABASE_ANON_KEY:-}" ] && { echo "::error::Falta el secret SUPABASE_ANON_KEY"; missing=1; }
+          exit $missing
+
+      - name: Consultar Supabase (con reintentos)
+        id: ping
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -uo pipefail
+
+          URL="${SUPABASE_URL%/}/rest/v1/keepalive?select=id,last_ping_at&limit=1"
+          MAX_ATTEMPTS=4
+          attempt=1
+          code=0
+          body=""
+
+          while [ "$attempt" -le "$MAX_ATTEMPTS" ]; do
+            echo "Intento $attempt de $MAX_ATTEMPTS — $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+
+            # --max-time acota cada intento; -w captura el código HTTP.
+            response=$(curl -sS \
+              --connect-timeout 10 \
+              --max-time 30 \
+              -w '\n%{http_code}' \
+              -H "apikey: ${SUPABASE_ANON_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+              -H "Accept: application/json" \
+              "$URL" 2>&1) || true
+
+            code=$(printf '%s' "$response" | tail -n1)
+            body=$(printf '%s' "$response" | sed '$d')
+
+            if [ "$code" = "200" ]; then
+              echo "Respuesta HTTP 200"
+              break
+            fi
+
+            echo "::warning::Intento $attempt fallido (HTTP ${code:-sin respuesta})"
+            attempt=$((attempt + 1))
+            # Espera creciente: 15 s, 45 s, 90 s. Un proyecto que está
+            # despertando de la pausa puede tardar en responder.
+            [ "$attempt" -le "$MAX_ATTEMPTS" ] && sleep $(( (attempt - 1) * 30 + 15 ))
+          done
+
+          {
+            echo "code=$code"
+            echo "attempts=$attempt"
+            echo "timestamp=$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+          } >> "$GITHUB_OUTPUT"
+
+          # El cuerpo de la respuesta es una fila técnica sin datos personales,
+          # por lo que es seguro registrarlo en el log.
+          echo "Cuerpo: $body"
+
+          if [ "$code" != "200" ]; then
+            echo "::error::El mantenimiento ha fallado tras $MAX_ATTEMPTS intentos (HTTP ${code:-sin respuesta})"
+            exit 1
+          fi
+
+      # Opcional: deja constancia dentro de la aplicación del último
+      # mantenimiento correcto. Si se prefiere no exponer la RPC, se elimina
+      # este paso: el SELECT anterior ya cuenta como actividad.
+      - name: Registrar marca temporal en la base de datos
+        if: steps.ping.outputs.code == '200'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -uo pipefail
+          curl -sS --max-time 20 -X POST \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            "${SUPABASE_URL%/}/rest/v1/rpc/keepalive_ping" || true
+
+      - name: Resumen de la ejecución
+        if: always()
+        run: |
+          {
+            echo "### Mantenimiento de Supabase"
+            echo ""
+            echo "| Dato | Valor |"
+            echo "|---|---|"
+            echo "| Fecha y hora (UTC) | ${{ steps.ping.outputs.timestamp }} |"
+            echo "| Código HTTP | ${{ steps.ping.outputs.code }} |"
+            echo "| Intentos | ${{ steps.ping.outputs.attempts }} |"
+            echo "| Resultado | ${{ job.status }} |"
+            echo "| Disparador | ${{ github.event_name }} |"
+          } >> "$GITHUB_STEP_SUMMARY"

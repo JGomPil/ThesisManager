@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
+    --radius: 0.6rem;
+  }
+
+  /* Oscuro por preferencia del sistema, salvo que se haya forzado claro. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --background: 222 47% 7%;
+      --foreground: 210 40% 96%;
+      --card: 222 44% 10%;
+      --card-foreground: 210 40% 96%;
+      --popover: 222 44% 10%;
+      --popover-foreground: 210 40% 96%;
+      --primary: 217 91% 60%;
+      --primary-foreground: 222 47% 7%;
+      --secondary: 217 33% 17%;
+      --secondary-foreground: 210 40% 96%;
+      --muted: 217 33% 15%;
+      --muted-foreground: 215 20% 65%;
+      --accent: 217 33% 17%;
+      --accent-foreground: 210 40% 96%;
+      --destructive: 0 63% 50%;
+      --destructive-foreground: 210 40% 96%;
+      --border: 217 33% 20%;
+      --input: 217 33% 20%;
+      --ring: 217 91% 60%;
+    }
+  }
+
+  /* Oscuro forzado desde el conmutador. */
+  :root[data-theme='dark'] {
+    --background: 222 47% 7%;
+    --foreground: 210 40% 96%;
+    --card: 222 44% 10%;
+    --card-foreground: 210 40% 96%;
+    --popover: 222 44% 10%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 7%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 217 33% 15%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 96%;
+    --destructive: 0 63% 50%;
+    --destructive-foreground: 210 40% 96%;
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
+    --ring: 217 91% 60%;
+  }
+
+  * { @apply border-border; }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  /* Colores de catálogo: work_types.color y work_statuses.color guardan un
+     token ('blue', 'emerald'…). Se traducen aquí para que añadir un tipo de
+     trabajo nuevo no requiera tocar Tailwind ni recompilar nada. */
+  .tone-slate   { @apply bg-slate-100 text-slate-700 dark:bg-slate-500/15 dark:text-slate-300; }
+  .tone-sky     { @apply bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300; }
+  .tone-cyan    { @apply bg-cyan-100 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300; }
+  .tone-blue    { @apply bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300; }
+  .tone-violet  { @apply bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300; }
+  .tone-amber   { @apply bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300; }
+  .tone-orange  { @apply bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300; }
+  .tone-emerald { @apply bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300; }
+  .tone-green   { @apply bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300; }
+  .tone-red     { @apply bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300; }
+  .tone-pink    { @apply bg-pink-100 text-pink-700 dark:bg-pink-500/15 dark:text-pink-300; }
+  .tone-teal    { @apply bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300; }
+}

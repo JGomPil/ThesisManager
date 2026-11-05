@@ -1,0 +1,107 @@
+# BACKUP.md — Copias de seguridad y recuperación
+
+> El plan Free de Supabase **no incluye copias de seguridad automáticas**. Las copias son
+> responsabilidad del administrador y **no pueden automatizarse dentro de este repositorio**,
+> porque es público: los artefactos de GitHub Actions son descargables por cualquiera y un volcado
+> contiene datos personales. Automatizar la copia aquí sería una brecha de datos, no una mejora.
+
+## 1. Qué hay que respaldar
+
+| Elemento | Dónde vive | Quién lo respalda |
+|---|---|---|
+Esquema de la base de datos | `supabase/migrations/` en Git | **Ya respaldado**: está versionado |
+Datos académicos | PostgreSQL de Supabase | Volcado manual (§2) |
+Usuarios de autenticación | Esquema `auth` de Supabase | Incluido en el volcado completo |
+Documentos (memorias, datos) | Drive/OneDrive institucional | Respaldo de la universidad |
+Enlaces y metadatos de documentos | PostgreSQL | Volcado manual (§2) |
+Avatares y adjuntos pequeños | Supabase Storage | `supabase storage` (§4) |
+
+Lo valioso y frágil es la base de datos. Los ficheros grandes están fuera por diseño
+(`FREE_TIER.md` §5.6), y de ellos responde la infraestructura institucional.
+
+## 2. Volcado manual (procedimiento recomendado)
+
+Requiere Supabase CLI y la contraseña de la base de datos (panel → *Settings → Database*).
+
+```bash
+# Volcado completo: esquema + datos + usuarios de auth
+supabase db dump --db-url "postgresql://postgres:<PASS>@db.<REF>.supabase.co:5432/postgres" \
+  --file "thesis-manager-$(date +%Y%m%d).sql"
+
+# Solo datos (más pequeño, para restaurar sobre migraciones ya aplicadas)
+supabase db dump --data-only --db-url "..." --file "datos-$(date +%Y%m%d).sql"
+```
+
+Alternativa con `pg_dump` directo, si se prefiere formato comprimido:
+
+```bash
+pg_dump "postgresql://postgres:<PASS>@db.<REF>.supabase.co:5432/postgres" \
+  -Fc -f "thesis-manager-$(date +%Y%m%d).dump"
+```
+
+**Destino del fichero**: unidad institucional (Drive/OneDrive de la UVa) o disco cifrado.
+**Nunca** el repositorio, ni un *issue*, ni un artefacto de Actions, ni un servicio personal.
+
+## 3. Calendario de copias
+
+| Momento | Tipo |
+|---|---|
+Inicio y fin de cada curso académico | Volcado completo |
+Trimestral | Volcado completo |
+Antes de aplicar una migración que altere datos | Volcado completo |
+Antes de reactivar un proyecto pausado | No hace falta: los datos se conservan |
+
+Conservar las **cuatro** últimas copias. Una copia que nunca se ha probado no es una copia:
+restaurar una de ellas en Supabase local una vez al año (§5).
+
+## 4. Supabase Storage
+
+```bash
+supabase storage cp -r ss://<bucket> ./storage-backup --experimental
+```
+
+Solo si se llegan a usar adjuntos. Por diseño, aquí hay poco que perder.
+
+## 5. Restauración
+
+### En Supabase local (prueba de la copia)
+
+```bash
+supabase start
+psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f thesis-manager-YYYYMMDD.sql
+```
+
+### En un proyecto nuevo de Supabase (desastre)
+
+1. Crear proyecto nuevo (región UE).
+2. Restaurar el volcado completo con `psql` o `pg_restore`.
+3. Reconfigurar `Authentication`: registro público desactivado, URLs de redirección, SMTP.
+4. Actualizar los *secrets* `SUPABASE_URL` y `SUPABASE_ANON_KEY` en GitHub.
+5. Volver a desplegar (`deploy.yml` → *Run workflow*).
+6. Ejecutar `keepalive.yml` manualmente y comprobar que responde 200.
+7. Verificar RLS: sin sesión, `academic_works` devuelve 0 filas.
+
+### Proyecto pausado por inactividad
+
+No requiere restauración: panel → *Restore project*. Los datos se conservan hasta un año.
+Ver `FREE_TIER.md` §7.
+
+## 6. Exportación de la información académica (portabilidad)
+
+Independiente de las copias técnicas, y pensada para que los datos no queden presos:
+
+- Desde la aplicación: exportación a **Excel** y **PDF** por trabajo, por estudiante y global
+  (Fase 4). Es lo que permite entregar a un estudiante su historial o a la universidad un informe.
+- Desde Supabase: `Table Editor → Export as CSV` por tabla.
+- Desde SQL: consultas de exportación documentadas en `docs/` (Fase 4), con los `JOIN` de
+  catálogos ya resueltos (tipo de trabajo, estado y roles con su nombre legible en lugar de UUID).
+
+## 7. Qué no está cubierto
+
+- **Recuperación a un punto en el tiempo** (PITR): es función de pago. Entre dos volcados
+  trimestrales puede perderse hasta un trimestre de seguimiento.
+- Si Supabase sufriera una pérdida de datos irrecuperable, el límite del daño es la antigüedad de
+  la última copia manual. Esa es la razón del calendario de §3.
+- Si un administrador borra un trabajo por error: el borrado es **lógico** (`deleted_at`) en
+  `academic_works` y `documents`, así que es reversible por SQL. Las tareas, reuniones y
+  comentarios de un trabajo borrado en firme se van en cascada y solo se recuperan del volcado.
