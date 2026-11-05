@@ -10,7 +10,10 @@ create table auth.users (
   email text,
   raw_user_meta_data jsonb default '{}'::jsonb
 );
-create or replace function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;
+-- auth.uid() leíble desde una variable de sesión, para poder suplantar
+-- usuarios en las pruebas: `set session "test.uid" = '<uuid>'`.
+create or replace function auth.uid() returns uuid language sql stable
+as $$ select nullif(current_setting('test.uid', true), '')::uuid $$;
 -- Supabase concede esto de serie a anon/authenticated; el stub debe imitarlo.
 grant usage on schema auth to anon, authenticated;
 grant execute on function auth.uid() to anon, authenticated;

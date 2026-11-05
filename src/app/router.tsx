@@ -11,6 +11,8 @@ import { WorkFormPage } from '@/features/works/work-form-page'
 import { WorkDetailPage } from '@/features/works/work-detail-page'
 import { PeoplePage } from '@/features/works/people-page'
 import { AdminHomePage } from '@/features/admin/admin-home-page'
+import { InvitationsPage } from '@/features/admin/invitations-page'
+import { ProfilePage } from '@/features/auth/profile-page'
 import { WorkTypesPage } from '@/features/admin/work-types-page'
 import { LoadingPanel, EmptyState } from '@/components/common/states'
 
@@ -65,8 +67,10 @@ export function Router() {
           <Route path="trabajos/:id" element={<WorkDetailPage />} />
           <Route path="trabajos/:id/editar" element={<WorkFormPage />} />
           <Route path="personas" element={<PeoplePage />} />
+          <Route path="perfil" element={<ProfilePage />} />
           <Route path="admin" element={<RequireAdmin><AdminHomePage /></RequireAdmin>} />
           <Route path="admin/tipos" element={<RequireAdmin><WorkTypesPage /></RequireAdmin>} />
+          <Route path="admin/invitaciones" element={<RequireAdmin><InvitationsPage /></RequireAdmin>} />
           <Route
             path="*"
             element={

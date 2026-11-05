@@ -51,9 +51,13 @@ export function AppShell() {
             <Button variant="ghost" size="icon" onClick={toggle} aria-label="Cambiar tema">
               {theme === 'dark' ? <Sun /> : <Moon />}
             </Button>
-            <div className="hidden items-center gap-2 sm:flex">
-              <span className="max-w-[12rem] truncate text-sm">{profile?.full_name ?? '—'}</span>
-            </div>
+            <Link
+              to="/perfil"
+              className="hidden max-w-[12rem] truncate rounded-md px-2 py-1 text-sm hover:bg-accent sm:block"
+              title="Mi perfil"
+            >
+              {profile?.full_name ?? '—'}
+            </Link>
             <Button variant="ghost" size="icon" onClick={() => void signOut()} aria-label="Salir">
               <LogOut />
             </Button>

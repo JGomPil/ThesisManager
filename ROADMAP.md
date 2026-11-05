@@ -29,8 +29,8 @@ Estado a 5 de noviembre de 2026:
 | ✅ | Comprobación de secretos en el despliegue, con pruebas de detección |
 | ⬜ | Proyecto de Supabase creado y migraciones aplicadas |
 | ✅ | Datos de demostración ficticios, validados (el usuario con tres papeles incluido) |
-| ⬜ | Cola de invitaciones (requisito derivado de la decisión D3) |
-| ⬜ | Perfil propio editable |
+| ✅ | Cola de invitaciones con alta automática al aceptar (decisión D3) |
+| ✅ | Perfil propio editable y cambio de contraseña |
 | ✅ | Despliegue real en GitHub Pages verificado (HTTP 200, rutas profundas y `base` correctos) |
 | ✅ | Pantalla de configuración cuando faltan las variables de Supabase |
 

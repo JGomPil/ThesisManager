@@ -71,3 +71,17 @@ export const memberFormSchema = z.object({
 })
 
 export type MemberFormValues = z.infer<typeof memberFormSchema>
+
+export const invitationFormSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .min(1, 'Indica el correo')
+    .email('Correo no válido')
+    .transform((v) => v.toLowerCase()),
+  full_name: z.string().trim().max(150).optional(),
+  intended_role: z.enum(['OWNER', 'ADMIN', 'MEMBER']),
+  notes: z.string().max(500).optional(),
+})
+
+export type InvitationFormValues = z.infer<typeof invitationFormSchema>

@@ -206,6 +206,30 @@ del mismo trabajo.
 - `system_settings`: clave/valor `jsonb` por organización.
 - `keepalive`: ver §7.
 
+## 6.bis. `invitations` — alta controlada de usuarios
+
+| Columna | Notas |
+|---|---|
+| `email` | En minúsculas, con `CHECK (email = lower(email))` para que el índice único no se burle con mayúsculas |
+| `intended_role` | Función **administrativa** al aceptar (`MEMBER`/`ADMIN`/`OWNER`). Las académicas se asignan después, trabajo a trabajo |
+| `status` | `PENDING` → `SENT` → `ACCEPTED`, o `CANCELLED` |
+| `accepted_user_id` | Perfil resultante cuando la persona entra por primera vez |
+
+Índice único parcial `(organization_id, email) WHERE status <> 'CANCELLED'`: una sola invitación
+viva por correo, pero se puede reintentar una cancelada.
+
+El trigger `app.accept_invitation()` se dispara al crearse el perfil y hace dos cosas: cierra la
+invitación y **da de alta a la persona en la organización** con la función prevista. Es el único
+punto del sistema donde la pertenencia se concede sin intervención manual, y solo porque un
+administrador la autorizó al crear la invitación. Quien entra sin invitación se queda con una
+cuenta sin organización, y por tanto sin ver nada.
+
+**Por qué la aplicación no envía los correos**: enviar una invitación de Supabase Auth requiere la
+clave `service_role`, que salta todas las políticas RLS y no puede existir en un frontend público.
+La tabla es una lista de trabajo; el envío se hace desde el panel de Supabase. El camino de
+automatización, dentro de la arquitectura ya elegida y sin coste, es una Edge Function de Supabase
+con esa clave en sus *secrets*: solo cambiaría quién pone `status = 'SENT'`.
+
 ## 7. `keepalive` — mantenimiento técnico
 
 Tabla deliberadamente trivial, sin relación con ninguna otra y sin dato personal alguno:

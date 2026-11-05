@@ -131,8 +131,12 @@ La restricción del UPDATE de tareas por parte del estudiante (solo `status`) se
 - Un *trigger* `AFTER INSERT ON auth.users` crea la fila de `profiles`, pero **no** crea
   `organization_members`: sin esa fila, el usuario entra y no ve nada. La pertenencia es un acto
   administrativo explícito.
-- Flujo de invitación: el `ADMIN` registra la invitación → se envía el correo de Supabase Auth →
-  la persona fija su contraseña → el `ADMIN` asigna organización y relaciones de trabajo.
+- Flujo de invitación: el `ADMIN` registra la invitación en la aplicación (tabla `invitations`) →
+  la envía desde el panel de Supabase → la persona fija su contraseña → al crearse su perfil, el
+  trigger `app.accept_invitation()` cierra la invitación y **la da de alta en la organización con
+  la función prevista** → el `ADMIN` le asigna después sus relaciones académicas por trabajo.
+- Quien se autentique **sin** invitación previa obtiene una cuenta sin organización: entra y no ve
+  nada. Comprobado en la prueba 30 de `supabase/tests/`.
 - **Correo: se usa el servicio integrado de Supabase** (decisión tomada, `FREE_TIER.md` §4). Son
   2–4 envíos por hora, compartidos entre invitación, recuperación de contraseña y enlace mágico.
   Implicaciones para la Fase 1:

@@ -3,11 +3,7 @@
 -- Emula el escenario 5 del prompt.
 -- =============================================================================
 
--- auth.uid() leíble desde una variable de sesión, para suplantar usuarios.
-create or replace function auth.uid() returns uuid language sql stable
-as $$ select nullif(current_setting('test.uid', true), '')::uuid $$;
-
--- Supabase concede estos permisos de serie; aquí hay que darlos a mano.
+-- auth.uid() suplantable y los permisos de rol los aporta 00_harness.sql.
 grant usage on schema public, app to authenticated, anon;
 grant select, insert, update, delete on all tables in schema public to authenticated;
 grant execute on all functions in schema app to authenticated;

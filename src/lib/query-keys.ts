@@ -31,5 +31,7 @@ export const qk = {
     directory: ['people', 'directory'] as const,
   },
 
+  invitations: ['invitations'] as const,
+
   maintenance: ['maintenance', 'keepalive'] as const,
 }

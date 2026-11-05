@@ -18,6 +18,13 @@ const SECTIONS = [
       'TFG, TFM, tesis, Academia de Alumnos Internos y los que necesites. Crear un tipo nuevo no requiere tocar el código.',
   },
   {
+    to: '/admin/invitaciones',
+    icon: Mail,
+    title: 'Invitaciones',
+    description:
+      'Alta de usuarios en cola. El registro público está deshabilitado: nadie entra sin figurar aquí.',
+  },
+  {
     to: '/personas',
     icon: Users,
     title: 'Personas',
@@ -82,18 +89,6 @@ export function AdminHomePage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-sm">
-            <Mail className="size-4 text-muted-foreground" /> Altas de usuarios
-          </CardTitle>
-          <CardDescription>
-            El registro público está deshabilitado: nadie entra sin invitación. El correo de
-            Supabase en plan gratuito permite solo unos pocos envíos por hora, así que las
-            invitaciones se gestionarán en cola. Pendiente de la Fase 1.
-          </CardDescription>
-        </CardHeader>
-      </Card>
     </div>
   )
 }

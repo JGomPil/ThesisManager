@@ -30,6 +30,10 @@ usuarios). **Es solo para pruebas**: nunca se aplica a un proyecto real.
 15 | No se puede borrar un tipo de trabajo en uso (`ON DELETE RESTRICT`) |
 16–18 | `anon` lee `keepalive`, no puede modificarla, y no accede a ninguna otra tabla |
 19–24 | El estudiante solo puede cambiar el **estado** de su tarea; no la fecha límite, ni el responsable, ni crear tareas. El director sí |
+25–28 | Cola de invitaciones: el administrador la gestiona, no se duplican invitaciones vivas para el mismo correo y los correos se exigen en minúsculas |
+29 | **Al entrar por primera vez, la invitación se cierra y la persona queda de alta con la función prevista** |
+30 | **Quien entra SIN invitación no obtiene ninguna pertenencia**: la cuenta existe y no ve nada |
+31 | Un usuario no administrador no ve ninguna invitación (contienen correos de terceros) |
 
 Todos los datos son ficticios y los dominios de correo son `.invalid`, reservado por el RFC 2606
 precisamente para ejemplos.

@@ -253,6 +253,24 @@ export type NotificationRow = {
   created_at: string
 }
 
+export type InvitationStatus = 'PENDING' | 'SENT' | 'ACCEPTED' | 'CANCELLED'
+
+export type InvitationRow = {
+  id: string
+  organization_id: string
+  email: string
+  full_name: string | null
+  intended_role: 'OWNER' | 'ADMIN' | 'MEMBER'
+  status: InvitationStatus
+  notes: string | null
+  sent_at: string | null
+  accepted_at: string | null
+  accepted_user_id: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
 export type KeepaliveRow = {
   id: number
   label: string
@@ -286,6 +304,7 @@ export type Database = {
       tasks: Table<TaskRow, Auto<TaskRow, 'id' | 'parent_task_id' | 'milestone_id' | 'description' | 'assignee_id' | 'status' | 'priority' | 'start_date' | 'due_date' | 'completed_at' | 'order_index' | 'created_by' | 'created_at' | 'updated_at'>>
       milestones: Table<MilestoneRow, Auto<MilestoneRow, 'id' | 'phase_id' | 'description' | 'is_met' | 'met_at' | 'order_index' | 'created_at'>>
       notifications: Table<NotificationRow, Auto<NotificationRow, 'id' | 'work_id' | 'body' | 'link' | 'read_at' | 'created_at'>>
+      invitations: Table<InvitationRow, Auto<InvitationRow, 'id' | 'full_name' | 'intended_role' | 'status' | 'notes' | 'sent_at' | 'accepted_at' | 'accepted_user_id' | 'created_by' | 'created_at' | 'updated_at'>>
       keepalive: Table<KeepaliveRow, Auto<KeepaliveRow, 'id' | 'label' | 'last_ping_at' | 'note' | 'created_at'>>
     }
     Views: Record<string, never>

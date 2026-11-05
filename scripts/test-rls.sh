@@ -30,7 +30,7 @@ echo "▸ Aplicando catálogos…"
 run < "$ROOT/supabase/seed/0001_catalogs.sql"
 
 echo "▸ Ejecutando pruebas…"
-for f in "$ROOT"/supabase/tests/[123]0_*.sql; do
+for f in "$ROOT"/supabase/tests/[1-9]0_*.sql; do
   docker exec -i "$CONTAINER" psql -U postgres -q < "$f"
 done
 
