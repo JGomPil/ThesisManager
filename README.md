@@ -42,7 +42,8 @@ mediante RLS: el frontend es código público y no protege nada por sí mismo.
 
 | Documento | Contenido |
 |---|---|
-[`docs/FASE_0.md`](docs/FASE_0.md) | **Empieza aquí**: propuesta, decisiones pendientes y riesgos |
+[`docs/PUESTA_EN_MARCHA.md`](docs/PUESTA_EN_MARCHA.md) | **Instalación paso a paso**: Supabase, migraciones, primer usuario |
+[`docs/FASE_0.md`](docs/FASE_0.md) | Propuesta técnica, decisiones y riesgos |
 [`ARCHITECTURE.md`](ARCHITECTURE.md) | Estructura del proyecto y decisiones técnicas |
 [`DATABASE.md`](DATABASE.md) | Modelo de datos, catálogos y estimación de volumen |
 [`SECURITY.md`](SECURITY.md) | Roles, permisos, RLS, RGPD y pruebas obligatorias |
