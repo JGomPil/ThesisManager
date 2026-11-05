@@ -21,6 +21,16 @@ permissions:
   id-token: write
 
 # Una sola publicación a la vez; no se cancela una en curso.
+#
+# Esto serializa las EJECUCIONES del workflow, pero no los despliegues de
+# Pages: GitHub finaliza el despliegue de forma asíncrona, después de que la
+# ejecución termine en verde. Si se lanza a mano un despliegue sobre un commit
+# que ya se está publicando por su propio push, se crean dos despliegues del
+# mismo sha y el segundo falla con
+# «Deployment request failed ... due to in progress deployment».
+# No es un error del proyecto y no afecta al sitio publicado: basta con
+# relanzar el workflow. Para evitarlo, no uses `workflow_dispatch` sobre un
+# commit que acabas de empujar; espera a que su propia ejecución termine.
 concurrency:
   group: pages
   cancel-in-progress: false
