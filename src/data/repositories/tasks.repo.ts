@@ -4,7 +4,10 @@ import type { Database, TaskPriority, TaskRow, TaskStatus } from '@/data/types/d
 type TaskInsert = Database['public']['Tables']['tasks']['Insert']
 type TaskUpdate = Database['public']['Tables']['tasks']['Update']
 
-const TASK_SELECT = `*, assignee:profiles(id,full_name,avatar_url)`
+// `tasks` apunta a `profiles` por `assignee_id` y por `created_by`: sin la pista
+// explícita PostgREST responde HTTP 300 PGRST201 y el tablero se queda vacío.
+// Ver la nota de works.repo.ts y scripts/check-embeds.sh.
+const TASK_SELECT = `*, assignee:profiles!tasks_assignee_id_fkey(id,full_name,avatar_url)`
 
 export type TaskWithAssignee = TaskRow & {
   assignee: { id: string; full_name: string; avatar_url: string | null } | null

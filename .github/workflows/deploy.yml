@@ -53,6 +53,15 @@ jobs:
         run: |
           npm run typecheck
           npm run lint
+          npm run test -- --run
+
+      - name: Comprobar las pistas de los embeds de PostgREST
+        # Entre dos tablas unidas por más de una clave ajena, un embed sin
+        # pista explícita devuelve HTTP 300 PGRST201 y deja la pantalla
+        # entera sin datos. Ya ocurrió con work_members y con tasks, las dos
+        # hacia profiles. Peor: con la pista equivocada la consulta funciona
+        # pero devuelve a la persona equivocada, sin error visible.
+        run: ./scripts/check-embeds.sh
 
       - name: Build
         env:

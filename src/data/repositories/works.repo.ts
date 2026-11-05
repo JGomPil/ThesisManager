@@ -6,6 +6,12 @@ type WorkUpdate = Database['public']['Tables']['academic_works']['Update']
 type MemberInsert = Database['public']['Tables']['work_members']['Insert']
 
 /** Columnas con los catálogos ya resueltos: evita N+1 en las listas. */
+// Las pistas `!<restriccion>` de los embeds NO son opcionales: cuando hay más de
+// una clave ajena entre dos tablas, PostgREST responde HTTP 300 PGRST201
+// («more than one relationship was found») y la pantalla entera se queda sin
+// datos. `work_members` apunta a `profiles` por `user_id` y por `created_by`.
+// Verificado contra PostgREST real: sin la pista falla; con la pista equivocada
+// devuelve a la persona equivocada. `scripts/check-embeds.sh` lo vigila.
 const WORK_SELECT = `
   *,
   work_type:work_types(id,code,name,short_name,color,icon,requires_defense,requires_deposit,requires_program,allows_multiple_students,max_supervisors,default_duration_months),
@@ -16,7 +22,7 @@ const WORK_SELECT = `
   members:work_members(
     id,user_id,is_primary,status,permissions,
     role:work_roles(id,code,name,is_student,is_supervisory,can_manage_plan,can_see_private_notes,can_validate_deliverables,can_manage_members),
-    profile:profiles(id,full_name,email,avatar_url)
+    profile:profiles!work_members_user_id_fkey(id,full_name,email,avatar_url)
   )
 `
 

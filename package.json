@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:rls": "./scripts/test-rls.sh",
     "check:secrets": "./scripts/check-no-secrets.sh dist",
-    "types:db": "supabase gen types typescript --local > src/data/types/database.ts"
+    "types:db": "supabase gen types typescript --local > src/data/types/database.ts",
+    "check:embeds": "bash scripts/check-embeds.sh"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
