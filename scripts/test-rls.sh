@@ -35,4 +35,4 @@ for f in "$ROOT"/supabase/tests/[1-9]0_*.sql; do
 done
 
 echo
-echo "▸ Revisa que no aparezca ningún 'FALLO' arriba."
+echo "▸ Fin. Si arriba no aparece ninguna linea marcada como fallo, todo correcto."

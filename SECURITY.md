@@ -115,6 +115,33 @@ La restricción del UPDATE de tareas por parte del estudiante (solo `status`) se
 *trigger* `BEFORE UPDATE` que rechaza cambios en otras columnas cuando el usuario no tiene
 `can_manage_plan`: RLS decide *si* se puede actualizar la fila, pero no *qué columnas*.
 
+### 5.2.bis. Privilegios de tabla del rol `anon`: una capa por debajo de RLS
+
+RLS decide **qué filas** ve un rol; los privilegios de tabla de PostgreSQL deciden si ese rol
+puede **tocar la tabla en absoluto**. Son dos capas, y aquí se usan las dos.
+
+Supabase define privilegios por defecto (`ALTER DEFAULT PRIVILEGES`) que conceden a `anon`
+permisos sobre cada tabla nueva del esquema `public`. Por eso un `revoke all ... from anon` solo
+protege las tablas que existían cuando se ejecutó: las posteriores vuelven a heredarlos.
+
+Ocurrió realmente en este proyecto: `keepalive` (migración 0004) e `invitations` (0005) se crearon
+después del `revoke` de 0003 y heredaron privilegios de escritura. **No hubo fuga de datos** —RLS
+devolvía 0 filas y rechazaba las escrituras, comprobado contra el proyecto real con la clave
+pública— pero la seguridad quedaba dependiendo de una sola capa, y en una tabla con correos de
+personas que aún no son usuarias eso no es aceptable.
+
+La migración `0006_harden_anon_grants.sql` lo corrige y, sobre todo, lo hace irrepetible:
+
+1. Revoca los privilegios de `anon` sobre **todas** las tablas, sin excepciones.
+2. Concede luego, de forma mínima y explícita, lo único que `anon` necesita: `SELECT` sobre
+   `keepalive` y `EXECUTE` sobre `keepalive_ping()`.
+3. Cambia los **privilegios por defecto** del esquema para que ninguna tabla futura los herede.
+4. Termina con dos comprobaciones que **hacen fallar la migración** si queda algún privilegio
+   indebido o alguna tabla sin RLS. Al aplicarse en el conjunto de pruebas, cualquier migración
+   futura que reintroduzca el problema lo detecta sola.
+
+Estado garantizado desde entonces: el rol `anon` solo puede hacer `SELECT` sobre `keepalive`.
+
 ### 5.3. Reglas transversales
 
 - `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` **y** `FORCE ROW LEVEL SECURITY` donde aplique, en
