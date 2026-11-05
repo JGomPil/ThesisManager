@@ -69,6 +69,12 @@ jobs:
         run: ./scripts/check-no-secrets.sh dist
 
       - uses: actions/configure-pages@v5
+        with:
+          # Habilita Pages si no lo está, para que el despliegue no dependa de
+          # un paso manual en Settings. Sin esto, el primer despliegue de un
+          # repositorio nuevo falla con «Get Pages site failed».
+          enablement: true
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

@@ -4,12 +4,21 @@ import type { Database } from '@/data/types/database'
 const url = import.meta.env.VITE_SUPABASE_URL
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-if (!url || !anonKey) {
-  throw new Error(
-    'Faltan VITE_SUPABASE_URL o VITE_SUPABASE_ANON_KEY. ' +
-      'Copia .env.example a .env.local y rellena los valores del proyecto de Supabase.',
-  )
-}
+/**
+ * ¿Hay configuración de Supabase?
+ *
+ * Si falta, NO se lanza una excepción al importar este módulo: eso dejaría la
+ * página en blanco con el error solo en la consola, que es la peor forma
+ * posible de contar un problema de configuración. En su lugar se expone esta
+ * bandera y la aplicación muestra una pantalla que explica qué falta.
+ */
+export const supabaseConfigured = Boolean(url && anonKey)
+
+// Valores inertes para que createClient no falle cuando no hay configuración.
+// Nunca se llega a usar la red: la interfaz se detiene en la pantalla de
+// configuración antes de cualquier consulta.
+const safeUrl = url || 'http://localhost:54321'
+const safeKey = anonKey || 'sin-configurar'
 
 /**
  * ÚNICO punto de creación del cliente de Supabase en toda la aplicación.
@@ -18,7 +27,7 @@ if (!url || !anonKey) {
  * Solo se usa la clave anon/publishable. Es pública por diseño: la protección
  * real la ejerce Row Level Security en PostgreSQL, no el secreto de la clave.
  */
-export const supabase = createClient<Database>(url, anonKey, {
+export const supabase = createClient<Database>(safeUrl, safeKey, {
   auth: {
     // PKCE devuelve el código en la query (?code=), no en el fragmento (#),
     // que es lo que evita el conflicto con el router en GitHub Pages.

@@ -1,4 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { supabaseConfigured } from '@/lib/supabase'
+import { ConfigurationScreen } from '@/app/configuration-screen'
 import { AppShell, PendingApprovalScreen } from '@/app/layout/app-shell'
 import { useAuth } from '@/features/auth/auth-context'
 import { LoginPage } from '@/features/auth/login-page'
@@ -45,6 +47,10 @@ function PublicOnly({ children }: { children: React.ReactNode }) {
 }
 
 export function Router() {
+  // Sin configuración no hay nada que enrutar: se explica el problema en vez
+  // de dejar la página en blanco.
+  if (!supabaseConfigured) return <ConfigurationScreen />
+
   return (
     // basename = el subdirectorio de GitHub Pages (/ThesisManager/).
     <BrowserRouter basename={import.meta.env.BASE_URL}>
