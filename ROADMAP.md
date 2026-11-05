@@ -28,7 +28,7 @@ Estado a 5 de noviembre de 2026:
 | ✅ | Aviso de mantenimiento (`last_ping_at`) en el panel de administración |
 | ✅ | Comprobación de secretos en el despliegue, con pruebas de detección |
 | ⬜ | Proyecto de Supabase creado y migraciones aplicadas |
-| ⬜ | Datos de demostración ficticios (incluido el usuario con tres papeles) |
+| ✅ | Datos de demostración ficticios, validados (el usuario con tres papeles incluido) |
 | ⬜ | Cola de invitaciones (requisito derivado de la decisión D3) |
 | ⬜ | Perfil propio editable |
 | ⬜ | Despliegue real en GitHub Pages verificado |
