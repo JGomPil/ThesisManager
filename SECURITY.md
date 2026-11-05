@@ -144,7 +144,7 @@ La restricción del UPDATE de tareas por parte del estudiante (solo `status`) se
     Supabase cuando un usuario no reciba el correo.
   - Migrar a SMTP institucional más adelante no requiere ningún cambio de código.
 - Redirecciones a configurar en Supabase Auth (*Site URL* y *Redirect URLs*):
-  `https://<usuario>.github.io/ThesisManager/`, `https://<usuario>.github.io/ThesisManager/*`
+  `https://jgompil.github.io/ThesisManager/`, `https://jgompil.github.io/ThesisManager/*`
   y `http://localhost:5173/*` para desarrollo.
 
 ## 7. Gestión de secretos

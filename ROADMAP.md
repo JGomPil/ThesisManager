@@ -31,7 +31,8 @@ Estado a 5 de noviembre de 2026:
 | ✅ | Datos de demostración ficticios, validados (el usuario con tres papeles incluido) |
 | ⬜ | Cola de invitaciones (requisito derivado de la decisión D3) |
 | ⬜ | Perfil propio editable |
-| ⬜ | Despliegue real en GitHub Pages verificado |
+| ✅ | Despliegue real en GitHub Pages verificado (HTTP 200, rutas profundas y `base` correctos) |
+| ✅ | Pantalla de configuración cuando faltan las variables de Supabase |
 
 Alcance original de la fase:
 

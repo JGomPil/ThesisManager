@@ -163,7 +163,7 @@ D1 · Visibilidad del repositorio | **Público**. Ningún dato real en el reposi
 D2 · Enrutado | `BrowserRouter` + `404.html` + PKCE |
 D3 · Correo | Servicio integrado de Supabase, con sus 2–4 envíos/hora. Invitaciones en cola |
 D4 · IA | No se implementa. Si algún día se quiere, Edge Functions |
-Nombre del repositorio | `ThesisManager` → `https://<usuario>.github.io/ThesisManager/` |
+Nombre del repositorio | `ThesisManager` → `https://jgompil.github.io/ThesisManager/` |
 Academia de Alumnos Internos | Sin defensa, sin depósito, sin titulación asociada, **9 meses** (igual que un TFG), memoria final como entregable principal y entregables opcionales |
 
 Riesgo de los *cron* de GitHub: mitigado con `repo-activity.yml`, un *commit* mensual automático.

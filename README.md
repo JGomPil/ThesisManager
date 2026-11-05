@@ -7,9 +7,13 @@ Gestiona TFG, TFM, tesis doctorales, **Academia de Alumnos Internos** y cualquie
 trabajo que el grupo necesite: los tipos son un **catálogo configurable**, no una lista fija en el
 código.
 
-> **Estado: Fase 0 — propuesta técnica pendiente de aprobación.**
-> Este repositorio contiene todavía solo documentación, SQL propuesto y workflows propuestos.
-> No hay código de aplicación. Empieza por [`docs/FASE_0.md`](docs/FASE_0.md).
+> **Estado: Fase 1 en curso.** Fase 0 aprobada el 5 de noviembre de 2026.
+>
+> - Aplicación publicada en **https://jgompil.github.io/ThesisManager/**
+> - Pendiente de conectar con un proyecto de Supabase: hasta entonces la web muestra una
+>   pantalla que indica qué variables faltan.
+> - Progreso detallado en [`ROADMAP.md`](ROADMAP.md); decisiones técnicas en
+>   [`docs/FASE_0.md`](docs/FASE_0.md).
 
 ## Arquitectura
 
@@ -48,12 +52,22 @@ mediante RLS: el frontend es código público y no protege nada por sí mismo.
 [`ROADMAP.md`](ROADMAP.md) | Fases y criterios de aceptación |
 [`supabase/tests/README.md`](supabase/tests/README.md) | Pruebas de seguridad del modelo de datos |
 
-## Puesta en marcha (a partir de la Fase 1)
+## Puesta en marcha
 
 ```bash
 npm install
 cp .env.example .env.local     # rellenar con los datos del proyecto de Supabase
 npm run dev
+```
+
+Comprobaciones disponibles:
+
+```bash
+npm run typecheck        # tipos de todo el proyecto
+npm run lint
+npm test                 # pruebas unitarias del dominio (permisos, progreso, estados)
+npm run test:rls         # pruebas de seguridad en PostgreSQL desechable (requiere Docker)
+npm run check:secrets    # verifica que dist/ no publica credenciales privilegiadas
 ```
 
 Base de datos: aplicar `supabase/migrations/0001…0004` y después

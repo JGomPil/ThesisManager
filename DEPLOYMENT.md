@@ -8,7 +8,7 @@
 3. **Visibilidad: pública.** GitHub Pages solo funciona en repositorios privados con un plan de
    pago (ver `FREE_TIER.md` §1). Consecuencia estricta: **ningún dato real en el repositorio**.
 4. Rama principal: `main`.
-5. URL resultante: `https://<usuario>.github.io/ThesisManager/`
+5. URL resultante: `https://jgompil.github.io/ThesisManager/`
 
 ## 2. Configuración de GitHub Pages
 
@@ -78,8 +78,8 @@ directorios que empiezan por `_`).
 4. `Authentication → Providers`: dejar solo *Email*. **Desactivar el registro público**
    (`Allow new users to sign up` = off): las altas son por invitación.
 5. `Authentication → URL Configuration`:
-   - *Site URL*: `https://<usuario>.github.io/ThesisManager/`
-   - *Redirect URLs*: `https://<usuario>.github.io/ThesisManager/**` y `http://localhost:5173/**`
+   - *Site URL*: `https://jgompil.github.io/ThesisManager/`
+   - *Redirect URLs*: `https://jgompil.github.io/ThesisManager/**` y `http://localhost:5173/**`
 6. `Authentication → SMTP Settings`: **se deja el servicio integrado de Supabase** (decisión D3).
    Tener presente el límite de 2–4 correos/hora, compartido con la recuperación de contraseña.
    Si en el futuro se quiere SMTP institucional, se configura aquí sin tocar código.
@@ -147,7 +147,7 @@ No es necesario para el funcionamiento.
 
 ## 10. Comprobaciones posteriores al primer despliegue
 
-1. La aplicación carga en `https://<usuario>.github.io/ThesisManager/`.
+1. La aplicación carga en `https://jgompil.github.io/ThesisManager/`.
 2. Una ruta profunda recargada directamente funciona (`/ThesisManager/works`).
 3. El inicio de sesión funciona y la sesión sobrevive a recargar la página.
 4. `npm run check:secrets` termina correctamente.
