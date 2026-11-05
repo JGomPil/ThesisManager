@@ -12,7 +12,7 @@ Sin código de aplicación. Sin `package.json`. Nada aplicado a Supabase.
 
 ## Fase 1 — MVP funcional · **en curso**
 
-Estado a 5 de noviembre de 2026:
+Estado a 6 de noviembre de 2026:
 
 | | Elemento |
 |---|---|
@@ -27,7 +27,7 @@ Estado a 5 de noviembre de 2026:
 | ✅ | Dashboard con tarjetas por tipo generadas desde el catálogo |
 | ✅ | Aviso de mantenimiento (`last_ping_at`) en el panel de administración |
 | ✅ | Comprobación de secretos en el despliegue, con pruebas de detección |
-| ⬜ | Proyecto de Supabase creado y migraciones aplicadas |
+| ✅ | Proyecto de Supabase creado, migraciones `0001`–`0006` aplicadas y privilegios de `anon` verificados contra el proyecto real |
 | ✅ | Datos de demostración ficticios, validados (el usuario con tres papeles incluido) |
 | ✅ | Cola de invitaciones con alta automática al aceptar (decisión D3) |
 | ✅ | Perfil propio editable y cambio de contraseña |
