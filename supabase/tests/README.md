@@ -139,6 +139,26 @@ usuarios). **Es solo para pruebas**: nunca se aplica a un proyecto real.
 140 | Un entregable previsto **se cumple**: el estudiante le sube su primera versión. La ficha vacía no es un callejón |
 141 | Dos entregables con el **mismo nombre** en una plantilla (distinta caja y espacios incluidos) se rechazan al definirlos, no al aplicarlos |
 142 | `anon` no ve ni escribe `template_documents` |
+143 | La administración **renombra y reordena** un estado y un rol. Existe para que la prohibición no sea total: una regla que lo prohibiese todo pasaría la 145 y la 146 y dejaría la pantalla inútil |
+144 | Un **director no** puede renombrar un estado ni un rol: son catálogos del grupo, no del trabajo |
+145 | El **código** de un estado es inmutable, también para la administración: el cronograma colorea por código y el dominio casa por código, así que renombrarlo rompe pantallas **sin dar error** |
+146 | **Los permisos de un rol no se cambian por la API.** Es la prueba central: marcar `can_see_private_notes` en «Estudiante» publicaría, en ese instante y en todos los trabajos, las notas que la dirección escribió creyéndolas privadas, sin aviso y sin rastro |
+147 | Un rol **nuevo nace sin capacidades** (lo impone la política `roles_insert`, no un disparador, porque el catálogo inicial sí tiene que poder crearlos con ellas), y un rol **en uso no se puede borrar** |
+148 | Un estado **en uso no se puede borrar** (`on delete restrict`) y **retirarlo lo conserva** en los trabajos que ya lo tenían |
+149 | `anon` no lee ni escribe estos catálogos. Admite los dos desenlaces correctos —«permission denied» por falta de GRANT, o cero filas por RLS— para no atar la prueba a cuál de las dos barreras actúa primero |
+
+La prueba 33 ha vuelto a ganarse el sueldo con la migración `0020`: los dos disparadores nuevos
+(`enforce_status_code_inmutable`, `enforce_role_solo_descriptivo`) nacieron ejecutables por `anon`
+por lo de siempre —no son `security definer`, así que PostgreSQL les da EXECUTE a `public`— y la
+33 los cazó antes de que el cambio saliera del portátil. Un disparador no necesita que nadie tenga
+EXECUTE: lo invoca el motor, así que revocarlo no rompe nada.
+
+Y la `0020` dejó una lección propia, que no la dio ninguna prueba sino el propio catálogo inicial:
+la primera versión impedía con un disparador que un rol naciera con capacidades, y eso **bloqueaba
+el seed**, que crea los cuatro roles con las suyas. Habría roto toda instalación nueva desde
+`bundle/install.sql`. La regla se movió a la política `roles_insert`, porque el propietario de la
+tabla no sufre RLS y quien entra por la API nunca es el propietario: la misma frontera, en el sitio
+donde distingue esos dos casos.
 
 La prueba 33 ha vuelto a ganarse el sueldo en la Fase 3. Recorre todas las funciones del
 esquema `app` y exige que `anon` no pueda ejecutar ninguna; al añadir la migración `0012` falló,

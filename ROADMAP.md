@@ -184,6 +184,7 @@ Estado a 6 de noviembre de 2026:
 | | Elemento |
 |---|---|
 | ✅ | `deploy.yml`, `keepalive.yml` y `repo-activity.yml` en marcha, y aviso de `last_ping_at` en Administración (adelantado a la Fase 1, como decía esta misma sección) |
+| ✅ | **Estados de los trabajos y roles académicos administrables** (`0020`) desde la pantalla de catálogos: nombre, color, orden, retirar, crear y borrar si nadie los usa. **Las capacidades de un rol no**, porque son el modelo de permisos que lee RLS: un rol nuevo nace sin ellas y las de un rol existente no se pueden cambiar. Cerrado con dos *triggers*, una política y las pruebas [143]–[149] |
 | ⚠️ | **Restaurar sobre un proyecto de Supabase vivo no está ensayado** y no se va a ensayar por ahora (decisión de la dirección, 2026-11-06). Lo que sí está ensayado es que la copia esté completa y se restaure en un PostgreSQL limpio. El procedimiento está escrito en `BACKUP.md` §5 con lo que se espera que ocurra |
 | ✅ | **Ensayo de restauración automático** (`scripts/restore-drill.sh`): restaura una copia en un PostgreSQL desechable y comprueba las tablas del núcleo, que RLS siga activada en todas, que `anon` no ejecute nada de `app` y **que haya usuarios de autenticación**. Sale con código distinto de cero si algo falla |
 | ✅ | **Copia de los datos académicos desde la aplicación** (JSON, un clic, sin la CLI), con lo que no incluye escrito en el propio fichero |

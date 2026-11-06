@@ -18,6 +18,9 @@ export const qk = {
     allResearchLines: ['catalogs', 'research-lines', 'all'] as const,
     allPrograms: ['catalogs', 'programs', 'all'] as const,
     allAcademicYears: ['catalogs', 'academic-years', 'all'] as const,
+    allWorkStatuses: ['catalogs', 'work-statuses', 'all'] as const,
+    allWorkRoles: ['catalogs', 'work-roles', 'all'] as const,
+    statusRoleUsage: ['catalogs', 'usage', 'statuses-roles'] as const,
     usage: ['catalogs', 'usage'] as const,
   },
 

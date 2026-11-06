@@ -110,6 +110,8 @@ Se definen en el esquema `app`, con `search_path` fijado explícitamente
 `profiles` | uno mismo + quien participa en un trabajo visible + lo que administre un admin (0016) | UPDATE: solo el propio perfil (o admin) |
 `template_documents` (0019) | cualquier autenticado de la organización (material común, sin datos de nadie) | **solo `ADMIN`/`OWNER`** de la organización de la plantilla |
 Catálogos (`work_types`…) | cualquier autenticado de la organización | **solo `ADMIN`/`OWNER`** |
+`work_statuses` (0020) | cualquier autenticado | **solo `ADMIN`/`OWNER` de alguna organización**; el `code` es inmutable (*trigger*) |
+`work_roles` (0020) | cualquier autenticado | **solo `ADMIN`/`OWNER`**, y **nunca las capacidades**: un rol nuevo nace sin ellas (política `roles_insert`) y las de un rol existente no se pueden cambiar (*trigger*) |
 `keepalive` | **`anon` y `authenticated`: `USING (true)`** | nadie |
 
 La restricción del UPDATE de tareas por parte del estudiante (solo `status`) se implementa con un
@@ -828,6 +830,46 @@ lo lee cualquier miembro de la organización, igual que el material de la `0014`
 saber qué hay que entregar no es un secreto. Escribirlo sigue siendo solo de la
 administración (prueba `[136]`: un director de un trabajo **no** puede).
 
+### 5.2.duovicies · Un formulario que edita permisos es un formulario que edita RLS
+
+La `0020` abre a la administración dos catálogos que hasta entonces solo se podían cambiar con una
+migración: los estados de los trabajos y los roles académicos. El motivo es prosaico —cambiar
+«Director principal» por «Director» exigió la migración `0018`, o sea un portátil con Docker y un
+despliegue para corregir una palabra— pero al abrirlos aparece algo que no es prosaico en absoluto.
+
+`work_roles` tiene cuatro columnas que **no describen nada**: `can_manage_plan`,
+`can_see_private_notes`, `can_validate_deliverables` y `can_manage_members`. Las lee
+`app.has_work_capability`, que es a su vez lo que invocan las políticas de `tasks`, `milestones`,
+`documents`, `meetings`, `document_comments` y `profiles`. **Son el modelo de permisos.** Un
+interruptor en una pantalla de administración sería un interruptor que edita Row Level Security en
+caliente: marcar «ve notas privadas» en el rol «Estudiante» publicaría, en ese mismo instante y en
+todos los trabajos, lo que la dirección escribió creyéndolo privado. Y no habría aviso ni rastro,
+porque no es un fallo: la siguiente consulta simplemente devolvería más filas.
+
+Así que la frontera se trazó por lo que una columna **es**, no por lo que cuesta editarla:
+
+| | Se puede cambiar | No se puede |
+|---|---|---|
+| `work_statuses` | nombre, color, orden, `is_terminal`, retirar, crear, borrar si nadie lo usa | el **`code`**: el cronograma colorea por código y el dominio casa por código, así que renombrarlo rompe pantallas **sin dar error** |
+| `work_roles` | nombre, orden, retirar, crear (sin capacidades), borrar si nadie lo usa | las **capacidades** y la clasificación de un rol existente |
+
+**Y la prohibición no está en el formulario.** No pintar los interruptores no protege de nada:
+cualquiera con sesión puede llamar a PostgREST directamente, que es la misma razón por la que
+`work-capabilities.ts` no protege nada en el cliente (§5.2.quater). Lo impiden dos *triggers* y la
+política `roles_insert`, y lo comprueban las pruebas [143]–[149].
+
+Un detalle del reparto entre política y *trigger* que vale para la próxima vez: «un rol nuevo nace
+sin capacidades» **tiene** que ser una política y no un *trigger*, porque el catálogo inicial sí
+crea los cuatro roles con las suyas. El propietario de la tabla no sufre RLS y quien entra por la
+API nunca es el propietario: la política distingue esos dos casos y un *trigger* no. La primera
+versión lo puso en un *trigger* y bloqueó el `seed`, es decir, habría roto toda instalación nueva.
+
+Queda una limitación dicha en voz alta, en la migración y en la propia pantalla: estos dos
+catálogos son **globales**, sin `organization_id`, a diferencia de `work_types` o `research_lines`.
+Sus nombres los comparten todas las organizaciones. Hoy hay una sola —el grupo— y por eso es
+aceptable que su administración los renombre; el día que haya una segunda, esto tiene que
+convertirse en catálogos por organización.
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.
@@ -907,7 +949,7 @@ Cada una debe ejecutarse **contra la base de datos** con el JWT del usuario corr
 desde la interfaz.
 
 > **Ya verificadas.** Las migraciones de `supabase/migrations/` se han aplicado a un
-> PostgreSQL 16 real y se ejecutan **142 pruebas** de seguridad, todas correctas:
+> PostgreSQL 16 real y se ejecutan **149 pruebas** de seguridad, todas correctas:
 > `./scripts/test-rls.sh` (detalle en `supabase/tests/README.md`). Cubren los puntos 1–6, 12 y 13
 > de la lista siguiente. Los puntos 7, 10 y 11 dependen del frontend y del despliegue, y los 8 y 9
 > del proyecto real de Supabase; se validan en la Fase 1.
@@ -920,7 +962,7 @@ desde la interfaz.
 >
 > El segundo apareció ya en producción y la suite **no** lo detectó: el `EXECUTE` que faltaba en
 > `app.has_work_capability` (§5.2.ter). Las cuatro razones por las que se escapó, y lo que se ha
-> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 142
+> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 149
 > pruebas y el runner ahora falla de verdad cuando algo va mal, que antes no lo hacía.
 
 

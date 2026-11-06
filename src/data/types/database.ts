@@ -525,7 +525,12 @@ export type Database = {
       work_types: Table<WorkTypeRow, Auto<WorkTypeRow, 'id' | 'color' | 'icon' | 'display_order' | 'is_active' | 'default_duration_months' | 'requires_defense' | 'requires_deposit' | 'requires_program' | 'allows_multiple_students' | 'max_supervisors' | 'counts_toward_workload' | 'default_template_id' | 'notes' | 'academic_level' | 'created_by' | 'created_at' | 'updated_at'>>
       work_statuses: Table<WorkStatusRow, Auto<WorkStatusRow, 'id' | 'color' | 'display_order' | 'is_terminal' | 'is_active'>>
       work_type_statuses: Table<WorkTypeStatusRow, Auto<WorkTypeStatusRow, 'display_order'>>
-      work_roles: Table<WorkRoleRow, Auto<WorkRoleRow, 'id' | 'display_order' | 'is_active'>>
+      // Las seis banderas tienen `default false` en la 0001, así que no hacen
+      // falta al insertar; y es justo lo que se quiere, porque la política
+      // `roles_insert` (0020) rechaza un rol nuevo con capacidades.
+      work_roles: Table<WorkRoleRow, Auto<WorkRoleRow, 'id' | 'display_order' | 'is_active'
+        | 'is_student' | 'is_supervisory' | 'can_manage_plan' | 'can_see_private_notes'
+        | 'can_validate_deliverables' | 'can_manage_members'>>
       document_types: Table<DocumentTypeRow, Auto<DocumentTypeRow, 'id' | 'organization_id' | 'display_order' | 'is_active'>>
       academic_works: Table<AcademicWorkRow, Auto<AcademicWorkRow, 'id' | 'research_group_id' | 'program_id' | 'academic_year_id' | 'research_line_id' | 'description' | 'objectives' | 'hypothesis' | 'methodology' | 'keywords' | 'notes' | 'start_date' | 'expected_end_date' | 'actual_end_date' | 'defense_date' | 'progress_override' | 'is_archived' | 'created_by' | 'created_at' | 'updated_at' | 'deleted_at'>>
       work_members: Table<WorkMemberRow, Auto<WorkMemberRow, 'id' | 'is_primary' | 'permissions' | 'start_date' | 'end_date' | 'status' | 'created_by' | 'created_at' | 'updated_at'>>

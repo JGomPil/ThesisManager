@@ -247,6 +247,18 @@ de tipos de trabajo extensibles: concentra `work_types`, `work_statuses`, `work_
   direcciones o en el menú de tres puntos, así que la aplicación *era* instalable y parecía que no.
   Si el evento no llega, el botón no se dibuja, y su ausencia también informa: ese navegador no la
   instala (Safari no implementa el evento) o ya está instalada.
+- **Lo que se puede administrar se decide por lo que una columna ES, no por lo que cuesta
+  editarla** (`0020`). Los estados de los trabajos y los roles académicos se administran desde la
+  pantalla de catálogos —antes hacía falta una migración para cambiar un nombre—, pero las cuatro
+  columnas `can_*` de `work_roles` no se tocan: las lee `app.has_work_capability`, o sea que son el
+  modelo de permisos, y un interruptor en un formulario sería un interruptor que edita RLS en
+  caliente. El `code` de un estado tampoco: el cronograma colorea por código, así que renombrarlo
+  rompe pantallas sin dar ningún error. La prohibición vive en dos *triggers* y una política, no en
+  el formulario, porque ocultar un control no protege de quien llama a PostgREST directamente.
+- **Una regla que el `seed` no puede cumplir está en el sitio equivocado.** «Un rol nuevo nace sin
+  capacidades» empezó siendo un *trigger* y bloqueaba el catálogo inicial, que crea los cuatro
+  roles con las suyas: habría roto toda instalación nueva. Es una política, porque el propietario
+  de la tabla no sufre RLS y quien entra por la API nunca es el propietario.
 - **La plantilla dice qué hay que hacer y qué hay que entregar** (`0019`). Son dos cosas con ciclos
   de vida distintos y por eso se modelan distinto: el *material de referencia* (0014) **no se
   copia** —la tarea guarda `template_task_id` y lee de la plantilla, así una rúbrica corregida se

@@ -13,6 +13,10 @@ type ProgramInsert = Database['public']['Tables']['programs']['Insert']
 type ProgramUpdate = Database['public']['Tables']['programs']['Update']
 type YearInsert = Database['public']['Tables']['academic_years']['Insert']
 type YearUpdate = Database['public']['Tables']['academic_years']['Update']
+type StatusInsert = Database['public']['Tables']['work_statuses']['Insert']
+type StatusUpdate = Database['public']['Tables']['work_statuses']['Update']
+type RoleInsert = Database['public']['Tables']['work_roles']['Insert']
+type RoleUpdate = Database['public']['Tables']['work_roles']['Update']
 
 /**
  * Cuántos trabajos usan cada línea, titulación y curso.
@@ -72,6 +76,78 @@ export const catalogsRepo = {
 
   listWorkRoles: async (): Promise<WorkRoleRow[]> =>
     unwrap(await supabase.from('work_roles').select('*').eq('is_active', true).order('display_order')),
+
+  // ---------------------------------------------------------------------------
+  // Administración de estados y roles (migración 0020)
+  //
+  // Lo que estas funciones NO ofrecen es tan importante como lo que ofrecen:
+  // no hay forma de cambiar el `code` de un estado ni las capacidades de un
+  // rol, porque no existe la columna en los parches. Y eso es comodidad, no
+  // seguridad: quien quiera intentarlo puede llamar a PostgREST sin pasar por
+  // aquí, y se encontrará con los disparadores de la 0020.
+  // ---------------------------------------------------------------------------
+
+  /** Incluye los retirados: es la lista de administración. */
+  listAllWorkStatuses: async (): Promise<WorkStatusRow[]> =>
+    unwrap(await supabase.from('work_statuses').select('*').order('display_order')),
+
+  listAllWorkRoles: async (): Promise<WorkRoleRow[]> =>
+    unwrap(await supabase.from('work_roles').select('*').order('display_order')),
+
+  createWorkStatus: async (input: StatusInsert): Promise<WorkStatusRow> =>
+    unwrap(await supabase.from('work_statuses').insert(input).select('*').single()),
+
+  /** `code` no viaja: lo rechazaría el disparador `work_statuses_code_inmutable`. */
+  updateWorkStatus: async (
+    id: string,
+    patch: Pick<StatusUpdate, 'name' | 'color' | 'display_order' | 'is_terminal' | 'is_active'>,
+  ): Promise<WorkStatusRow> =>
+    unwrap(await supabase.from('work_statuses').update(patch).eq('id', id).select('*').single()),
+
+  removeWorkStatus: async (id: string): Promise<void> => {
+    const { error } = await supabase.from('work_statuses').delete().eq('id', id)
+    if (error) throw error
+  },
+
+  /**
+   * Un rol nuevo nace sin capacidades, y no porque este parche las omita: lo
+   * impone la política `roles_insert`. Aquí solo se envía lo que clasifica.
+   */
+  createWorkRole: async (
+    input: Pick<RoleInsert, 'code' | 'name' | 'display_order'> &
+      Partial<Pick<RoleInsert, 'is_student' | 'is_supervisory'>>,
+  ): Promise<WorkRoleRow> =>
+    unwrap(await supabase.from('work_roles').insert(input).select('*').single()),
+
+  updateWorkRole: async (
+    id: string,
+    patch: Pick<RoleUpdate, 'name' | 'display_order' | 'is_active'>,
+  ): Promise<WorkRoleRow> =>
+    unwrap(await supabase.from('work_roles').update(patch).eq('id', id).select('*').single()),
+
+  removeWorkRole: async (id: string): Promise<void> => {
+    const { error } = await supabase.from('work_roles').delete().eq('id', id)
+    if (error) throw error
+  },
+
+  /**
+   * Cuántos trabajos usan cada estado y cuántos participantes cada rol.
+   *
+   * Aquí las claves ajenas son `on delete restrict`, al contrario que en las
+   * líneas o las titulaciones: borrar algo en uso **falla**, no deja un hueco
+   * silencioso. Así que esto no está para evitar una pérdida de datos sino para
+   * no ofrecer un botón que va a dar error, y para poder decir «lo usan 3
+   * trabajos» antes de que alguien lo intente.
+   */
+  statusRoleUsage: async (): Promise<{ statuses: Record<string, number>; roles: Record<string, number> }> => {
+    const trabajos = unwrap(await supabase.from('academic_works').select('status_id'))
+    const miembros = unwrap(await supabase.from('work_members').select('work_role_id'))
+    const statuses: Record<string, number> = {}
+    const roles: Record<string, number> = {}
+    for (const t of trabajos) if (t.status_id) statuses[t.status_id] = (statuses[t.status_id] ?? 0) + 1
+    for (const m of miembros) if (m.work_role_id) roles[m.work_role_id] = (roles[m.work_role_id] ?? 0) + 1
+    return { statuses, roles }
+  },
 
   listAcademicLevels: async (): Promise<AcademicLevelRow[]> =>
     unwrap(await supabase.from('academic_levels').select('*').order('display_order')),

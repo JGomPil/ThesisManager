@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, GraduationCap, Microscope, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Check, Flag, GraduationCap, Microscope, Pencil, Plus, Trash2, Users, X } from 'lucide-react'
 import { PageHeader } from '@/app/layout/app-shell'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea } from '@/components/ui/input'
@@ -16,6 +16,9 @@ import { errorMessage } from '@/lib/supabase'
 import { catalogsRepo } from '@/data/repositories/catalogs.repo'
 import { useAcademicLevels } from '@/hooks/use-catalogs'
 import { useAuth } from '@/features/auth/auth-context'
+import {
+  AVISO_CATALOGOS_GLOBALES, WorkRolesCard, WorkStatusesCard,
+} from '@/features/admin/statuses-roles-cards'
 
 /**
  * Catálogos planos de la organización: líneas de investigación, titulaciones y
@@ -77,7 +80,7 @@ export function CatalogsPage() {
     <div className="space-y-4">
       <PageHeader
         title="Catálogos"
-        description="Líneas de investigación, titulaciones y cursos académicos del grupo."
+        description="Líneas de investigación, titulaciones, cursos académicos, estados de los trabajos y roles."
         breadcrumb={[{ label: 'Administración', to: '/admin' }, { label: 'Catálogos' }]}
       />
 
@@ -101,6 +104,26 @@ export function CatalogsPage() {
         organizationId={organizationId}
         onChanged={refrescar(qk.catalogs.allAcademicYears, qk.catalogs.academicYears)}
       />
+
+      {/* Estos dos catálogos no son como los tres de arriba: son GLOBALES, sin
+          `organization_id`, y los roles llevan dentro el modelo de permisos.
+          Viven aquí porque es donde se los busca, y cada tarjeta explica en su
+          pie lo que no se puede cambiar y por qué. Ver migración 0020. */}
+      <SectionCard
+        title="Estados de los trabajos"
+        icon={<Flag className="size-4 text-muted-foreground" />}
+        hint={`El ciclo de vida: de «Propuesta» a «Finalizado». ${AVISO_CATALOGOS_GLOBALES}`}
+      >
+        <WorkStatusesCard />
+      </SectionCard>
+
+      <SectionCard
+        title="Roles académicos"
+        icon={<Users className="size-4 text-muted-foreground" />}
+        hint={`Cómo participa cada persona en un trabajo. ${AVISO_CATALOGOS_GLOBALES}`}
+      >
+        <WorkRolesCard />
+      </SectionCard>
     </div>
   )
 }
@@ -165,7 +188,7 @@ function RowActions({
   )
 }
 
-function SectionCard({
+export function SectionCard({
   title, icon, hint, children,
 }: {
   title: string
