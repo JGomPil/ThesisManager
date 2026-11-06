@@ -91,3 +91,26 @@ export const invitationFormSchema = z.object({
 })
 
 export type InvitationFormValues = z.infer<typeof invitationFormSchema>
+
+/**
+ * Alta de documento. El origen decide qué campo es obligatorio: un fichero
+ * subido o un enlace externo. El esquema de la base de datos ya exige que haya
+ * al menos uno de los dos (`check` de `document_versions`), y esta validación
+ * lo adelanta al formulario para no hacer un viaje en balde.
+ */
+export const documentFormSchema = z
+  .object({
+    name: z.string().trim().min(3, 'Indica un nombre').max(300),
+    document_type_id: z.string().uuid().or(z.literal('')).optional(),
+    description: z.string().max(2000).optional(),
+    task_id: z.string().uuid().or(z.literal('')).optional(),
+    source: z.enum(['FILE', 'LINK']),
+    external_url: z.string().trim().url('Escribe una URL completa, con https://').or(z.literal('')).optional(),
+    version_label: z.string().trim().min(1, 'Indica la versión').max(40),
+  })
+  .refine((v) => v.source !== 'LINK' || Boolean(v.external_url), {
+    message: 'Escribe el enlace al documento',
+    path: ['external_url'],
+  })
+
+export type DocumentFormValues = z.infer<typeof documentFormSchema>

@@ -24,6 +24,7 @@ import { resolveWorkCapabilities } from '@/domain/permissions/work-capabilities'
 import { computeWorkProgress, daysUntil, attentionReasons, ATTENTION_LABELS } from '@/domain/works/progress'
 import { statusesForWorkType } from '@/domain/works/statuses'
 import { WorkMembersCard } from '@/features/works/work-members-card'
+import { DocumentsCard } from '@/features/documents/documents-card'
 import { TaskBoard } from '@/features/tasks/task-board'
 
 export function WorkDetailPage() {
@@ -193,6 +194,7 @@ export function WorkDetailPage() {
           </Card>
 
           <WorkMembersCard work={w} caps={caps} />
+          <DocumentsCard workId={w.id} caps={caps} userId={userId} />
 
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-sm">Fechas</CardTitle></CardHeader>

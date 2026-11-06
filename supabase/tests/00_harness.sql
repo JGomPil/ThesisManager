@@ -47,3 +47,44 @@ alter default privileges for role postgres in schema public
   grant all on sequences to anon, authenticated;
 alter default privileges for role postgres in schema public
   grant all on functions to anon, authenticated;
+
+-- =============================================================================
+-- Emulación mínima de Supabase Storage
+--
+-- POR QUÉ SE EMULA
+-- `storage.objects` tiene su propia RLS, independiente de las tablas. Una fila
+-- de `document_versions` bien protegida que apunte a un objeto mal protegido no
+-- protege nada: el fichero se descargaría igual. Es la parte del sistema donde
+-- un error se paga más caro, porque lo que hay dentro son memorias con datos de
+-- alumnos, así que necesita pruebas y no solo lectura del código.
+--
+-- Se replican solo las dos tablas y los privilegios que Supabase concede de
+-- serie. En particular `anon` recibe privilegios sobre `storage.objects` (los
+-- necesita para los cubos públicos), de modo que la prueba de que no puede leer
+-- los documentos sea una prueba de verdad y no un artefacto del emulador.
+-- =============================================================================
+create schema if not exists storage;
+
+create table if not exists storage.buckets (
+  id                 text primary key,
+  name               text not null,
+  public             boolean not null default false,
+  file_size_limit    bigint,
+  allowed_mime_types text[],
+  created_at         timestamptz not null default now()
+);
+
+create table if not exists storage.objects (
+  id         uuid primary key default gen_random_uuid(),
+  bucket_id  text references storage.buckets(id) on delete cascade,
+  name       text not null,
+  owner      uuid,
+  created_at timestamptz not null default now(),
+  metadata   jsonb
+);
+
+alter table storage.objects enable row level security;
+
+grant usage on schema storage to anon, authenticated;
+grant select on storage.buckets to anon, authenticated;
+grant select, insert, update, delete on storage.objects to anon, authenticated;

@@ -37,3 +37,6 @@ export const usePrograms = () =>
 
 export const useResearchLines = () =>
   useQuery({ queryKey: qk.catalogs.researchLines, queryFn: catalogsRepo.listResearchLines, ...CATALOG_OPTIONS })
+
+export const useDocumentTypes = () =>
+  useQuery({ queryKey: qk.catalogs.documentTypes, queryFn: catalogsRepo.listDocumentTypes, ...CATALOG_OPTIONS })

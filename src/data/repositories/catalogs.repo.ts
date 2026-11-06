@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import type {
   AcademicLevelRow, AcademicYearRow, ProgramRow, ResearchLineRow,
-  WorkRoleRow, WorkStatusRow, WorkTypeRow, WorkTypeStatusRow,
+  DocumentTypeRow, WorkRoleRow, WorkStatusRow, WorkTypeRow, WorkTypeStatusRow,
 } from '@/data/types/database'
 import type { Database } from '@/data/types/database'
 
@@ -60,4 +60,7 @@ export const catalogsRepo = {
 
   listResearchLines: async (): Promise<ResearchLineRow[]> =>
     unwrap(await supabase.from('research_lines').select('*').eq('is_active', true).order('name')),
+
+  listDocumentTypes: async (): Promise<DocumentTypeRow[]> =>
+    unwrap(await supabase.from('document_types').select('*').eq('is_active', true).order('display_order')),
 }

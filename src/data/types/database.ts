@@ -283,6 +283,40 @@ export type KeepaliveRow = {
 // Database
 // -----------------------------------------------------------------------------
 
+export type DocumentReviewStatus =
+  | 'BORRADOR' | 'ENTREGADO' | 'EN_REVISION' | 'REVISADO' | 'APROBADO' | 'RECHAZADO'
+
+export type DocumentRow = {
+  id: string
+  work_id: string
+  /** Vínculo OPCIONAL con una tarea (migración 0010). El documento pertenece al trabajo. */
+  task_id: string | null
+  document_type_id: string | null
+  name: string
+  description: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
+export type DocumentVersionRow = {
+  id: string
+  document_id: string
+  work_id: string
+  version_label: string
+  /** Fichero que vive fuera (Drive institucional, repositorio de la universidad). */
+  external_url: string | null
+  /** Ruta dentro del cubo privado `work-documents`: <work_id>/<document_id>/<fichero>. */
+  storage_path: string | null
+  author_id: string | null
+  review_status: DocumentReviewStatus
+  submitted_at: string
+  reviewed_at: string | null
+  reviewer_id: string | null
+  notes: string | null
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -305,6 +339,8 @@ export type Database = {
       milestones: Table<MilestoneRow, Auto<MilestoneRow, 'id' | 'phase_id' | 'description' | 'is_met' | 'met_at' | 'order_index' | 'created_at'>>
       notifications: Table<NotificationRow, Auto<NotificationRow, 'id' | 'work_id' | 'body' | 'link' | 'read_at' | 'created_at'>>
       invitations: Table<InvitationRow, Auto<InvitationRow, 'id' | 'full_name' | 'intended_role' | 'status' | 'notes' | 'sent_at' | 'accepted_at' | 'accepted_user_id' | 'created_by' | 'created_at' | 'updated_at'>>
+      documents: Table<DocumentRow, Auto<DocumentRow, 'id' | 'task_id' | 'document_type_id' | 'description' | 'created_by' | 'created_at' | 'updated_at' | 'deleted_at'>>
+      document_versions: Table<DocumentVersionRow, Auto<DocumentVersionRow, 'id' | 'external_url' | 'storage_path' | 'author_id' | 'review_status' | 'submitted_at' | 'reviewed_at' | 'reviewer_id' | 'notes'>>
       keepalive: Table<KeepaliveRow, Auto<KeepaliveRow, 'id' | 'label' | 'last_ping_at' | 'note' | 'created_at'>>
     }
     Views: Record<string, never>

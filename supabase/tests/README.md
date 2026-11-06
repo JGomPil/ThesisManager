@@ -49,6 +49,14 @@ usuarios). **Es solo para pruebas**: nunca se aplica a un proyecto real.
 44 | El estudiante **no** puede añadir puntos: la dirección define el plan, él informa del avance |
 45 | El estudiante **no** puede renombrar un punto, solo cambiar su estado |
 46 | Recuento de la lista (hechos / total) |
+47-49 | **Ficheros**: cada cual ve los del trabajo al que tiene acceso y solo esos; `anon` no ve ninguno aunque tenga privilegios de tabla |
+50-52 | Se puede subir a la carpeta del trabajo propio, no a la de otro, y nunca con una ruta que no empiece por el uuid del trabajo |
+53 | Un estudiante no puede borrar el fichero de un trabajo ajeno |
+54 | El estudiante **entrega** un documento |
+55-56 | ...y **no** puede borrar ni archivar el que subió la dirección |
+57 | ...pero **sí** puede retirar el que subió él |
+58-59 | **Aprobar es acto de supervisión**: el estudiante no puede aprobarse su entrega; la dirección sí |
+60 | Un documento no puede vincularse a una tarea de **otro** trabajo |
 
 Las pruebas 32 y 33 son estructurales y son las importantes: en lugar de comprobar casos sueltos,
 leen las políticas reales de `pg_policy`, extraen cada función del esquema `app` que invocan y

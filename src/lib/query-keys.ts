@@ -13,6 +13,7 @@ export const qk = {
     academicYears: ['catalogs', 'academic-years'] as const,
     programs: ['catalogs', 'programs'] as const,
     researchLines: ['catalogs', 'research-lines'] as const,
+    documentTypes: ['catalogs', 'document-types'] as const,
   },
 
   works: {
@@ -30,6 +31,10 @@ export const qk = {
 
   people: {
     directory: ['people', 'directory'] as const,
+  },
+
+  documents: {
+    byWork: (workId: string) => ['documents', 'work', workId] as const,
   },
 
   invitations: ['invitations'] as const,

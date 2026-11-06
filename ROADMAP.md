@@ -27,7 +27,7 @@ Estado a 6 de noviembre de 2026:
 | ✅ | Dashboard con tarjetas por tipo generadas desde el catálogo |
 | ✅ | Aviso de mantenimiento (`last_ping_at`) en el panel de administración |
 | ✅ | Comprobación de secretos en el despliegue, con pruebas de detección |
-| ✅ | Proyecto de Supabase creado, migraciones `0001`–`0009` aplicadas y privilegios de `anon` y `authenticated` verificados contra el proyecto real |
+| ✅ | Proyecto de Supabase creado, migraciones `0001`–`0010` aplicadas y privilegios de `anon` y `authenticated` verificados contra el proyecto real |
 | ✅ | Datos de demostración ficticios, validados (el usuario con tres papeles incluido) |
 | ✅ | Cola de invitaciones con alta automática al aceptar (decisión D3) |
 | ✅ | Perfil propio editable y cambio de contraseña |
@@ -62,6 +62,13 @@ las 13 pruebas de `SECURITY.md` §9 pasan; un administrador puede crear un tipo 
 desde la interfaz y usarlo inmediatamente sin desplegar nada.
 
 ## Fase 2 — Seguimiento académico
+
+> **La gestión documental se adelantó a la Fase 1** el 6 de noviembre de 2026, a
+> petición del usuario: documentos con versiones, estados de revisión, vínculo
+> opcional con una tarea, y ficheros en el cubo privado `work-documents` o como
+> enlace externo. Migración `0010`, pruebas `[47]`–`[60]`. Quedan en esta fase
+> las reuniones, las actas, las notas privadas y los comentarios contextuales.
+
 
 Reuniones con acta estructurada · acuerdos con tareas derivadas · **notas privadas** con su RLS
 verificada · comentarios contextuales con menciones · notificaciones internas · gestión documental

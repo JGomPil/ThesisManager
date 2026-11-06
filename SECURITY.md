@@ -280,6 +280,49 @@ error. Una prueba de RLS **no puede conformarse con la ausencia de excepción**;
 tiene que comprobar el estado resultante. Es el mismo descuido, en pequeño, que
 hacía que el runner devolviera 0 con tres `permission denied` en la salida.
 
+### 5.2.sexies · Ficheros: una frontera distinta de la de las filas
+
+`storage.objects` tiene **su propia RLS**, independiente de las tablas. Una fila
+de `document_versions` perfectamente protegida que apunte a un objeto mal
+protegido no protege nada: el fichero se descarga igual. Y lo que hay dentro de
+esos ficheros son memorias y borradores con datos de alumnos, así que es la
+parte del sistema donde un error se paga más caro.
+
+La llave de autorización es **el primer segmento de la ruta**:
+`<work_id>/<document_id>/<fichero>`. De ahí se deduce a qué trabajo pertenece el
+objeto, y con eso se reutiliza `app.accessible_work_ids()` sin duplicar ninguna
+regla. Si la ruta no empieza por un uuid válido, se deniega: una ruta así no la
+ha generado la aplicación. Cambiar esa convención en el código sin cambiar las
+políticas abriría el cubo, y por eso está advertido en `documentsRepo.upload`.
+
+El cubo es **privado**. No hay URL pública: las descargas usan URL firmadas de
+120 segundos que Storage solo emite si estas políticas dejan leer el objeto.
+
+Para poder probarlo, `00_harness.sql` emula `storage.buckets` y
+`storage.objects` con los privilegios que Supabase concede de serie —`anon`
+incluido, que los necesita para los cubos públicos— de modo que la prueba `[49]`
+(«`anon` no ve ningún fichero») sea una prueba de verdad y no un artefacto del
+emulador. Pruebas `[47]`–`[53]`.
+
+### 5.2.septies · La regla del borrado lógico, aprendida tres veces
+
+PostgreSQL exige que la fila resultante de un `UPDATE` siga siendo visible para
+quien lo ejecuta. Combinado con el patrón «política de `SELECT` que filtra por
+`deleted_at`», eso produce un fallo que no se ve leyendo el código:
+
+| Dónde | Síntoma |
+|---|---|
+| `academic_works` (§5.2.quater) | Archivar un trabajo fallaba siempre |
+| `documents` | Archivar un documento fallaba siempre |
+| `documents`, segunda vuelta (prueba `[57]`) | El autor no podía retirar el suyo |
+
+**La regla, para no volver a tropezar:** *toda política de `SELECT` que filtre
+por `deleted_at` debe dejar ver lo archivado a **todos** los que puedan
+archivarlo.* Si no, el borrado lógico falla; y si por algún camino llegara a
+ejecutarse, lo archivado sería irrecuperable desde la aplicación, que es peor
+que el propio fallo. Está escrita como comentario en la migración `0010`, junto
+a la política que la cumple.
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.
@@ -354,7 +397,7 @@ Cada una debe ejecutarse **contra la base de datos** con el JWT del usuario corr
 desde la interfaz.
 
 > **Ya verificadas.** Las migraciones de `supabase/migrations/` se han aplicado a un
-> PostgreSQL 16 real y se ejecutan **46 pruebas** de seguridad, todas correctas:
+> PostgreSQL 16 real y se ejecutan **60 pruebas** de seguridad, todas correctas:
 > `./scripts/test-rls.sh` (detalle en `supabase/tests/README.md`). Cubren los puntos 1–6, 12 y 13
 > de la lista siguiente. Los puntos 7, 10 y 11 dependen del frontend y del despliegue, y los 8 y 9
 > del proyecto real de Supabase; se validan en la Fase 1.
@@ -367,7 +410,7 @@ desde la interfaz.
 >
 > El segundo apareció ya en producción y la suite **no** lo detectó: el `EXECUTE` que faltaba en
 > `app.has_work_capability` (§5.2.ter). Las cuatro razones por las que se escapó, y lo que se ha
-> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 46
+> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 60
 > pruebas y el runner ahora falla de verdad cuando algo va mal, que antes no lo hacía.
 
 

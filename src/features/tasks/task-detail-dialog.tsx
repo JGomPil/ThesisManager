@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Check, ListChecks, Plus, Trash2, X } from 'lucide-react'
+import { Check, ListChecks, Paperclip, Plus, Trash2, X } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
@@ -17,6 +17,7 @@ import {
   TASK_PRIORITIES, TASK_STATUSES, tasksRepo, type TaskWithAssignee,
 } from '@/data/repositories/tasks.repo'
 import { daysUntil } from '@/domain/works/progress'
+import { DocumentsCard } from '@/features/documents/documents-card'
 import { canUpdateTaskStatus } from '@/domain/permissions/work-capabilities'
 import type { WorkCapabilities } from '@/domain/permissions/work-capabilities'
 
@@ -222,6 +223,16 @@ export function TaskDetailDialog({
                 Solo puede marcar los puntos quien tenga la tarea asignada, o la dirección.
               </p>
             )}
+          </section>
+
+          <section className="border-t pt-3">
+            <h3 className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <Paperclip className="size-3.5" /> Documentos de esta tarea
+            </h3>
+            {/* Los documentos pertenecen al trabajo; aquí se filtran los
+                vinculados a esta tarea. Añadir uno desde aquí lo vincula
+                automáticamente, que es lo que se espera al estar dentro. */}
+            <DocumentsCard workId={workId} caps={caps} userId={userId} taskId={task.id} />
           </section>
         </div>
 

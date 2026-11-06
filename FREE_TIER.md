@@ -234,3 +234,22 @@ restauras sin reactivar, en una semana estarás igual.
   [CloudZero](https://www.cloudzero.com/blog/supabase-pricing/) ·
   [MyKavo](https://mykavo.app/blog/supabase-free-tier-limits) ·
   [flaviocopes](https://flaviocopes.com/supabase-email-rate-limit/)
+
+## 8. Storage, desde el 6 de noviembre de 2026
+
+El cubo privado `work-documents` guarda los ficheros de los documentos. Límites
+del plan gratuito y cómo se han acotado:
+
+| Límite de Supabase | Valor | Cómo se acota |
+|---|---|---|
+| Almacenamiento total | 1 GB | 25 MB por fichero (`file_size_limit` del cubo) |
+| Tipos de fichero | sin límite propio | lista blanca de MIME en el cubo: PDF, Office, ODT, texto, PNG/JPEG, ZIP, TeX |
+| Transferencia saliente | 5 GB/mes (compartidos) | descargas con URL firmada de 120 s, sin CDN público |
+
+Con 25 MB por fichero, 1 GB da para unos 40 ficheros en el peor caso y para
+varios cientos de memorias y artículos reales, que rara vez pasan de 2–5 MB. Si
+algún día se acerca al límite hay dos salidas sin coste: registrar los
+documentos pesados como **enlace externo** en lugar de subirlos (la aplicación
+ya lo admite en la misma ficha), o descargar y retirar lo de los cursos
+cerrados. **El aviso aparecerá en el panel de Supabase, no en la aplicación**,
+así que conviene mirarlo en la revisión mensual de §6.
