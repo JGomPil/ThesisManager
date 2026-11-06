@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Check, ListChecks, Paperclip, Plus, Trash2, X } from 'lucide-react'
+import { Check, ListChecks, MessageSquare, Paperclip, Plus, Trash2, X } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
@@ -18,6 +18,8 @@ import {
 } from '@/data/repositories/tasks.repo'
 import { daysUntil } from '@/domain/works/progress'
 import { DocumentsCard } from '@/features/documents/documents-card'
+import { CommentsThread } from '@/features/comments/comments-thread'
+import type { WorkMemberWithRole } from '@/data/repositories/works.repo'
 import { canUpdateTaskStatus } from '@/domain/permissions/work-capabilities'
 import type { WorkCapabilities } from '@/domain/permissions/work-capabilities'
 
@@ -43,7 +45,7 @@ import type { WorkCapabilities } from '@/domain/permissions/work-capabilities'
  *    ningún campo que pueda quedar desincronizado.
  */
 export function TaskDetailDialog({
-  task, subtasks, open, onOpenChange, caps, userId, workId,
+  task, subtasks, open, onOpenChange, caps, userId, workId, members,
 }: {
   task: TaskWithAssignee | null
   subtasks: TaskWithAssignee[]
@@ -52,6 +54,8 @@ export function TaskDetailDialog({
   caps: WorkCapabilities
   userId: string | null
   workId: string
+  /** Participantes activos del trabajo: hacen falta para elegir a quién mencionar. */
+  members: WorkMemberWithRole[]
 }) {
   const qc = useQueryClient()
   const toast = useToast()
@@ -233,6 +237,20 @@ export function TaskDetailDialog({
                 vinculados a esta tarea. Añadir uno desde aquí lo vincula
                 automáticamente, que es lo que se espera al estar dentro. */}
             <DocumentsCard workId={workId} caps={caps} userId={userId} taskId={task.id} />
+          </section>
+
+          <section className="border-t pt-3">
+            <h3 className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <MessageSquare className="size-3.5" /> Comentarios
+            </h3>
+            <CommentsThread
+              workId={workId}
+              entityType="TASK"
+              entityId={task.id}
+              members={members}
+              userId={userId}
+              canComment={members.some((m) => m.user_id === userId)}
+            />
           </section>
         </div>
 

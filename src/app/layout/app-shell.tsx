@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/features/auth/auth-context'
 import { useTheme } from '@/hooks/use-theme'
 import { KeepaliveBanner } from '@/features/admin/keepalive-banner'
+import { NotificationsMenu } from '@/features/notifications/notifications-menu'
 
 const NAV = [
   { to: '/', label: 'Resumen', icon: LayoutDashboard, end: true },
@@ -48,6 +49,7 @@ export function AppShell() {
           <span className="hidden truncate text-sm text-muted-foreground sm:inline">· {orgName}</span>
 
           <div className="ml-auto flex items-center gap-1">
+            <NotificationsMenu />
             <Button variant="ghost" size="icon" onClick={toggle} aria-label="Cambiar tema">
               {theme === 'dark' ? <Sun /> : <Moon />}
             </Button>

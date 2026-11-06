@@ -317,6 +317,73 @@ export type DocumentVersionRow = {
   notes: string | null
 }
 
+export type MeetingModality = 'PRESENCIAL' | 'ONLINE' | 'HIBRIDA'
+
+export type MeetingRow = {
+  id: string
+  work_id: string
+  title: string
+  scheduled_at: string
+  duration_min: number | null
+  modality: MeetingModality
+  location: string | null
+  topics: string | null
+  /** Acta COMPARTIDA: la ve también el estudiante. */
+  summary: string | null
+  next_meeting_at: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type MeetingParticipantRow = {
+  meeting_id: string
+  user_id: string
+  attended: boolean | null
+}
+
+export type MeetingAgreementRow = {
+  id: string
+  meeting_id: string
+  work_id: string
+  description: string
+  /** Tarea derivada del acuerdo, si se ha generado. */
+  task_id: string | null
+  order_index: number
+}
+
+/**
+ * Notas privadas de dirección. Tabla SEPARADA de `meetings` a propósito: si
+ * fuesen una columna más del acta, cualquier consulta que trajera la reunión
+ * traería la nota, y bastaría un `select *` mal puesto para filtrarla al
+ * estudiante. Separarlas hace que la política de RLS sea la única puerta.
+ */
+export type MeetingPrivateNoteRow = {
+  id: string
+  meeting_id: string
+  work_id: string
+  author_id: string
+  content: string
+  created_at: string
+  updated_at: string
+}
+
+export type CommentEntityType = 'WORK' | 'TASK' | 'DOCUMENT' | 'MEETING'
+
+export type CommentRow = {
+  id: string
+  work_id: string
+  entity_type: CommentEntityType
+  entity_id: string | null
+  parent_comment_id: string | null
+  author_id: string
+  content: string
+  mentions: string[]
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -337,6 +404,11 @@ export type Database = {
       work_members: Table<WorkMemberRow, Auto<WorkMemberRow, 'id' | 'is_primary' | 'permissions' | 'start_date' | 'end_date' | 'status' | 'created_by' | 'created_at' | 'updated_at'>>
       tasks: Table<TaskRow, Auto<TaskRow, 'id' | 'parent_task_id' | 'milestone_id' | 'description' | 'assignee_id' | 'status' | 'priority' | 'start_date' | 'due_date' | 'completed_at' | 'order_index' | 'created_by' | 'created_at' | 'updated_at'>>
       milestones: Table<MilestoneRow, Auto<MilestoneRow, 'id' | 'phase_id' | 'description' | 'is_met' | 'met_at' | 'order_index' | 'created_at'>>
+      meetings: Table<MeetingRow, Auto<MeetingRow, 'id' | 'duration_min' | 'modality' | 'location' | 'topics' | 'summary' | 'next_meeting_at' | 'created_by' | 'created_at' | 'updated_at'>>
+      meeting_participants: Table<MeetingParticipantRow, Auto<MeetingParticipantRow, 'attended'>>
+      meeting_agreements: Table<MeetingAgreementRow, Auto<MeetingAgreementRow, 'id' | 'task_id' | 'order_index'>>
+      meeting_private_notes: Table<MeetingPrivateNoteRow, Auto<MeetingPrivateNoteRow, 'id' | 'created_at' | 'updated_at'>>
+      comments: Table<CommentRow, Auto<CommentRow, 'id' | 'entity_id' | 'parent_comment_id' | 'mentions' | 'created_at' | 'updated_at' | 'deleted_at'>>
       notifications: Table<NotificationRow, Auto<NotificationRow, 'id' | 'work_id' | 'body' | 'link' | 'read_at' | 'created_at'>>
       invitations: Table<InvitationRow, Auto<InvitationRow, 'id' | 'full_name' | 'intended_role' | 'status' | 'notes' | 'sent_at' | 'accepted_at' | 'accepted_user_id' | 'created_by' | 'created_at' | 'updated_at'>>
       documents: Table<DocumentRow, Auto<DocumentRow, 'id' | 'task_id' | 'document_type_id' | 'description' | 'created_by' | 'created_at' | 'updated_at' | 'deleted_at'>>

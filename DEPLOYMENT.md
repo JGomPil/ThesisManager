@@ -71,7 +71,7 @@ directorios que empiezan por `_`).
 1. Crear el proyecto en **región de la UE** (Fráncfort o Irlanda) por RGPD.
 2. Guardar la *Project URL* y la clave **anon/publishable**. La clave `service_role` no se usa en
    ningún punto de este proyecto: no copiarla a ninguna parte.
-3. Aplicar las migraciones en orden: `supabase/migrations/0001…0010`, y después
+3. Aplicar las migraciones en orden: `supabase/migrations/0001…0011`, y después
    `supabase/seed/0001_catalogs.sql`.
    - Con CLI: `supabase link --project-ref <ref>` y `supabase db push`.
    - O pegando el SQL en el editor del panel, en orden.

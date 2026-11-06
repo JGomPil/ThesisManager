@@ -37,6 +37,19 @@ export const qk = {
     byWork: (workId: string) => ['documents', 'work', workId] as const,
   },
 
+  meetings: {
+    byWork: (workId: string) => ['meetings', 'work', workId] as const,
+    privateNotes: (meetingId: string) => ['meetings', meetingId, 'private-notes'] as const,
+  },
+
+  comments: (workId: string, entityType: string, entityId: string) =>
+    ['comments', workId, entityType, entityId] as const,
+
+  notifications: {
+    list: ['notifications', 'list'] as const,
+    unread: ['notifications', 'unread'] as const,
+  },
+
   invitations: ['invitations'] as const,
 
   maintenance: ['maintenance', 'keepalive'] as const,

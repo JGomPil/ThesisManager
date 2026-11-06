@@ -114,3 +114,22 @@ export const documentFormSchema = z
   })
 
 export type DocumentFormValues = z.infer<typeof documentFormSchema>
+
+export const meetingFormSchema = z
+  .object({
+    title: z.string().trim().min(3, 'Indica un título').max(300),
+    scheduled_at: z.string().min(1, 'Indica la fecha y la hora'),
+    duration_min: z.string().optional(),
+    modality: z.enum(['PRESENCIAL', 'ONLINE', 'HIBRIDA']),
+    location: z.string().max(300).optional(),
+    topics: z.string().max(5000).optional(),
+    /** Acta compartida: la lee también el estudiante. */
+    summary: z.string().max(10000).optional(),
+    next_meeting_at: z.string().optional(),
+  })
+  .refine(
+    (v) => !v.next_meeting_at || v.next_meeting_at > v.scheduled_at,
+    { message: 'La próxima reunión debe ser posterior a esta', path: ['next_meeting_at'] },
+  )
+
+export type MeetingFormValues = z.infer<typeof meetingFormSchema>

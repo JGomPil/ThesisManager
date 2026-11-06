@@ -25,6 +25,8 @@ import { computeWorkProgress, daysUntil, attentionReasons, ATTENTION_LABELS } fr
 import { statusesForWorkType } from '@/domain/works/statuses'
 import { WorkMembersCard } from '@/features/works/work-members-card'
 import { DocumentsCard } from '@/features/documents/documents-card'
+import { MeetingsCard } from '@/features/meetings/meetings-card'
+import { CommentsThread } from '@/features/comments/comments-thread'
 import { TaskBoard } from '@/features/tasks/task-board'
 
 export function WorkDetailPage() {
@@ -128,6 +130,8 @@ export function WorkDetailPage() {
             </CardContent>
           </Card>
 
+          <MeetingsCard work={w} caps={caps} userId={userId} />
+
           {(w.description || w.objectives || w.methodology) && (
             <Card>
               <CardHeader className="pb-3"><CardTitle className="text-sm">Contenido académico</CardTitle></CardHeader>
@@ -146,6 +150,20 @@ export function WorkDetailPage() {
               </CardContent>
             </Card>
           )}
+
+          <Card>
+            <CardHeader className="pb-3"><CardTitle className="text-sm">Comentarios del trabajo</CardTitle></CardHeader>
+            <CardContent className="pt-0">
+              <CommentsThread
+                workId={w.id}
+                entityType="WORK"
+                entityId={w.id}
+                members={w.members.filter((m) => m.status === 'ACTIVE')}
+                userId={userId}
+                canComment={w.members.some((m) => m.status === 'ACTIVE' && m.user_id === userId)}
+              />
+            </CardContent>
+          </Card>
         </div>
 
         {/* Columna lateral */}

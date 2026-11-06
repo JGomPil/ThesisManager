@@ -206,6 +206,7 @@ export function TaskBoard({
         caps={caps}
         userId={userId}
         workId={work.id}
+        members={work.members.filter((m) => m.status === 'ACTIVE')}
       />
 
 

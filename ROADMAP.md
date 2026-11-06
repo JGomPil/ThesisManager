@@ -61,21 +61,40 @@ Alcance original de la fase:
 las 13 pruebas de `SECURITY.md` §9 pasan; un administrador puede crear un tipo de trabajo nuevo
 desde la interfaz y usarlo inmediatamente sin desplegar nada.
 
-## Fase 2 — Seguimiento académico
+## Fase 2 — Seguimiento académico · **implementada, pendiente de aplicar la migración `0011`**
+
+Estado a 6 de noviembre de 2026:
+
+| | Elemento |
+|---|---|
+| ✅ | Reuniones con acta estructurada: temas, acta compartida, modalidad, lugar, duración y próxima reunión |
+| ✅ | Asistencia por participante |
+| ✅ | Acuerdos, con **generación de la tarea derivada** y vínculo `meeting_agreements.task_id` para que el acta quede trazable |
+| ✅ | **Notas privadas de dirección**, en tabla aparte, con consulta separada y la regla de protección del estudiante verificada (`[70]`–`[72]`) |
+| ✅ | Comentarios contextuales con menciones elegidas de una lista, en el trabajo, las tareas y las reuniones |
+| ✅ | Notificaciones internas creadas por disparadores, buzón con recuento de no leídas en la barra superior |
+| ✅ | Gestión documental con versiones y estados de revisión (adelantada a la Fase 1) |
+| ⏳ | **La migración `0011` todavía no está aplicada al proyecto real de Supabase**: hasta entonces, reuniones y comentarios funcionan pero no se genera ninguna notificación |
+| ⏳ | Comentarios a nivel de documento: pendientes, y van sobre `document_comments` (anclados a una **versión** concreta, que es donde significan algo para una revisión), no sobre `comments` |
 
 > **La gestión documental se adelantó a la Fase 1** el 6 de noviembre de 2026, a
 > petición del usuario: documentos con versiones, estados de revisión, vínculo
 > opcional con una tarea, y ficheros en el cubo privado `work-documents` o como
-> enlace externo. Migración `0010`, pruebas `[47]`–`[60]`. Quedan en esta fase
-> las reuniones, las actas, las notas privadas y los comentarios contextuales.
+> enlace externo. Migración `0010`, pruebas `[47]`–`[60]`.
 
-
-Reuniones con acta estructurada · acuerdos con tareas derivadas · **notas privadas** con su RLS
-verificada · comentarios contextuales con menciones · notificaciones internas · gestión documental
-con versiones y estados de revisión.
+Alcance original de la fase: reuniones con acta estructurada · acuerdos con tareas derivadas ·
+**notas privadas** con su RLS verificada · comentarios contextuales con menciones ·
+notificaciones internas · gestión documental con versiones y estados de revisión.
 
 **Criterios**: escenarios 3 y 4; un estudiante no ve ninguna nota privada de su propio trabajo;
 las notificaciones llegan a quien debe y solo a quien debe.
+
+**Estado de los criterios**: verificados contra PostgreSQL 16 real por las pruebas `[64]`–`[75]`
+de `supabase/tests/96_meetings_notifications.sql`. En particular: una nota privada genera **cero**
+notificaciones, el estudiante no ve la nota privada de su propia reunión pero sí el acta
+compartida, una mención solo alcanza a quien ya es miembro activo del trabajo, y nadie puede
+escribir en el buzón de otra persona porque `notifications` no tiene política de `INSERT`
+(`SECURITY.md` §5.2.nonies).
 
 ## Fase 3 — Planificación avanzada
 

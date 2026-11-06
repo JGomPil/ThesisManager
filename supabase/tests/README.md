@@ -60,6 +60,26 @@ usuarios). **Es solo para pruebas**: nunca se aplica a un proyecto real.
 61 | Un director **no** puede borrar definitivamente un trabajo |
 62 | La administración **sí**, y se lleva en cascada participantes, tareas, documentos y versiones |
 63 | **Los ficheros NO se van en cascada**: por eso `worksRepo.destroy()` los borra antes, y tras el borrado quedan inalcanzables incluso para la administración |
+64 | Asignar una tarea avisa al responsable y **no** a quien la asigna |
+65 | Una mención avisa **solo** a quien ya tiene acceso al trabajo: mencionar a un ajeno no le abre ninguna puerta ni le llega nada |
+66 | Una entrega avisa a quien valida entregables, no al resto |
+67 | Convocar una reunión avisa a todos los participantes menos a quien convoca |
+68 | **Nadie puede escribir en el buzón de otro**: `notifications` no tiene política de INSERT |
+69 | Cada cual ve solo su buzón |
+70 | **Una nota privada no genera ninguna notificación**: avisar de algo privado es filtrarlo |
+71 | El estudiante **no** ve la nota privada de su propia reunión |
+72 | ...pero **sí** ve el acta compartida de esa misma reunión |
+73 | La administración puede añadir participantes y acuerdos (arreglo de la `0011`) |
+74 | El estudiante **no** puede convocar reuniones ni escribir acuerdos |
+75 | El autor **sí** puede borrar su propio comentario (arreglo de `comments_select`) |
+
+Las pruebas 68 y 70 son las dos que justifican el diseño de las notificaciones. La 68 es la
+razón de que no exista política de INSERT en `notifications`: si el cliente pudiera crearlas,
+cualquiera podría escribir avisos en el buzón de cualquier otro, y un aviso falso en el buzón de
+un tribunal no es una molestia, es una suplantación. Las crean disparadores de la base de datos.
+La 70 comprueba lo contrario de lo habitual —que **no** pase nada—: no hay disparador sobre
+`meeting_private_notes`, porque «la dirección ha anotado algo privado sobre ti» revela
+exactamente lo que la nota privada existe para no revelar.
 
 Las pruebas 32 y 33 son estructurales y son las importantes: en lugar de comprobar casos sueltos,
 leen las políticas reales de `pg_policy`, extraen cada función del esquema `app` que invocan y

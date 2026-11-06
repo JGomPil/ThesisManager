@@ -352,6 +352,59 @@ alumno sin vuelta atrás. El flujo es de dos pasos a propósito —archivar y
 después borrar— para que ningún borrado definitivo esté a un solo clic desde un
 listado.
 
+### 5.2.nonies · Notificaciones: por qué las escribe la base de datos y no el cliente
+
+Al llegar la Fase 2, `notifications` tenía políticas de `SELECT`, `UPDATE` y
+nada más. No era un descuido a medias: faltaba la de `INSERT`, así que **no
+había manera de crear una notificación**. La solución evidente —añadir una
+política de `INSERT` para `authenticated`— es la equivocada, y conviene dejar
+escrito por qué.
+
+Una política de `INSERT` en una tabla cuya clave es `user_id` solo puede decir
+una de dos cosas. O exige `user_id = app.uid()`, y entonces cada cual solo
+puede escribir en su propio buzón, que es inútil (la notificación nace de un
+acto ajeno: alguien te asigna una tarea). O permite escribir con otro
+`user_id`, y entonces **cualquier usuario puede meter avisos en el buzón de
+cualquier otro**. Un aviso inventado en el buzón de un miembro del tribunal, con
+el aspecto de venir del sistema, no es una molestia: es una suplantación. No hay
+tercera redacción, porque el cliente no puede demostrar que el hecho notificado
+ha ocurrido.
+
+Quien sí puede demostrarlo es la propia transacción que lo produce. De ahí la
+migración `0011`: cuatro disparadores `after insert` sobre `tasks`, `comments`,
+`document_versions` y `meetings`, que llaman a `app.notify(...)` —`SECURITY
+DEFINER`, sin `EXECUTE` para nadie— y escriben el aviso al lado del hecho, en el
+mismo `COMMIT`. Si el hecho se deshace, el aviso también. La tabla sigue sin
+política de `INSERT`, y la prueba `[68]` lo verifica intentando escribir en un
+buzón ajeno; la condición *estructural* de que no exista tal política se
+comprueba en el bloque de aserciones de la propia migración.
+
+Tres detalles del diseño que no son adorno:
+
+- **`app.notify` sale sin hacer nada si el destinatario es `auth.uid()`.** Nadie
+  necesita que le avisen de lo que acaba de hacer, y un buzón lleno de ecos
+  propios es un buzón que se deja de mirar (pruebas `[64]` y `[67]`).
+- **Las menciones se comprueban contra `work_members` antes de avisar.** Un
+  comentario puede mencionar un uuid cualquiera; el disparador solo notifica a
+  quien es miembro activo del trabajo. Mencionar a un ajeno no le abre ninguna
+  puerta ni le llega nada (prueba `[65]`). En el cliente, además, las menciones
+  **se eligen de una lista**, no se escriben: `comments.mentions` guarda
+  identificadores, no texto. Buscar «@Nombre» dentro del contenido falla en
+  silencio con dos personas del mismo nombre, con un nombre con espacios y con
+  cualquier errata, y el autor creería haber avisado a alguien que nunca recibió
+  nada.
+- **No hay disparador sobre `meeting_private_notes`, y es deliberado.** Avisar
+  de que existe una nota privada revela justo lo que la nota privada existe para
+  no revelar. La prueba `[70]` comprueba que escribir una nota de dirección
+  genera **cero** notificaciones; es una de las pocas pruebas del proyecto cuya
+  condición de éxito es que no ocurra nada.
+
+Las notificaciones tampoco se consultan por *Realtime*. El recuento de no
+leídas se pide una vez por minuto con una petición `head` que no devuelve filas.
+Una suscripción por websocket y pestaña sería el primer límite del plan gratuito
+en tocarse (`FREE_TIER.md`), a cambio de ganar segundos en un aviso que no es
+urgente.
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.
@@ -426,7 +479,7 @@ Cada una debe ejecutarse **contra la base de datos** con el JWT del usuario corr
 desde la interfaz.
 
 > **Ya verificadas.** Las migraciones de `supabase/migrations/` se han aplicado a un
-> PostgreSQL 16 real y se ejecutan **63 pruebas** de seguridad, todas correctas:
+> PostgreSQL 16 real y se ejecutan **75 pruebas** de seguridad, todas correctas:
 > `./scripts/test-rls.sh` (detalle en `supabase/tests/README.md`). Cubren los puntos 1–6, 12 y 13
 > de la lista siguiente. Los puntos 7, 10 y 11 dependen del frontend y del despliegue, y los 8 y 9
 > del proyecto real de Supabase; se validan en la Fase 1.
@@ -439,7 +492,7 @@ desde la interfaz.
 >
 > El segundo apareció ya en producción y la suite **no** lo detectó: el `EXECUTE` que faltaba en
 > `app.has_work_capability` (§5.2.ter). Las cuatro razones por las que se escapó, y lo que se ha
-> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 63
+> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 75
 > pruebas y el runner ahora falla de verdad cuando algo va mal, que antes no lo hacía.
 
 
