@@ -28,6 +28,7 @@ import { canUpdateTaskStatus, type WorkCapabilities } from '@/domain/permissions
 import { daysUntil } from '@/domain/works/progress'
 import { cn } from '@/lib/utils'
 import { TaskDetailDialog } from '@/features/tasks/task-detail-dialog'
+import { propsDeApertura } from '@/components/common/row-link'
 
 export function TaskBoard({
   work,
@@ -41,6 +42,10 @@ export function TaskBoard({
   const [view, setView] = React.useState<'kanban' | 'list'>('kanban')
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [openTaskId, setOpenTaskId] = React.useState<string | null>(null)
+  // La tarea que se está editando. Es un identificador y no la tarea entera a
+  // propósito: así el formulario siempre arranca con lo que hay en la caché
+  // recién invalidada, y no con una copia de hace tres pantallas.
+  const [editTaskId, setEditTaskId] = React.useState<string | null>(null)
   const qc = useQueryClient()
   const toast = useToast()
 
@@ -77,6 +82,7 @@ export function TaskBoard({
   const rows = all.filter((t) => t.parent_task_id === null)
   const subtasksOf = (id: string) => all.filter((t) => t.parent_task_id === id)
   const openTask = rows.find((t) => t.id === openTaskId) ?? null
+  const editTask = rows.find((t) => t.id === editTaskId) ?? null
 
   return (
     <div className="space-y-3">
@@ -150,7 +156,11 @@ export function TaskBoard({
               const priority = TASK_PRIORITIES.find((p) => p.value === t.priority)
               const puntos = subtasksOf(t.id)
               return (
-                <div key={t.id} className="space-y-2 p-3">
+                <div
+                  key={t.id}
+                  className="cursor-pointer space-y-2 p-3 active:bg-accent"
+                  {...propsDeApertura(() => setOpenTaskId(t.id))}
+                >
                   <div className="flex items-start justify-between gap-2">
                     <button
                       type="button"
@@ -221,7 +231,11 @@ export function TaskBoard({
                 const late = t.due_date !== null && t.status !== 'COMPLETADA' && (daysUntil(t.due_date) ?? 0) < 0
                 const priority = TASK_PRIORITIES.find((p) => p.value === t.priority)
                 return (
-                  <TableRow key={t.id}>
+                  <TableRow
+                    key={t.id}
+                    className="cursor-pointer"
+                    {...propsDeApertura(() => setOpenTaskId(t.id))}
+                  >
                     <TableCell className="max-w-[20rem]">
                       <button
                         type="button"
@@ -279,6 +293,7 @@ export function TaskBoard({
         siblings={rows}
         open={openTaskId !== null}
         onOpenChange={(v) => { if (!v) setOpenTaskId(null) }}
+        onEdit={() => { setEditTaskId(openTaskId); setOpenTaskId(null) }}
         caps={caps}
         userId={userId}
         workId={work.id}
@@ -290,7 +305,21 @@ export function TaskBoard({
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         work={work}
-        onCreated={invalidate}
+        onSaved={invalidate}
+      />
+
+      {/* El MISMO formulario para crear y para editar, montado dos veces con
+          `task` distinto. Dos formularios separados se habrían separado también
+          en los campos y en las validaciones: el de edición acabaría sin la
+          regla de «la fecha límite no puede ser anterior al inicio». */}
+      <TaskDialog
+        open={editTask !== null}
+        onOpenChange={(v) => { if (!v) setEditTaskId(null) }}
+        work={work}
+        task={editTask}
+        onSaved={invalidate}
+        // Al guardar se vuelve a la ficha, que es de donde se venía.
+        onDone={() => { const id = editTaskId; setEditTaskId(null); setOpenTaskId(id) }}
       />
     </div>
   )
@@ -338,11 +367,13 @@ function TaskCard({
   const priority = TASK_PRIORITIES.find((p) => p.value === task.priority)
 
   return (
-    <Card>
+    <Card className="cursor-pointer active:bg-accent" {...propsDeApertura(onOpen)}>
       <CardContent className="space-y-2 p-3">
-        {/* El título abre la ficha: es el único sitio donde se puede leer la
-            descripción y la lista de comprobación. Es un <button> y no un div
-            con onClick para que funcione con teclado y con lector de pantalla. */}
+        {/* La tarjeta ENTERA abre la ficha, pero el título sigue siendo un
+            <button> de verdad: es la parada del tabulador y lo que anuncia un
+            lector de pantalla. El clic en el resto es un añadido, no el único
+            camino. El desplegable de estado y el botón de eliminar que hay
+            dentro se quedan con su clic (ver `propsDeApertura`). */}
         <button
           type="button"
           onClick={onOpen}
@@ -396,36 +427,80 @@ function TaskCard({
   )
 }
 
+/**
+ * Alta y edición de una tarea, en el mismo formulario.
+ *
+ * POR QUÉ NO HAY DOS
+ * Porque los campos y las validaciones se habrían separado. La regla «la fecha
+ * límite no puede ser anterior al inicio» vive en `taskFormSchema`, y un
+ * formulario de edición escrito aparte habría acabado sin ella —o con una copia
+ * que deja de parecerse a la otra en el primer cambio—. `task` nulo significa
+ * crear; con tarea, editar.
+ *
+ * LO QUE SE PUEDE CAMBIAR es título, descripción, responsable, prioridad y las
+ * dos fechas. Antes solo se podían fijar al crear la tarea, que en un plan
+ * académico es tanto como no poder fijarlas: las fechas son justamente lo que
+ * se mueve. El estado NO está aquí: se cambia desde el tablero y desde la
+ * ficha, porque es la acción frecuente y no merece abrir un formulario.
+ *
+ * El trigger `app.enforce_task_update_scope` (migración 0003) ya decide quién
+ * puede tocar qué: sin `can_manage_plan` solo se permite mover el estado. Este
+ * formulario únicamente evita ofrecer lo que la base de datos va a rechazar.
+ */
 function TaskDialog({
-  open, onOpenChange, work, onCreated,
+  open, onOpenChange, work, task = null, onSaved, onDone,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
   work: WorkWithRelations
-  onCreated: () => void
+  /** Nulo: alta. Con tarea: edición de esa tarea. */
+  task?: TaskWithAssignee | null
+  onSaved: () => void
+  /** Se llama tras guardar, para que el llamante decida dónde deja al usuario. */
+  onDone?: () => void
 }) {
   const toast = useToast()
+  const editando = task !== null
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
     defaultValues: { title: '', description: '', assignee_id: '', priority: 'MEDIA', start_date: '', due_date: '' },
   })
 
-  const create = useMutation({
-    mutationFn: (values: TaskFormValues) =>
-      tasksRepo.create({
-        work_id: work.id,
+  // Al abrirse se vuelca la tarea en el formulario, y al cerrarse se limpia.
+  // Sin esto, editar una tarea y abrir después «Nueva tarea» ofrecería los
+  // datos de la anterior ya escritos, y se crearía un duplicado sin querer.
+  React.useEffect(() => {
+    if (!open) return
+    form.reset({
+      title: task?.title ?? '',
+      description: task?.description ?? '',
+      assignee_id: task?.assignee_id ?? '',
+      priority: task?.priority ?? 'MEDIA',
+      start_date: task?.start_date ?? '',
+      due_date: task?.due_date ?? '',
+    })
+  }, [open, task, form])
+
+  const guardar = useMutation({
+    mutationFn: (values: TaskFormValues) => {
+      const campos = {
         title: values.title,
         description: values.description || null,
         assignee_id: values.assignee_id || null,
         priority: values.priority,
         start_date: values.start_date || null,
         due_date: values.due_date || null,
-      }),
+      }
+      return editando
+        ? tasksRepo.update(task.id, campos)
+        : tasksRepo.create({ work_id: work.id, ...campos })
+    },
     onSuccess: () => {
-      onCreated()
-      toast.push('success', 'Tarea creada.')
+      onSaved()
+      toast.push('success', editando ? 'Tarea actualizada.' : 'Tarea creada.')
       form.reset()
       onOpenChange(false)
+      onDone?.()
     },
     onError: (e) => toast.push('error', errorMessage(e)),
   })
@@ -436,11 +511,13 @@ function TaskDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Nueva tarea</DialogTitle>
-          <DialogDescription>Se añadirá al plan de «{work.title}».</DialogDescription>
+          <DialogTitle>{editando ? 'Editar tarea' : 'Nueva tarea'}</DialogTitle>
+          <DialogDescription>
+            {editando ? 'Los cambios se guardan en el plan del trabajo.' : `Se añadirá al plan de «${work.title}».`}
+          </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={form.handleSubmit((v) => create.mutate(v))} className="space-y-3" noValidate>
+        <form onSubmit={form.handleSubmit((v) => guardar.mutate(v))} className="space-y-3" noValidate>
           <div>
             <Label htmlFor="task-title">Título</Label>
             <Input id="task-title" className="mt-1.5" {...form.register('title')} />
@@ -483,7 +560,9 @@ function TaskDialog({
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" loading={create.isPending}>Crear tarea</Button>
+            <Button type="submit" loading={guardar.isPending}>
+              {editando ? 'Guardar cambios' : 'Crear tarea'}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

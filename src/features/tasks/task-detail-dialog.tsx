@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Check, ListChecks, MessageSquare, Paperclip, Plus, Trash2, X } from 'lucide-react'
+import { Check, ListChecks, MessageSquare, Paperclip, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
@@ -47,7 +47,7 @@ import type { WorkCapabilities } from '@/domain/permissions/work-capabilities'
  *    ningún campo que pueda quedar desincronizado.
  */
 export function TaskDetailDialog({
-  task, subtasks, siblings, open, onOpenChange, caps, userId, workId, members,
+  task, subtasks, siblings, open, onOpenChange, onEdit, caps, userId, workId, members,
 }: {
   task: TaskWithAssignee | null
   subtasks: TaskWithAssignee[]
@@ -55,6 +55,12 @@ export function TaskDetailDialog({
   siblings: TaskWithAssignee[]
   open: boolean
   onOpenChange: (v: boolean) => void
+  /**
+   * Abre el formulario de edición. Lo gestiona el tablero, no esta ficha:
+   * cierra este diálogo y abre el otro, en lugar de apilar dos modales —que en
+   * un teléfono deja la mitad de la pantalla inservible y atrapa el foco.
+   */
+  onEdit: () => void
   caps: WorkCapabilities
   userId: string | null
   workId: string
@@ -126,11 +132,15 @@ export function TaskDetailDialog({
             ) : (
               <p className="text-sm text-muted-foreground">
                 Sin descripción.{' '}
-                {caps.canManagePlan && 'Edita la tarea para explicar en qué consiste.'}
+                {caps.canManagePlan && 'Pulsa «Editar» para explicar en qué consiste.'}
               </p>
             )}
           </section>
 
+          {/* Las fechas se LEEN aquí y se cambian en «Editar». Durante un tiempo
+              solo se podían poner al crear la tarea, que es tanto como no
+              poder ponerlas: en un plan académico la fecha de una tarea es lo
+              que más cambia. */}
           <section className="grid grid-cols-2 gap-3 border-t pt-3 text-sm">
             <div>
               <p className="text-xs text-muted-foreground">Inicio</p>
@@ -284,6 +294,11 @@ export function TaskDetailDialog({
             </Button>
           ) : <span />}
           <div className="flex gap-2">
+            {caps.canManagePlan && (
+              <Button variant="outline" onClick={onEdit}>
+                <Pencil /> Editar
+              </Button>
+            )}
             {caps.canManagePlan && (
               <Button
                 variant="ghost"

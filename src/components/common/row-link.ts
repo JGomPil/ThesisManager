@@ -2,6 +2,43 @@ import * as React from 'react'
 import { useNavigate } from 'react-router-dom'
 
 /**
+ * Lo que, si recibe el clic, se queda con él: dentro de una fila o una tarjeta
+ * hay botones, enlaces y desplegables, y pinchar «Eliminar» no debe además
+ * abrir la ficha. Una sola lista, usada por los dos modos de apertura —ruta y
+ * diálogo—, para que no se separen.
+ */
+const CONTROLES = 'a,button,input,select,textarea,label,[role="button"],[role="checkbox"]'
+
+function enUnControl(e: React.MouseEvent<HTMLElement>): boolean {
+  return (e.target as HTMLElement).closest(CONTROLES) !== null
+}
+
+/** Seleccionar un texto para copiarlo termina en un clic, y ese clic no abre nada. */
+function hayTextoSeleccionado(): boolean {
+  return (window.getSelection()?.toString() ?? '').length > 0
+}
+
+/**
+ * La TARJETA entera abre algo que no es una ruta: un diálogo.
+ *
+ * Hermano de `useRowLink`, con la misma cortesía (controles de dentro y texto
+ * seleccionado) pero sin `window.open` ni teclas modificadoras: un diálogo no
+ * se puede abrir en otra pestaña, así que ofrecerlo mentiría.
+ *
+ * NO sustituye al título: ese sigue siendo un `<button>` de verdad, que es lo
+ * que recibe el foco con el tabulador y lo que anuncia un lector de pantalla.
+ * Esto solo añade el clic en el resto de la tarjeta.
+ */
+export function propsDeApertura(onOpen: () => void) {
+  return {
+    onClick: (e: React.MouseEvent<HTMLElement>) => {
+      if (enUnControl(e) || hayTextoSeleccionado()) return
+      onOpen()
+    },
+  }
+}
+
+/**
  * Hace que TODA una fila (o tarjeta) lleve a su destino, no solo el título.
  *
  * EL PROBLEMA QUE RESUELVE
@@ -42,11 +79,7 @@ export function useRowLink() {
   return React.useCallback(
     (href: string) => ({
       onClick: (e: React.MouseEvent<HTMLElement>) => {
-        const dentro = (e.target as HTMLElement).closest(
-          'a,button,input,select,textarea,label,[role="button"],[role="checkbox"]',
-        )
-        if (dentro) return
-        if ((window.getSelection()?.toString() ?? '').length > 0) return
+        if (enUnControl(e) || hayTextoSeleccionado()) return
         if (e.metaKey || e.ctrlKey) {
           const base = import.meta.env.BASE_URL.replace(/\/$/, '')
           window.open(`${base}${href}`, '_blank', 'noopener')
@@ -56,8 +89,7 @@ export function useRowLink() {
       },
       onAuxClick: (e: React.MouseEvent<HTMLElement>) => {
         if (e.button !== 1) return
-        const dentro = (e.target as HTMLElement).closest('a,button,input,select,textarea,label')
-        if (dentro) return
+        if (enUnControl(e)) return
         const base = import.meta.env.BASE_URL.replace(/\/$/, '')
         window.open(`${base}${href}`, '_blank', 'noopener')
       },

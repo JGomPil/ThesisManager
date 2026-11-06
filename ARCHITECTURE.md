@@ -225,6 +225,19 @@ de tipos de trabajo extensibles: concentra `work_types`, `work_statuses`, `work_
   puede decirlo. Se detecta cruzando tres indicios (puntero grueso, ancho declarado ≥ 700 px y
   —pantalla real estrecha **o** escala del viewport < 0,9) para que un iPad no lo vea nunca. Pasó
   de verdad el 6 de noviembre de 2026 y nos costó un rato con el síntoma delante.
+- **Un dato que se muestra se edita donde se muestra.** Las tareas se podían
+  crear con fechas y título pero no corregirlos después, que en un plan académico equivale a no
+  poder ponerlos: la fecha de una tarea es justamente lo que se mueve. La ficha de la tarea tiene
+  ahora «Editar», y abre **el mismo formulario** que el alta (`TaskDialog` con `task`), no uno
+  nuevo: dos formularios se habrían separado en los campos y en las validaciones —el de edición
+  acabaría sin la regla «la fecha límite no puede ser anterior al inicio», que vive en
+  `taskFormSchema`—. El estado se queda fuera del formulario porque es la acción frecuente y se
+  cambia desde el tablero. Quién puede tocar qué no lo decide el formulario: lo decide el disparador
+  `app.enforce_task_update_scope` (0003), que sin `can_manage_plan` solo admite el cambio de estado.
+- **La tarjeta entera abre su ficha**, no solo el título (`propsDeApertura`, hermano de
+  `useRowLink` en el mismo fichero: misma lista de controles que se quedan con el clic, pero sin
+  `window.open` ni Ctrl/⌘, porque un diálogo no se puede abrir en otra pestaña). El título sigue
+  siendo un `<button>`: es la parada del tabulador y lo que anuncia un lector de pantalla.
 - **Ficha de persona de solo lectura** (`/personas/:id`). El departamento, el puesto, el ORCID y la
   información académica se guardaban y no había donde leerlos: en una tabla de cuatro columnas no
   caben, y cada cual solo los veía de sí mismo. La fila entera de «Personas» abre la ficha, con el
