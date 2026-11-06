@@ -290,7 +290,9 @@ export function TaskBoard({
       <TaskDetailDialog
         task={openTask}
         subtasks={openTask ? subtasksOf(openTask.id) : []}
-        siblings={rows}
+        // TODAS las tareas, subtareas incluidas: también se puede esperar a
+        // un punto de la lista de comprobación de otra tarea.
+        tasks={all}
         open={openTaskId !== null}
         onOpenChange={(v) => { if (!v) setOpenTaskId(null) }}
         onEdit={() => { setEditTaskId(openTaskId); setOpenTaskId(null) }}

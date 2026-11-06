@@ -102,3 +102,35 @@ export function topologicalOrder(ids: string[], deps: Dep[]): string[] {
   for (const id of ids) if (!salida.includes(id)) salida.push(id)
   return salida
 }
+
+/**
+ * Por qué el desplegable «Esperar a…» no tiene nada que ofrecer.
+ *
+ * POR QUÉ ES UNA FUNCIÓN Y NO UN `if` EN LA PANTALLA
+ * Un desplegable deshabilitado que dice «No hay tareas disponibles» es una
+ * puerta cerrada sin cartel: no se sabe si falta crear tareas, si ya se han
+ * elegido todas o si las que quedan crearían un círculo, y las tres cosas se
+ * arreglan de manera distinta. Son cuatro casos con una condición cada uno, y
+ * distinguirlos a ojo en el JSX es justo donde se cuelan los mensajes que
+ * mienten. Aquí se prueban.
+ *
+ * Devuelve `null` cuando SÍ hay candidatas, para que la pantalla no tenga que
+ * decidir también eso.
+ */
+export type MotivoSinCandidatas = 'SOLA' | 'YA_TODAS' | 'CICLO' | 'MEZCLA'
+
+export function motivoSinCandidatas(cuenta: {
+  /** Tareas del trabajo distintas de esta (ya sin las que no se pueden elegir). */
+  otras: number
+  /** De esas, las que ya son dependencia suya. */
+  yaDependen: number
+  /** De esas, las que crearían un círculo. */
+  ciclo: number
+}): MotivoSinCandidatas | null {
+  const { otras, yaDependen, ciclo } = cuenta
+  if (otras === 0) return 'SOLA'
+  if (yaDependen + ciclo < otras) return null
+  if (yaDependen === otras) return 'YA_TODAS'
+  if (ciclo === otras) return 'CICLO'
+  return 'MEZCLA'
+}

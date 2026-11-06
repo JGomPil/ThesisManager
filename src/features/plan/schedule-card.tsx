@@ -31,7 +31,12 @@ export function ScheduleCard({
   const [plantillaAbierta, setPlantillaAbierta] = React.useState(false)
 
   const principales = React.useMemo(() => tasks.filter((t) => t.parent_task_id === null), [tasks])
-  const ids = React.useMemo(() => principales.map((t) => t.id), [principales])
+
+  // TODAS las tareas, no solo las de primer nivel: desde que una tarea puede
+  // esperar a una subtarea, preguntar solo por las principales dejaría aristas
+  // fuera del grafo, y el Gantt ordenaría y marcaría bloqueos con un grafo
+  // incompleto sin que nada lo delate.
+  const ids = React.useMemo(() => tasks.map((t) => t.id), [tasks])
 
   const hitos = useQuery({
     queryKey: qk.milestones.byWork(workId),
@@ -75,6 +80,7 @@ export function ScheduleCard({
             }))}
             milestones={hitos.data ?? []}
             dependencies={deps.data ?? []}
+            estados={tasks.map((t) => ({ id: t.id, status: t.status }))}
           />
         )}
       </CardContent>

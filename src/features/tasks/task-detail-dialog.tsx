@@ -47,12 +47,13 @@ import type { WorkCapabilities } from '@/domain/permissions/work-capabilities'
  *    ningún campo que pueda quedar desincronizado.
  */
 export function TaskDetailDialog({
-  task, subtasks, siblings, open, onOpenChange, onEdit, caps, userId, workId, members,
+  task, subtasks, tasks, open, onOpenChange, onEdit, caps, userId, workId, members,
 }: {
   task: TaskWithAssignee | null
   subtasks: TaskWithAssignee[]
   /** Tareas de primer nivel del trabajo: candidatas a dependencia. */
-  siblings: TaskWithAssignee[]
+  /** TODAS las tareas del trabajo: candidatas a dependencia (subtareas incluidas). */
+  tasks: TaskWithAssignee[]
   open: boolean
   onOpenChange: (v: boolean) => void
   /**
@@ -252,7 +253,7 @@ export function TaskDetailDialog({
           {task.parent_task_id === null && (
             <TaskDependencies
               task={task}
-              siblings={siblings}
+              tasks={tasks}
               workId={workId}
               canManage={caps.canManagePlan}
             />

@@ -49,11 +49,21 @@ const NOMBRES = 200
 const NOMBRES_MOVIL = 104
 
 export function GanttChart({
-  tasks, milestones, dependencies,
+  tasks, milestones, dependencies, estados,
 }: {
   tasks: GanttInput[]
   milestones: MilestoneRow[]
   dependencies: Dep[]
+  /**
+   * Estados de TODAS las tareas del trabajo, subtareas incluidas.
+   *
+   * El cronograma dibuja solo las de primer nivel, pero una de ellas puede
+   * esperar a una subtarea de otra. `blockedByDependencies` trata como «no
+   * visible» —y por tanto como no bloqueante— cualquier dependencia cuyo estado
+   * no conozca, así que sin esta lista una tarea realmente bloqueada se
+   * dibujaría normal y nadie se enteraría. Si no se pasa, se usan las dibujadas.
+   */
+  estados?: { id: string; status: string }[]
 }) {
   const anchoNombres = useIsPhone() ? NOMBRES_MOVIL : NOMBRES
   const [escala, setEscala] = React.useState(1)
@@ -69,8 +79,11 @@ export function GanttChart({
   }, [tasks, dependencies])
 
   const bloqueadas = React.useMemo(
-    () => blockedByDependencies(tasks.map((t) => ({ id: t.id, status: t.status })), dependencies),
-    [tasks, dependencies],
+    () => blockedByDependencies(
+      estados ?? tasks.map((t) => ({ id: t.id, status: t.status })),
+      dependencies,
+    ),
+    [estados, tasks, dependencies],
   )
 
   const layout = React.useMemo(

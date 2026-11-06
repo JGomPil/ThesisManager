@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { blockedByDependencies, topologicalOrder, wouldCreateCycle, type Dep } from '../dependencies'
+import { blockedByDependencies, motivoSinCandidatas, topologicalOrder, wouldCreateCycle, type Dep } from '../dependencies'
 
 const dep = (a: string, b: string): Dep => ({ task_id: a, depends_on_task_id: b })
 
@@ -73,5 +73,35 @@ describe('topologicalOrder', () => {
 
   it('ignora dependencias hacia tareas fuera del conjunto', () => {
     expect(topologicalOrder(['A'], [dep('A', 'FUERA')])).toEqual(['A'])
+  })
+})
+
+/**
+ * El cartel de la puerta cerrada. Si el desplegable está deshabilitado y el
+ * motivo que se enseña no es el verdadero, se manda a la dirección a arreglar
+ * lo que no está roto.
+ */
+describe('motivoSinCandidatas', () => {
+  it('no da motivo cuando sí hay algo que elegir', () => {
+    expect(motivoSinCandidatas({ otras: 3, yaDependen: 1, ciclo: 1 })).toBeNull()
+  })
+
+  it('distingue «es la única tarea» de «ya esperas a todas»', () => {
+    expect(motivoSinCandidatas({ otras: 0, yaDependen: 0, ciclo: 0 })).toBe('SOLA')
+    expect(motivoSinCandidatas({ otras: 2, yaDependen: 2, ciclo: 0 })).toBe('YA_TODAS')
+  })
+
+  it('reconoce que lo que queda crearía un círculo', () => {
+    expect(motivoSinCandidatas({ otras: 2, yaDependen: 0, ciclo: 2 })).toBe('CICLO')
+  })
+
+  it('con las dos causas a la vez lo dice sin elegir una', () => {
+    expect(motivoSinCandidatas({ otras: 3, yaDependen: 1, ciclo: 2 })).toBe('MEZCLA')
+  })
+
+  it('«es la única» gana aunque los contadores vengan raros', () => {
+    // Si no hay otras tareas, no puede haber ni dependencias ni círculos: ese
+    // caso se contesta antes de mirar los demás contadores.
+    expect(motivoSinCandidatas({ otras: 0, yaDependen: 5, ciclo: 5 })).toBe('SOLA')
   })
 })
