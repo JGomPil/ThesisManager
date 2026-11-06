@@ -20,6 +20,7 @@ import {
   useWorkTypeStatuses, useWorkTypes,
 } from '@/hooks/use-catalogs'
 import { peopleRepo } from '@/data/repositories/people.repo'
+import { templatesRepo } from '@/data/repositories/templates.repo'
 import { statusesForWorkType } from '@/domain/works/statuses'
 import { workFormSchema, type WorkFormValues } from '@/schemas/work'
 import { useAuth } from '@/features/auth/auth-context'
@@ -58,7 +59,7 @@ export function WorkFormPage() {
       title: '', work_type_id: '', status_id: '', program_id: '', academic_year_id: '',
       research_line_id: '', start_date: '', expected_end_date: '',
       description: '', objectives: '', methodology: '', keywords: '',
-      supervisor_id: '', student_id: '',
+      supervisor_id: '', student_id: '', template_id: '',
     },
   })
 
@@ -114,6 +115,31 @@ export function WorkFormPage() {
     form.setValue('expected_end_date', format(addMonths(parseISO(startDate), months), 'yyyy-MM-dd'))
   }, [selectedType, startDate, isEdit, form])
 
+  // Plantillas aplicables al tipo que está elegido ahora mismo en el
+  // formulario. Se piden solo al crear: en la edición el plan ya existe y
+  // aplicar una plantilla encima sumaría tareas en lugar de sustituirlas, que
+  // no es lo que esperaría nadie desde un formulario de edición. Para eso está
+  // el botón del cronograma, donde se ve lo que ya hay.
+  const plantillas = useQuery({
+    queryKey: qk.templates.forWorkType(selectedTypeId),
+    queryFn: () => templatesRepo.forWorkType(selectedTypeId),
+    enabled: !isEdit && Boolean(selectedTypeId),
+  })
+
+  // Cambiar el tipo de trabajo invalida la plantilla elegida: una plantilla de
+  // TFG no se puede aplicar a una tesis, y `app.apply_template` la rechazaría
+  // (prueba [86]). Mejor que desaparezca de la vista que ofrecer algo que va a
+  // fallar al guardar.
+  React.useEffect(() => {
+    if (isEdit) return
+    const elegida = form.getValues('template_id')
+    if (!elegida) return
+    if (!(plantillas.data ?? []).some((t) => t.id === elegida)) form.setValue('template_id', '')
+  }, [plantillas.data, isEdit, form])
+
+  const plantillaElegida =
+    (plantillas.data ?? []).find((t) => t.id === form.watch('template_id')) ?? null
+
   const save = useMutation({
     mutationFn: async (values: WorkFormValues) => {
       const payload = {
@@ -159,7 +185,22 @@ export function WorkFormPage() {
           failed.push(errorMessage(e))
         }
       }
-      return { work, failed }
+      // El plan, al final y a propósito: después de la dirección, para que el
+      // trabajo ya tenga a quien planifica, y después de todo lo demás porque
+      // es lo único que se puede repetir sin consecuencias desde la ficha. La
+      // llamada en sí SÍ es atómica —o el plan entero o nada, prueba [87]—, de
+      // modo que aquí no puede quedar medio plan.
+      let creadas = 0
+      if (values.template_id) {
+        try {
+          creadas = await templatesRepo.apply(
+            work.id, values.template_id, values.start_date || undefined,
+          )
+        } catch (e) {
+          failed.push(errorMessage(e))
+        }
+      }
+      return { work, failed, creadas }
     },
     onSuccess: (result) => {
       void qc.invalidateQueries({ queryKey: qk.works.all })
@@ -168,13 +209,18 @@ export function WorkFormPage() {
         navigate(`/trabajos/${id!}`)
         return
       }
-      const { work, failed } = result as { work: { id: string }; failed: string[] }
+      const { work, failed, creadas } = result as {
+        work: { id: string }; failed: string[]; creadas: number
+      }
       void qc.invalidateQueries({ queryKey: qk.works.detail(work.id) })
+      void qc.invalidateQueries({ queryKey: qk.tasks.byWork(work.id) })
       if (failed.length > 0) {
         toast.push(
           'error',
-          `Trabajo creado, pero no se pudo asignar a algún participante: ${failed[0]}. Añádelo desde la ficha.`,
+          `Trabajo creado, pero algo no se ha podido completar: ${failed[0]}. Termínalo desde la ficha.`,
         )
+      } else if (creadas > 0) {
+        toast.push('success', `Trabajo creado con ${creadas} tarea(s) del plan.`)
       } else {
         toast.push('success', 'Trabajo creado.')
       }
@@ -325,6 +371,67 @@ export function WorkFormPage() {
                     : 'Puedes dejarlo sin asignar y completarlo cuando se confirme.'}
                 </p>
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Plan inicial. Solo al crear, por la misma razón que los
+            participantes: es lo que se sabe de entrada y obligar a crear el
+            trabajo, entrar en él y buscar un botón en otra tarjeta era el
+            camino largo para algo que se decide aquí. */}
+        {!isEdit && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Plan de trabajo</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Label htmlFor="template_id">Plantilla</Label>
+              <Select
+                id="template_id"
+                className="mt-1.5"
+                disabled={!selectedTypeId}
+                {...form.register('template_id')}
+              >
+                <option value="">Empezar sin plan</option>
+                {(plantillas.data ?? []).map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} · {t.tasks.length} tarea(s)
+                    {t.work_type ? '' : ' · cualquier tipo'}
+                  </option>
+                ))}
+              </Select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {!selectedTypeId
+                  ? 'Elige antes el tipo de trabajo: las plantillas se ofrecen según el tipo.'
+                  : plantillas.isLoading
+                    ? 'Buscando plantillas…'
+                    : (plantillas.data ?? []).length === 0
+                      ? 'No hay plantillas activas para este tipo. Se crean en Administración → Plantillas de plan.'
+                      : plantillaElegida
+                        ? `Las tareas se crearán con fechas contadas desde ${
+                            startDate
+                              ? `el ${format(parseISO(startDate), 'd/MM/yyyy')}`
+                              : 'hoy, porque el trabajo no tiene fecha de inicio'
+                          }. Puedes cambiarlas después una a una.`
+                        : 'Si eliges una, el plan se crea con el trabajo. También puedes aplicarla más tarde desde el cronograma de la ficha.'}
+              </p>
+
+              {plantillaElegida && plantillaElegida.tasks.length > 0 && (
+                <ul className="mt-2 space-y-0.5 text-xs text-muted-foreground">
+                  {plantillaElegida.tasks.slice(0, 6).map((t) => (
+                    <li key={t.id}>
+                      {t.parent_index !== null && <span aria-hidden>↳ </span>}
+                      {t.title}
+                      <span className="ml-1">
+                        (día +{t.offset_days}, {t.duration_days} día(s))
+                      </span>
+                    </li>
+                  ))}
+                  {plantillaElegida.tasks.length > 6 && (
+                    <li>…y {plantillaElegida.tasks.length - 6} más.</li>
+                  )}
+                </ul>
+              )}
             </CardContent>
           </Card>
         )}

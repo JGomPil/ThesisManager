@@ -21,6 +21,8 @@ export const workFormSchema = z
     // el caso común de alta, para no tener que crear el trabajo y volver.
     supervisor_id: z.string().uuid().or(z.literal('')).optional(),
     student_id: z.string().uuid().or(z.literal('')).optional(),
+    /** Plantilla de plan que se aplica justo después de crear el trabajo. */
+    template_id: z.string().uuid().or(z.literal('')).optional(),
   })
   .refine(
     (v) => !v.start_date || !v.expected_end_date || v.expected_end_date >= v.start_date,
