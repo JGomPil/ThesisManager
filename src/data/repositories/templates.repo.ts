@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type {
-  Database, TemplateFileRow, TemplateRow, TemplateTaskRow,
+  Database, TemplateDocumentRow, TemplateFileRow, TemplateRow, TemplateTaskRow,
 } from '@/data/types/database'
 
 type TemplateInsert = Database['public']['Tables']['templates']['Insert']
@@ -8,6 +8,8 @@ type TemplateUpdate = Database['public']['Tables']['templates']['Update']
 type TemplateTaskInsert = Database['public']['Tables']['template_tasks']['Insert']
 type TemplateTaskUpdate = Database['public']['Tables']['template_tasks']['Update']
 type TemplateFileInsert = Database['public']['Tables']['template_files']['Insert']
+type TemplateDocumentInsert = Database['public']['Tables']['template_documents']['Insert']
+type TemplateDocumentUpdate = Database['public']['Tables']['template_documents']['Update']
 
 /** Cubo privado del material de plantilla, creado por la migración 0014. */
 export const TEMPLATE_BUCKET = 'template-files'
@@ -26,7 +28,7 @@ export const TEMPLATE_BUCKET = 'template-files'
  */
 const SELECT_PLANTILLA =
   '*, work_type:work_types!templates_work_type_id_fkey(id,name,short_name)'
-  + ', tasks:template_tasks(*), files:template_files(*)'
+  + ', tasks:template_tasks(*), files:template_files(*), documents:template_documents(*)'
 
 export type TemplateWithTasks = TemplateRow & {
   work_type: { id: string; name: string; short_name: string } | null
@@ -38,6 +40,8 @@ export type TemplateWithTasks = TemplateRow & {
    * peticiones.
    */
   files: TemplateFileRow[]
+  /** Lo que hay que entregar. Ver `TemplateDocumentRow`. */
+  documents: TemplateDocumentRow[]
 }
 
 export const templatesRepo = {
@@ -51,6 +55,7 @@ export const templatesRepo = {
       ...t,
       tasks: [...(t.tasks ?? [])].sort((a, b) => a.order_index - b.order_index),
       files: [...(t.files ?? [])].sort((a, b) => a.title.localeCompare(b.title, 'es')),
+      documents: [...(t.documents ?? [])].sort((a, b) => a.order_index - b.order_index),
     }))
   },
 
@@ -72,6 +77,7 @@ export const templatesRepo = {
       ...t,
       tasks: [...(t.tasks ?? [])].sort((a, b) => a.order_index - b.order_index),
       files: [...(t.files ?? [])].sort((a, b) => a.title.localeCompare(b.title, 'es')),
+      documents: [...(t.documents ?? [])].sort((a, b) => a.order_index - b.order_index),
     }))
   },
 
@@ -129,6 +135,33 @@ export const templatesRepo = {
       .order('title')
     if (error) throw error
     return data ?? []
+  },
+
+  // ---------------------------------------------------------------------------
+  // Documentos previstos (migración 0019)
+  //
+  // Aquí SÍ se copia, al contrario que el material de referencia: al aplicar la
+  // plantilla nace un documento del trabajo y deja de depender de ella. El
+  // porqué está en `TemplateDocumentRow`.
+  // ---------------------------------------------------------------------------
+
+  addDocument: async (input: TemplateDocumentInsert): Promise<TemplateDocumentRow> => {
+    const { data, error } = await supabase
+      .from('template_documents').insert(input).select('*').single()
+    if (error) throw error
+    return data
+  },
+
+  updateDocument: async (id: string, patch: TemplateDocumentUpdate): Promise<TemplateDocumentRow> => {
+    const { data, error } = await supabase
+      .from('template_documents').update(patch).eq('id', id).select('*').single()
+    if (error) throw error
+    return data
+  },
+
+  removeDocument: async (id: string): Promise<void> => {
+    const { error } = await supabase.from('template_documents').delete().eq('id', id)
+    if (error) throw error
   },
 
   addFile: async (input: TemplateFileInsert): Promise<TemplateFileRow> => {

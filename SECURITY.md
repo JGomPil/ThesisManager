@@ -108,6 +108,7 @@ Se definen en el esquema `app`, con `search_path` fijado explícitamente
 `comments` | miembro del trabajo | INSERT: miembro; UPDATE/DELETE: solo autor |
 `notifications` | `user_id = app.uid()` | UPDATE solo del propio `read_at` |
 `profiles` | uno mismo + quien participa en un trabajo visible + lo que administre un admin (0016) | UPDATE: solo el propio perfil (o admin) |
+`template_documents` (0019) | cualquier autenticado de la organización (material común, sin datos de nadie) | **solo `ADMIN`/`OWNER`** de la organización de la plantilla |
 Catálogos (`work_types`…) | cualquier autenticado de la organización | **solo `ADMIN`/`OWNER`** |
 `keepalive` | **`anon` y `authenticated`: `USING (true)`** | nadie |
 
@@ -793,6 +794,40 @@ los trabajos que ve quien pregunta, no de todos los de esa persona. No hay nada
 que ocultar ahí, pero el pie de la tarjeta lo dice en voz alta, porque una lista
 corta que parece completa es peor que una lista corta que se declara parcial.
 
+### 5.2.unvicies · Una ficha vacía que antes solo podía ser un error
+
+La `0010` dejó escrito que un documento sin ninguna versión «no significa nada y
+ensucia el listado», y el formulario de alta llega a **borrar la ficha** si falla
+la subida del fichero, para no dejar una vacía. La `0019` le da a esa misma fila
+un significado: «previsto en el plan, todavía sin entregar». Los documentos que
+la plantilla da por previstos nacen así, a propósito.
+
+No es una contradicción, pero sí un cambio que obliga a dos cosas:
+
+- **Decirlo con palabras.** La ficha vacía lleva la insignia «pendiente de
+  entregar». Sin ella, un documento en blanco sigue pareciendo un fallo de la
+  aplicación, que es exactamente lo que era antes.
+- **Dar la salida.** Hasta ahora no había forma de subir una versión a un
+  documento existente —el alta creaba documento y v1 juntos, y ahí se acababa—,
+  así que una ficha vacía habría sido un callejón. De paso queda arreglado algo
+  que faltaba desde el principio: **no se podía subir una v2.**
+
+Lo que NO cambia es quién puede hacer qué. La versión la inserta
+`versions_insert`, que exige ser participante del trabajo y firmar con el propio
+`author_id`; el estado de revisión sigue siendo cosa de quien valida
+entregables. Y los documentos previstos los crea `app.apply_template`, que
+**sigue sin ser `security definer`** (prueba `[138]`): pasan por `docs_insert`,
+así que los crea quien podría crearlos a mano. La migración se niega a aplicarse
+si alguien le pone `security definer` —y esa comprobación nació fallando contra
+una función correcta, porque buscaba el texto «security definer» en el cuerpo de
+la función, donde aparece en un comentario que explica justo que NO lo es; se
+mira `pg_proc.prosecdef`, que es el dato y no su mención.
+
+El contenido de la plantilla no es personal —nombres de entregables— y por eso
+lo lee cualquier miembro de la organización, igual que el material de la `0014`:
+saber qué hay que entregar no es un secreto. Escribirlo sigue siendo solo de la
+administración (prueba `[136]`: un director de un trabajo **no** puede).
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.
@@ -872,7 +907,7 @@ Cada una debe ejecutarse **contra la base de datos** con el JWT del usuario corr
 desde la interfaz.
 
 > **Ya verificadas.** Las migraciones de `supabase/migrations/` se han aplicado a un
-> PostgreSQL 16 real y se ejecutan **135 pruebas** de seguridad, todas correctas:
+> PostgreSQL 16 real y se ejecutan **142 pruebas** de seguridad, todas correctas:
 > `./scripts/test-rls.sh` (detalle en `supabase/tests/README.md`). Cubren los puntos 1–6, 12 y 13
 > de la lista siguiente. Los puntos 7, 10 y 11 dependen del frontend y del despliegue, y los 8 y 9
 > del proyecto real de Supabase; se validan en la Fase 1.
@@ -885,7 +920,7 @@ desde la interfaz.
 >
 > El segundo apareció ya en producción y la suite **no** lo detectó: el `EXECUTE` que faltaba en
 > `app.has_work_capability` (§5.2.ter). Las cuatro razones por las que se escapó, y lo que se ha
-> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 135
+> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 142
 > pruebas y el runner ahora falla de verdad cuando algo va mal, que antes no lo hacía.
 
 

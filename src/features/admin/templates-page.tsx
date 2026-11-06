@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, ChevronRight, ListChecks, Paperclip, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileText, ListChecks, Paperclip, Pencil, Plus, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/app/layout/app-shell'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea } from '@/components/ui/input'
@@ -21,6 +21,7 @@ import { TASK_PRIORITIES } from '@/data/repositories/tasks.repo'
 import { useWorkRoles, useWorkTypes } from '@/hooks/use-catalogs'
 import { useAuth } from '@/features/auth/auth-context'
 import { TemplateFilesCard } from '@/features/admin/template-files-card'
+import { TemplateDocumentsCard } from '@/features/admin/template-documents-card'
 import type { TaskPriority, TemplateTaskRow } from '@/data/types/database'
 
 /**
@@ -263,6 +264,20 @@ function TemplateBody({
           templateId={template.id}
           templateTaskId={null}
           files={general}
+          onChanged={onChanged}
+        />
+      </section>
+
+      {/* Entregables ANTES de las tareas: es la lista corta y la que se decide
+          primero («esto hay que entregar»); las tareas son el camino para
+          llegar a ella. */}
+      <section className="border-t pt-3">
+        <h4 className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <FileText className="size-3.5" /> Documentos previstos
+        </h4>
+        <TemplateDocumentsCard
+          templateId={template.id}
+          documents={template.documents}
           onChanged={onChanged}
         />
       </section>

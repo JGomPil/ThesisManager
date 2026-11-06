@@ -225,6 +225,13 @@ de tipos de trabajo extensibles: concentra `work_types`, `work_statuses`, `work_
   puede decirlo. Se detecta cruzando tres indicios (puntero grueso, ancho declarado ≥ 700 px y
   —pantalla real estrecha **o** escala del viewport < 0,9) para que un iPad no lo vea nunca. Pasó
   de verdad el 6 de noviembre de 2026 y nos costó un rato con el síntoma delante.
+- **La plantilla dice qué hay que hacer y qué hay que entregar** (`0019`). Son dos cosas con ciclos
+  de vida distintos y por eso se modelan distinto: el *material de referencia* (0014) **no se
+  copia** —la tarea guarda `template_task_id` y lee de la plantilla, así una rúbrica corregida se
+  corrige para todos los trabajos en curso—, mientras que un *documento previsto* **sí se copia** al
+  aplicar la plantilla y deja de depender de ella, porque en cuanto nace es del trabajo: se
+  renombra, se le suben versiones y se revisa. El documento creado no guarda su origen a propósito:
+  guardarlo sugeriría que corregir la plantilla corrige los trabajos ya creados.
 - **Un dato que se muestra se edita donde se muestra.** Vale igual para los **hitos**: antes solo se
   podían escribir al crearlos, y una fecha mal puesta obligaba a borrar el hito y rehacerlo,
   perdiendo su marca de cumplido. En una tarjeta tan estrecha como la de hitos no caben unos

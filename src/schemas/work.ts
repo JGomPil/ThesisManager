@@ -117,6 +117,23 @@ export const documentFormSchema = z
 
 export type DocumentFormValues = z.infer<typeof documentFormSchema>
 
+/**
+ * Subir una versión a un documento que YA existe.
+ *
+ * Es `documentFormSchema` sin lo que describe el documento (nombre, tipo,
+ * descripción, tarea): eso ya está decidido y no se vuelve a preguntar. Se
+ * deriva con `pick` en lugar de escribirse a mano para que la regla «si es un
+ * enlace, escribe el enlace» no exista en dos versiones.
+ */
+export const versionFormSchema = documentFormSchema.innerType()
+  .pick({ source: true, external_url: true, version_label: true })
+  .refine((v) => v.source !== 'LINK' || Boolean(v.external_url), {
+    message: 'Escribe el enlace al documento',
+    path: ['external_url'],
+  })
+
+export type VersionFormValues = z.infer<typeof versionFormSchema>
+
 export const meetingFormSchema = z
   .object({
     title: z.string().trim().min(3, 'Indica un título').max(300),

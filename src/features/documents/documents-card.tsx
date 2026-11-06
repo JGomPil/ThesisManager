@@ -27,7 +27,10 @@ import {
 import { tasksRepo } from '@/data/repositories/tasks.repo'
 import { useDocumentTypes } from '@/hooks/use-catalogs'
 import { DocumentDetailDialog } from '@/features/documents/document-detail-dialog'
-import { documentFormSchema, type DocumentFormValues } from '@/schemas/work'
+import {
+  documentFormSchema, versionFormSchema,
+  type DocumentFormValues, type VersionFormValues,
+} from '@/schemas/work'
 import type { DocumentReviewStatus } from '@/data/types/database'
 import type { WorkCapabilities } from '@/domain/permissions/work-capabilities'
 
@@ -56,6 +59,12 @@ export function DocumentsCard({
 }) {
   const [open, setOpen] = React.useState(false)
   const [abierto, setAbierto] = React.useState<string | null>(null)
+  // El documento al que se le va a subir una versión. Hasta la 0019 no hacía
+  // falta porque todo documento nacía con su v1; ahora hay fichas vacías a
+  // propósito —los entregables previstos— y había que poder rellenarlas. De
+  // paso, arregla algo que faltaba desde el principio: no había forma de subir
+  // una v2.
+  const [versionando, setVersionando] = React.useState<string | null>(null)
   const qc = useQueryClient()
   const toast = useToast()
 
@@ -131,6 +140,7 @@ export function DocumentsCard({
               showTask={!taskId}
               comentarios={comentarios.data ?? {}}
               onOpen={() => setAbierto(d.id)}
+              onNewVersion={() => setVersionando(d.id)}
               onDownload={download}
               onArchive={() => archive.mutate(d.id)}
               onReview={(versionId, status) => review.mutate({ versionId, status })}
@@ -161,6 +171,14 @@ export function DocumentsCard({
         userId={userId}
         fixedTaskId={taskId}
       />
+
+      <NewVersionDialog
+        doc={rows.find((d) => d.id === versionando) ?? null}
+        open={versionando !== null}
+        onOpenChange={(v) => { if (!v) setVersionando(null) }}
+        workId={workId}
+        userId={userId}
+      />
     </>
   )
 
@@ -180,7 +198,7 @@ export function DocumentsCard({
 }
 
 function DocumentRowItem({
-  doc, caps, userId, showTask, comentarios, onOpen, onDownload, onArchive, onReview,
+  doc, caps, userId, showTask, comentarios, onOpen, onNewVersion, onDownload, onArchive, onReview,
 }: {
   doc: DocumentWithVersions
   caps: WorkCapabilities
@@ -189,6 +207,7 @@ function DocumentRowItem({
   /** Recuento de comentarios por versión, para no abrir a ciegas. */
   comentarios: Record<string, number>
   onOpen: () => void
+  onNewVersion: () => void
   onDownload: (path: string) => void
   onArchive: () => void
   onReview: (versionId: string, status: DocumentReviewStatus) => void
@@ -210,6 +229,11 @@ function DocumentRowItem({
             </button>
             {doc.document_type && <ToneBadge tone="slate">{doc.document_type.name}</ToneBadge>}
             {status && <ToneBadge tone={status.tone}>{status.label}</ToneBadge>}
+            {/* Una ficha sin versiones significa «previsto, todavía sin
+                entregar» desde la 0019 —antes solo podía nacer de un error—, y
+                hay que decirlo con esas palabras: un documento en blanco sin
+                explicación parece un fallo de la aplicación. */}
+            {!last && <ToneBadge tone="amber">pendiente de entregar</ToneBadge>}
             {totalComentarios > 0 && (
               <button
                 type="button"
@@ -238,6 +262,21 @@ function DocumentRowItem({
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
+          {/* Subir una versión: lo permite `versions_insert` a cualquier
+              participante del trabajo, firmando con su propio nombre. El botón
+              se destaca cuando no hay ninguna versión, porque entonces es la
+              única cosa que se espera que hagas aquí. */}
+          {caps.isMember && (
+            <Button
+              variant={last ? 'ghost' : 'outline'} size={last ? 'icon' : 'sm'}
+              className={last ? 'size-8' : undefined}
+              onClick={onNewVersion}
+              aria-label={last ? `Subir una versión de ${doc.name}` : undefined}
+              title="Subir una versión"
+            >
+              <Upload /> {!last && 'Entregar'}
+            </Button>
+          )}
           {last?.storage_path && (
             <Button
               variant="ghost" size="icon" className="size-8"
@@ -469,6 +508,163 @@ function NewDocumentDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
             <Button type="submit" loading={save.isPending}>
               {source === 'FILE' ? <Upload /> : <Link2 />} Añadir
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/**
+ * Subir una versión a un documento que ya existe.
+ *
+ * DOS COSAS QUE ARREGLA A LA VEZ
+ *  · Un entregable previsto por la plantilla (migración 0019) nace sin ninguna
+ *    versión. Sin esto sería una ficha que no se puede rellenar: un callejón.
+ *  · Y, de paso, lo que faltaba desde el principio: no había forma de subir una
+ *    v2. El alta creaba documento y primera versión juntos, y ahí se acababa.
+ *
+ * El nombre, el tipo y la tarea NO se vuelven a preguntar: ya están decididos.
+ * Por eso el formulario usa `versionFormSchema`, que es el del alta sin esos
+ * campos y con la misma regla del enlace.
+ *
+ * La etiqueta de versión se propone, no se impone: `v{n+1}` sobre las que ya
+ * hay. Quien use «Borrador 3» o «final-final» puede escribirlo, porque el campo
+ * es texto libre en la base de datos y fingir que no lo es solo añade fricción.
+ */
+function NewVersionDialog({
+  doc, open, onOpenChange, workId, userId,
+}: {
+  doc: DocumentWithVersions | null
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  workId: string
+  userId: string | null
+}) {
+  const qc = useQueryClient()
+  const toast = useToast()
+  const [file, setFile] = React.useState<File | null>(null)
+
+  const form = useForm<VersionFormValues>({
+    resolver: zodResolver(versionFormSchema),
+    defaultValues: { source: 'FILE', external_url: '', version_label: 'v1' },
+  })
+
+  // Al abrirse se propone la etiqueta y se limpia lo de la vez anterior: sin
+  // esto, subir a un documento y después a otro ofrecería el fichero del
+  // primero ya elegido.
+  React.useEffect(() => {
+    if (!open || !doc) return
+    setFile(null)
+    form.reset({
+      source: 'FILE',
+      external_url: '',
+      version_label: `v${doc.versions.length + 1}`,
+    })
+  }, [open, doc, form])
+
+  const source = form.watch('source')
+
+  const save = useMutation({
+    mutationFn: async (values: VersionFormValues) => {
+      if (!doc) throw new Error('No hay documento.')
+      if (values.source === 'FILE' && !file) throw new Error('Elige un fichero o cambia a enlace externo.')
+
+      const storage_path = values.source === 'FILE'
+        ? await documentsRepo.upload(file!, workId, doc.id)
+        : null
+
+      // Si la fila falla después de subir el fichero, el objeto queda huérfano
+      // en el cubo. NO se borra la ficha como en el alta: aquí la ficha es
+      // anterior y puede tener versiones buenas, así que destruirla sería peor
+      // que dejar un fichero suelto (que además se localiza por su ruta,
+      // `<work_id>/<document_id>/`).
+      await documentsRepo.addVersion({
+        document_id: doc.id,
+        work_id: workId,
+        version_label: values.version_label,
+        storage_path,
+        external_url: values.source === 'LINK' ? values.external_url! : null,
+        author_id: userId,
+      })
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: qk.documents.byWork(workId) })
+      toast.push('success', 'Versión añadida.')
+      onOpenChange(false)
+    },
+    onError: (e) => toast.push('error', errorMessage(e)),
+  })
+
+  if (!doc) return null
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Subir una versión</DialogTitle>
+          <DialogDescription>
+            De «{doc.name}».{' '}
+            {doc.versions.length === 0
+              ? 'Todavía no tiene ninguna: estaba previsto en el plan y queda pendiente de entregar.'
+              : `Ya tiene ${doc.versions.length}; las anteriores no se borran.`}
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={form.handleSubmit((v) => save.mutate(v))} className="space-y-3" noValidate>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="ver-source">Origen</Label>
+              <Select id="ver-source" className="mt-1.5" {...form.register('source')}>
+                <option value="FILE">Subir un fichero</option>
+                <option value="LINK">Enlace a un fichero externo</option>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="ver-label">Versión</Label>
+              <Input id="ver-label" className="mt-1.5" {...form.register('version_label')} />
+              <FieldError>{form.formState.errors.version_label?.message}</FieldError>
+            </div>
+          </div>
+
+          {source === 'FILE' ? (
+            <div>
+              <Label htmlFor="ver-file">Fichero</Label>
+              <input
+                id="ver-file"
+                type="file"
+                className="mt-1.5 block w-full rounded-md border border-input bg-background p-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-muted file:px-2 file:py-1 file:text-sm"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">Máximo 25 MB por fichero.</p>
+            </div>
+          ) : (
+            <div>
+              <Label htmlFor="ver-url">Enlace</Label>
+              <Input
+                id="ver-url" className="mt-1.5" placeholder="https://uva-my.sharepoint.com/…"
+                {...form.register('external_url')}
+              />
+              <FieldError>{form.formState.errors.external_url?.message}</FieldError>
+            </div>
+          )}
+
+          {source === 'FILE' && (
+            <p className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-2.5 text-xs">
+              <ShieldAlert className="mt-0.5 size-3.5 shrink-0 text-amber-600" />
+              <span>
+                Sube solo documentación académica. <strong>No subas datos clínicos
+                identificativos ni información de pacientes</strong>, ni más datos personales de
+                los necesarios. Aplican el RGPD y las políticas de la Universidad de Valladolid.
+              </span>
+            </p>
+          )}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            <Button type="submit" loading={save.isPending}>
+              {source === 'FILE' ? <Upload /> : <Link2 />} Subir
             </Button>
           </DialogFooter>
         </form>

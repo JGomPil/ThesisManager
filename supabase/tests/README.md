@@ -132,6 +132,13 @@ usuarios). **Es solo para pruebas**: nunca se aplica a un proyecto real.
 133 | Una ruta cuyo primer segmento no es un uuid **no la lee nadie**: no la ha generado esta aplicación |
 134 | La administración puede **retirar** una foto inapropiada pero **no subir** una en nombre de otro: moderar es retirar, no suplantar |
 135 | `anon` no ve ninguna foto |
+136 | La administración define los **documentos previstos** de una plantilla; un **director del trabajo no** puede: la plantilla es de la coordinación |
+137 | Un estudiante **sí los lee**: es material común y sin datos de nadie, saber qué hay que entregar no es un secreto |
+138 | **Aplicar la plantilla crea los documentos previstos sin ninguna versión**, con su tipo heredado. Los crea `apply_template`, que no es `security definer`: los crea quien podría crearlos a mano |
+139 | Aplicarla **dos veces no duplica los entregables**, aunque sí repita las tareas. Una tarea repetida es trabajo por hacer y se ve; dos fichas con el mismo nombre no se distinguen |
+140 | Un entregable previsto **se cumple**: el estudiante le sube su primera versión. La ficha vacía no es un callejón |
+141 | Dos entregables con el **mismo nombre** en una plantilla (distinta caja y espacios incluidos) se rechazan al definirlos, no al aplicarlos |
+142 | `anon` no ve ni escribe `template_documents` |
 
 La prueba 33 ha vuelto a ganarse el sueldo en la Fase 3. Recorre todas las funciones del
 esquema `app` y exige que `anon` no pueda ejecutar ninguna; al añadir la migración `0012` falló,

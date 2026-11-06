@@ -305,6 +305,31 @@ export type TemplateTaskRow = {
 }
 
 /**
+ * Un documento que la plantilla da por previsto: lo que hay que ENTREGAR en
+ * todos los trabajos de ese tipo (memoria, anexos, presentación de la defensa).
+ *
+ * Al aplicar la plantilla se crea un documento del trabajo con este nombre y
+ * SIN ninguna versión, que es la ficha vacía que significa «pendiente de
+ * entregar». El documento creado NO guarda de dónde salió: en cuanto nace es
+ * del trabajo —se le cambia el nombre, se le suben versiones, se revisa— y
+ * guardar el origen solo sugeriría que corregir la plantilla corrige los
+ * trabajos ya creados, que no es verdad.
+ *
+ * `is_required` se muestra y no bloquea nada: sirve para que se vea que falta.
+ */
+export type TemplateDocumentRow = {
+  id: string
+  template_id: string
+  document_type_id: string | null
+  name: string
+  description: string | null
+  is_required: boolean
+  order_index: number
+  created_by: string | null
+  created_at: string
+}
+
+/**
  * Material de referencia de una plantilla: guiones, rúbricas, formatos. Con
  * `template_task_id` cuelga de una tarea concreta; sin él, de la plantilla
  * entera. Dos orígenes posibles, como en `document_versions`: fichero en el
@@ -520,6 +545,7 @@ export type Database = {
       templates: Table<TemplateRow, Auto<TemplateRow, 'id' | 'work_type_id' | 'description' | 'is_active' | 'created_by' | 'created_at'>>
       template_tasks: Table<TemplateTaskRow, Auto<TemplateTaskRow, 'id' | 'description' | 'offset_days' | 'duration_days' | 'priority' | 'order_index' | 'parent_index' | 'assignee_role_id'>>
       template_files: Table<TemplateFileRow, Auto<TemplateFileRow, 'id' | 'template_task_id' | 'description' | 'storage_path' | 'external_url' | 'mime_type' | 'size_bytes' | 'created_by' | 'created_at'>>
+      template_documents: Table<TemplateDocumentRow, Auto<TemplateDocumentRow, 'id' | 'document_type_id' | 'description' | 'is_required' | 'order_index' | 'created_by' | 'created_at'>>
       document_comments: Table<DocumentCommentRow, Auto<DocumentCommentRow, 'id' | 'work_id' | 'created_at'>>
       keepalive: Table<KeepaliveRow, Auto<KeepaliveRow, 'id' | 'label' | 'last_ping_at' | 'note' | 'created_at'>>
     }

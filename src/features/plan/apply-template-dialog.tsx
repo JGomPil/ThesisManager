@@ -55,10 +55,22 @@ export function ApplyTemplateDialog({
 
   const aplicar = useMutation({
     mutationFn: () => templatesRepo.apply(workId, plantillaId, inicio),
+    // `apply_template` devuelve solo el número de TAREAS creadas, a propósito
+    // (migración 0019): cambiar la firma para devolver dos números obligaría a
+    // tocar el `grant` y esta pantalla, y el segundo número ya está aquí —es lo
+    // que la plantilla elegida tiene—. Se dice «hasta N» porque los documentos
+    // que ya existieran con ese nombre no se duplican.
     onSuccess: (creadas) => {
       void qc.invalidateQueries({ queryKey: qk.tasks.byWork(workId) })
       void qc.invalidateQueries({ queryKey: qk.works.detail(workId) })
-      toast.push('success', `Plan creado: ${creadas} tarea(s).`)
+      void qc.invalidateQueries({ queryKey: qk.documents.byWork(workId) })
+      const previstos = elegida?.documents.length ?? 0
+      toast.push(
+        'success',
+        previstos > 0
+          ? `Plan creado: ${creadas} tarea(s) y hasta ${previstos} documento(s) previsto(s).`
+          : `Plan creado: ${creadas} tarea(s).`,
+      )
       onOpenChange(false)
     },
     onError: (e) => toast.push('error', errorMessage(e)),
@@ -72,8 +84,8 @@ export function ApplyTemplateDialog({
         <DialogHeader>
           <DialogTitle>Aplicar una plantilla de plan</DialogTitle>
           <DialogDescription>
-            Crea las tareas de la plantilla con fechas calculadas a partir del día que elijas.
-            No borra ni modifica las tareas que ya existan.
+            Crea las tareas de la plantilla con fechas calculadas a partir del día que elijas, y
+            los documentos que haya que entregar. No borra ni modifica nada de lo que ya exista.
           </DialogDescription>
         </DialogHeader>
 
@@ -96,6 +108,7 @@ export function ApplyTemplateDialog({
                 {rows.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name} · {p.tasks.length} tarea(s)
+                    {p.documents.length > 0 ? ` · ${p.documents.length} entregable(s)` : ''}
                     {p.files.length > 0 ? ` · ${p.files.length} material(es)` : ''}
                     {p.work_type ? ` · ${p.work_type.short_name}` : ' · cualquier tipo'}
                   </option>
@@ -137,6 +150,28 @@ export function ApplyTemplateDialog({
                     )
                   })}
                 </ul>
+
+                {elegida.documents.length > 0 && (
+                  <>
+                    <p className="mb-1 mt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Y habrá que entregar
+                    </p>
+                    <ul className="space-y-1 text-sm">
+                      {elegida.documents.map((d) => (
+                        <li key={d.id} className="flex flex-wrap items-baseline gap-x-2">
+                          <span>{d.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {d.is_required ? 'obligatorio' : 'opcional'}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Aparecerán en Documentos como «pendiente de entregar». Si el trabajo ya
+                      tiene uno con el mismo nombre, no se duplica.
+                    </p>
+                  </>
+                )}
               </div>
             )}
           </div>
