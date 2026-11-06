@@ -37,7 +37,7 @@ Estado a 6 de noviembre de 2026:
 | ✅ | **Instalable como aplicación**: manifest, iconos generados (`npm run icons`), *service worker* que **nunca** sirve el HTML de caché —para que un despliegue nuevo llegue siempre— y comprobación propia en Actions (`check:pwa`), porque un icono roto no da ningún error visible |
 | ✅ | **Fotos de perfil** (`0017`): cubo privado, visibilidad **idéntica a la del nombre** por una sola función (`app.can_see_profile`), redimensionado a 256 px en el navegador e iniciales de color estable cuando no hay foto. Se ven en participantes, tareas, comentarios, personas y la barra superior |
 | ✅ | **Documentos previstos en la plantilla** (`0019`): la plantilla dice también qué hay que **entregar**, y al aplicarla aparecen en el trabajo como «pendiente de entregar», sin duplicar los que ya existan. De paso, por fin se puede **subir una v2** a un documento existente (pruebas `[136]`–`[142]`) |
-| ⏳ | **Las migraciones `0017`, `0018` y `0019` no están aplicadas al proyecto real**: hasta entonces, subir una foto fallará (no existe el cubo) y la función seguirá llamándose «Director principal» |
+| ✅ | **Las migraciones `0001`…`0019` están aplicadas al proyecto real** (comprobado el 2026-11-06: `notifications`, `document_comments` y `template_documents` responden «permission denied» a `anon`, que es el estado correcto, y una tabla inexistente da otro código) |
 | ✅ | **Ficha de persona de solo lectura** (`/personas/:id`): foto, departamento, puesto, ORCID, información académica y las relaciones académicas que ve quien mira. La fila entera de «Personas» la abre. Sin guarda de ruta: quién tiene ficha lo decide `profiles_select`, y «no visible» se ve igual que «no existe» para no poder comprobar si una cuenta existe |
 | ✅ | **«Director», no «Director principal»** (`0018`): el nombre de la función en el catálogo, con la migración escrita para **no pisar** un nombre editado a mano, y comprobada en las dos direcciones sobre el catálogo ya sembrado |
 | ✅ | **Uso desde el móvil**: los cuatro listados principales como tarjetas por debajo de 640 px, calendario que arranca en agenda, diálogos con `dvh` (iOS), cajón lateral con cuenta y salida, y campos de 16 px para que iOS no haga zoom al escribir |
@@ -83,8 +83,8 @@ Estado a 6 de noviembre de 2026:
 | ✅ | Comentarios contextuales con menciones elegidas de una lista, en el trabajo, las tareas y las reuniones |
 | ✅ | Notificaciones internas creadas por disparadores, buzón con recuento de no leídas en la barra superior |
 | ✅ | Gestión documental con versiones y estados de revisión (adelantada a la Fase 1) |
-| ⏳ | **La migración `0011` todavía no está aplicada al proyecto real de Supabase**: hasta entonces, reuniones y comentarios funcionan pero no se genera ninguna notificación |
-| ⏳ | **Las migraciones `0015` y `0016` están escritas y probadas, pero pendientes de aplicar al proyecto real**: hasta entonces, comentar un documento falla y la visibilidad de personas sigue siendo la antigua (todo el grupo se ve) |
+| ✅ | La migración `0011` está aplicada: las notificaciones se generan |
+| ✅ | Las migraciones `0015` y `0016` están aplicadas: comentar un documento funciona y la visibilidad de personas es la nueva |
 | ✅ | **Comentarios a nivel de documento** (`0015`): anclados a una **versión** concreta —que es donde significan algo para una revisión— sobre `document_comments`, no sobre `comments`. Ficha del documento con su historia de versiones y el hilo de cada una, y aviso a quien subió la versión, a quien ya había comentado y a quien valida |
 
 > **La gestión documental se adelantó a la Fase 1** el 6 de noviembre de 2026, a
@@ -184,10 +184,11 @@ Estado a 6 de noviembre de 2026:
 | | Elemento |
 |---|---|
 | ✅ | `deploy.yml`, `keepalive.yml` y `repo-activity.yml` en marcha, y aviso de `last_ping_at` en Administración (adelantado a la Fase 1, como decía esta misma sección) |
+| ⚠️ | **Restaurar sobre un proyecto de Supabase vivo no está ensayado** y no se va a ensayar por ahora (decisión de la dirección, 2026-11-06). Lo que sí está ensayado es que la copia esté completa y se restaure en un PostgreSQL limpio. El procedimiento está escrito en `BACKUP.md` §5 con lo que se espera que ocurra |
 | ✅ | **Ensayo de restauración automático** (`scripts/restore-drill.sh`): restaura una copia en un PostgreSQL desechable y comprueba las tablas del núcleo, que RLS siga activada en todas, que `anon` no ejecute nada de `app` y **que haya usuarios de autenticación**. Sale con código distinto de cero si algo falla |
 | ✅ | **Copia de los datos académicos desde la aplicación** (JSON, un clic, sin la CLI), con lo que no incluye escrito en el propio fichero |
 | ✅ | **Consultas de exportación documentadas** (`docs/EXPORTACION.md`) y ejecutadas de verdad por `scripts/check-export-queries.sh`, para que no se queden obsoletas en silencio |
-| ⏳ | El volcado completo de los datos reales lo tiene que ejecutar la administración: necesita la contraseña de la base de datos y **no puede automatizarse en este repositorio**, que es público (`BACKUP.md`) |
+| ✅ | **Primera copia real hecha y ensayada el 2026-11-06** con `backup-dump.sh`: 7 cuentas de autenticación dentro de la copia, ensayo de restauración correcto, y los ficheros de Storage comprobados contra los metadatos (1 de 1). La contraseña la teclea quien ejecuta el guion: no está en el repositorio, que es público (`BACKUP.md`) |
 
 El ensayo dejó un aviso que ningún documento daba: un volcado que no incluya el esquema `auth`
 restaura todos los datos académicos y deja la plataforma **sin nadie que pueda entrar**. Ahora lo
