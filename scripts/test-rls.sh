@@ -91,6 +91,24 @@ fi
 echo
 # Las pruebas que esperan un error lo capturan en un bloque de excepciones y
 # avisan con NOTICE, así que a estas alturas cualquier `ERROR:` es real.
+# La consulta de verificación del panel (`supabase/verify.sql`) también se
+# comprueba aquí: sobre una base recién construida TODAS sus filas tienen que
+# decir OK. Sin esto seria una consulta que nadie ha visto funcionar, ofrecida
+# justo para los momentos en los que hay dudas.
+echo "▸ Consulta de verificación del panel (supabase/verify.sql)"
+VERIFICACION="$(docker exec -i "$CONTAINER" psql -U postgres -At -F '|' < "$ROOT/supabase/verify.sql" 2>&1)"
+if printf '%s' "$VERIFICACION" | grep -q '^FALLO'; then
+  echo "▸ ERROR: verify.sql informa de fallos sobre una base recien construida:" >&2
+  printf '%s\n' "$VERIFICACION" | grep '^FALLO' | sed 's/^/    /' >&2
+  exit 1
+fi
+if [ "$(printf '%s' "$VERIFICACION" | grep -c '^OK')" -lt 10 ]; then
+  echo "▸ ERROR: verify.sql deberia devolver 10 comprobaciones y ha devuelto:" >&2
+  printf '%s\n' "$VERIFICACION" | sed 's/^/    /' >&2
+  exit 1
+fi
+echo "  · 10 comprobaciones, todas OK"
+
 FALLOS="$(grep -cE '^(ERROR|FALLO)|FALLO \[' "$SALIDA" || true)"
 EJECUTADAS="$(grep -cE '^\[[0-9]+\]' "$SALIDA" || true)"
 CORRECTAS="$(grep -c 'CORRECTO' "$SALIDA" || true)"

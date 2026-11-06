@@ -1,0 +1,117 @@
+-- =============================================================================
+-- Verificación del estado de la base de datos. SE PEGA EN EL EDITOR SQL.
+--
+-- POR QUÉ EXISTE
+-- Todas las migraciones de este proyecto terminan con comprobaciones que
+-- escriben `raise notice 'CORRECTO: …'`. En `psql` y en el arnés de pruebas se
+-- leen; en el **editor SQL del panel de Supabase, no**: ese editor descarta los
+-- avisos y responde «Success. No rows returned». Así que quien aplica una
+-- migración desde el panel —que es como se aplican aquí— no ve ninguna de las
+-- comprobaciones que acaba de ejecutar.
+--
+-- Eso no es tan grave como parece, porque un `raise exception` SÍ sale en rojo:
+-- «Success» ya significa que ninguna comprobación falló. Pero deja sin respuesta
+-- la otra pregunta, la que de verdad se hace quien está delante del panel: «¿y
+-- qué estado tengo ahora?».
+--
+-- Esta consulta la contesta DEVOLVIENDO FILAS, que es lo único que ese editor
+-- muestra. No cambia nada: solo lee catálogos del sistema.
+--
+-- CÓMO SE LEE: si alguna fila dice FALLO, ahí está el problema. Las filas de
+-- migración que digan «falta» indican que esa migración no se ha aplicado.
+--
+-- Se comprueba a sí misma en `scripts/test-rls.sh`, que exige que todas las
+-- filas salgan OK sobre una base recién construida.
+-- =============================================================================
+with comprobaciones as (
+
+  -- 1. RLS activada en todas las tablas de `public`. Si falla esto, no importa
+  --    nada de lo demás: los datos están a la vista.
+  select 1 as n, 'RLS en todas las tablas de public' as comprobacion,
+         case when count(*) = 0 then 'OK' else 'FALLO' end as estado,
+         case when count(*) = 0 then 'ninguna tabla sin RLS'
+              else 'sin RLS: ' || string_agg(c.relname, ', ') end as detalle
+    from pg_class c
+    join pg_namespace ns on ns.oid = c.relnamespace
+   where ns.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity
+
+  union all
+  -- 2. `anon` no ejecuta ninguna función del esquema `app`. Es la prueba [33].
+  select 2, 'anon no ejecuta funciones de app',
+         case when count(*) = 0 then 'OK' else 'FALLO' end,
+         case when count(*) = 0 then 'ninguna abierta a anon'
+              else 'abiertas: ' || string_agg(p.proname, ', ') end
+    from pg_proc p
+    join pg_namespace ns on ns.oid = p.pronamespace
+   where ns.nspname = 'app' and has_function_privilege('anon', p.oid, 'execute')
+
+  union all
+  -- 3. Las 18 tablas del núcleo académico.
+  select 3, 'tablas del nucleo academico',
+         case when count(*) = 18 then 'OK' else 'FALLO' end,
+         count(*) || ' de 18'
+    from unnest(array[
+      'organizations','organization_members','profiles','work_types','work_statuses',
+      'work_roles','academic_works','work_members','tasks','milestones','meetings',
+      'meeting_participants','documents','document_versions','comments','notifications',
+      'templates','template_tasks'
+    ]) t
+   where to_regclass('public.' || t) is not null
+
+  union all
+  -- 4. Migraciones que se pueden reconocer por lo que dejan.
+  select 4, 'migracion 0011 (notificaciones)',
+         case when to_regclass('public.notifications') is not null then 'OK' else 'FALLO' end,
+         case when to_regclass('public.notifications') is not null then 'tabla presente' else 'falta' end
+  union all
+  select 5, 'migracion 0015 (comentarios de version)',
+         case when exists (select 1 from pg_policies
+                            where tablename = 'document_comments' and policyname like '%version%')
+                or to_regclass('public.document_comments') is not null then 'OK' else 'FALLO' end,
+         case when to_regclass('public.document_comments') is not null then 'tabla presente' else 'falta' end
+  union all
+  select 6, 'migracion 0017 (fotos de perfil)',
+         case when exists (select 1 from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+                            where ns.nspname = 'app' and p.proname = 'can_see_profile')
+              then 'OK' else 'FALLO' end,
+         case when exists (select 1 from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+                            where ns.nspname = 'app' and p.proname = 'can_see_profile')
+              then 'app.can_see_profile presente' else 'falta' end
+  union all
+  select 7, 'migracion 0019 (documentos de plantilla)',
+         case when to_regclass('public.template_documents') is not null then 'OK' else 'FALLO' end,
+         case when to_regclass('public.template_documents') is not null then 'tabla presente' else 'falta' end
+
+  union all
+  -- 5. La 0020, que es la que acaba de aplicarse: sus tres politicas y sus dos
+  --    disparadores. Los disparadores son lo que impide cambiar el codigo de un
+  --    estado y las capacidades de un rol, asi que su ausencia es grave.
+  select 8, 'migracion 0020: politicas de escritura',
+         case when count(*) = 4 then 'OK' else 'FALLO' end,
+         count(*) || ' de 4 (' || coalesce(string_agg(policyname, ', ' order by policyname), 'ninguna') || ')'
+    from pg_policies
+   where schemaname = 'public'
+     and policyname in ('statuses_write','roles_insert','roles_update','roles_delete')
+
+  union all
+  select 9, 'migracion 0020: disparadores que cierran los permisos',
+         case when count(*) = 2 then 'OK' else 'FALLO' end,
+         count(*) || ' de 2 (' || coalesce(string_agg(tgname, ', ' order by tgname), 'ninguno') || ')'
+    from pg_trigger
+   where not tgisinternal
+     and tgname in ('work_statuses_code_inmutable','work_roles_solo_descriptivo')
+
+  union all
+  -- 6. Y que ningun rol tenga capacidades que no deba: el estudiante, ninguna.
+  select 10, 'el rol de estudiante no tiene capacidades',
+         case when count(*) = 0 then 'OK' else 'FALLO' end,
+         case when count(*) = 0 then 'correcto'
+              else 'EL ROL DE ESTUDIANTE TIENE CAPACIDADES: ' || string_agg(code, ', ') end
+    from work_roles
+   where is_student
+     and (can_manage_plan or can_see_private_notes
+          or can_validate_deliverables or can_manage_members)
+)
+select estado, comprobacion, detalle
+  from comprobaciones
+ order by case estado when 'FALLO' then 0 else 1 end, n;
