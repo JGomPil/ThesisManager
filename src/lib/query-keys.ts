@@ -36,6 +36,7 @@ export const qk = {
 
   people: {
     directory: ['people', 'directory'] as const,
+    pending: ['people', 'pending'] as const,
   },
 
   documents: {

@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { qk } from '@/lib/query-keys'
 import { keepaliveHealth, maintenanceRepo } from '@/data/repositories/maintenance.repo'
 import { cn } from '@/lib/utils'
+import { PendingAccountsCard } from '@/features/admin/pending-accounts-card'
 
 const SECTIONS = [
   {
@@ -63,6 +64,10 @@ export function AdminHomePage() {
         title="Administración"
         description="Configuración del grupo. Los permisos administrativos son independientes de las funciones académicas."
       />
+
+      {/* Lo que pide acción, antes del menú: una cuenta creada a mano no la ve
+          nadie hasta que se autoriza. */}
+      <PendingAccountsCard />
 
       <div className="grid gap-3 sm:grid-cols-2">
         {SECTIONS.map(({ to, icon: Icon, title, description }) => (

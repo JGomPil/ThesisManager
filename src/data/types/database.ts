@@ -477,6 +477,17 @@ export type Database = {
        * creadas. No lleva `security definer`, así que las políticas de `tasks`
        * siguen decidiendo quién puede planificar.
        */
+      /**
+       * Cuentas que existen pero no pertenecen a ninguna organización
+       * (migración 0013). Devuelve filas solo si quien llama administra alguna;
+       * al resto, una lista vacía. Existe porque `profiles_select` —a
+       * propósito— no deja ver a quien no comparte organización, y una cuenta
+       * creada a mano no comparte ninguna con nadie.
+       */
+      pending_accounts: {
+        Args: Record<string, never>
+        Returns: { id: string; full_name: string; email: string; created_at: string }[]
+      }
       apply_template: {
         Args: { p_work: string; p_template: string; p_start?: string | null }
         Returns: number

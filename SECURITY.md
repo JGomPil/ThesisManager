@@ -502,6 +502,54 @@ un disparador dice **qué es un dato válido** (los dos extremos, el mismo
 trabajo). Por eso la administración, que pasa la política para dos trabajos
 suyos, sigue sin poder cruzarlos (prueba `[79]`).
 
+### 5.2.terdecies · La cuenta que nadie podía ver, ni quien la acababa de crear
+
+`profiles_select` dice: «veo mi perfil, y veo los perfiles de quien comparte
+organización conmigo». Es la invariante correcta y sigue intacta. Pero tenía una
+consecuencia que no se había pensado.
+
+Al crear un usuario a mano en Authentication → Users del panel de Supabase, el
+disparador `on_auth_user_created` le crea su fila en `profiles` y nada más,
+porque la pertenencia a la organización es un acto administrativo explícito y no
+se deduce del registro (§6). Esa cuenta, por tanto, **no comparte organización
+con nadie**, y no la ve nadie: ni el directorio de Personas, ni el
+administrador que acaba de crearla. El único camino que quedaba era escribir a
+mano en `organization_members` desde el panel de Supabase. La cola de
+invitaciones cubre el camino previsto —invitar, y el alta se hace sola al
+aceptar—, pero no este.
+
+**Lo que no se hizo:** añadir a `profiles_select` un «...o soy administrador y
+el perfil no tiene organización». Habría funcionado, y habría ensanchado la
+lectura general de `profiles` para siempre y en todas las consultas de la
+aplicación. Cualquier `select` de perfiles de cualquier pantalla empezaría a
+poder devolver cuentas ajenas, y el día que alguien escriba un filtro de menos
+no se notaría.
+
+**Lo que se hizo:** una única función, `public.pending_accounts()`, que devuelve
+exactamente las cuentas sin pertenencia activa y solo si quien pregunta
+administra alguna organización. La comprobación va **dentro** de la función
+porque es `security definer`: sin ella, el `grant` a `authenticated` dejaría la
+lista de correos de las cuentas nuevas al alcance de cualquier usuario. A quien
+no administra nada se le devuelve una lista vacía y no un error, porque un error
+ya informa de que hay algo que no se puede ver.
+
+La prueba `[97]` es la que da sentido a la decisión: comprueba que el
+administrador, **por la vía normal**, sigue sin ver ese perfil. Si alguien
+ensanchara la política en el futuro, esa prueba falla. La migración `0013`
+añade además una aserción que comprueba que `profiles_select` sigue mencionando
+`shares_organization`.
+
+Autorizar la cuenta no necesitó ninguna política nueva: `org_members_write` ya
+permitía a la administración escribir filas de su organización. Lo que faltaba
+era poder **ver** a quién autorizar.
+
+**Limitación conocida.** Si este despliegue alojara varias organizaciones
+independientes, cualquier administrador vería las cuentas pendientes de todas,
+porque una cuenta sin organización no tiene nada que la vincule a una. Hoy es un
+solo grupo. La forma de acotarlo, si llega el caso, es cruzar con `invitations`
+por correo; queda escrito en la cabecera de la migración para no tener que
+volver a razonarlo.
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.
@@ -576,7 +624,7 @@ Cada una debe ejecutarse **contra la base de datos** con el JWT del usuario corr
 desde la interfaz.
 
 > **Ya verificadas.** Las migraciones de `supabase/migrations/` se han aplicado a un
-> PostgreSQL 16 real y se ejecutan **95 pruebas** de seguridad, todas correctas:
+> PostgreSQL 16 real y se ejecutan **100 pruebas** de seguridad, todas correctas:
 > `./scripts/test-rls.sh` (detalle en `supabase/tests/README.md`). Cubren los puntos 1–6, 12 y 13
 > de la lista siguiente. Los puntos 7, 10 y 11 dependen del frontend y del despliegue, y los 8 y 9
 > del proyecto real de Supabase; se validan en la Fase 1.
@@ -589,7 +637,7 @@ desde la interfaz.
 >
 > El segundo apareció ya en producción y la suite **no** lo detectó: el `EXECUTE` que faltaba en
 > `app.has_work_capability` (§5.2.ter). Las cuatro razones por las que se escapó, y lo que se ha
-> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 95
+> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 100
 > pruebas y el runner ahora falla de verdad cuando algo va mal, que antes no lo hacía.
 
 

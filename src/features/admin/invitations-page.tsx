@@ -25,6 +25,7 @@ import {
 } from '@/data/repositories/invitations.repo'
 import { invitationFormSchema, type InvitationFormValues } from '@/schemas/work'
 import { useAuth } from '@/features/auth/auth-context'
+import { PendingAccountsCard } from '@/features/admin/pending-accounts-card'
 import type { InvitationRow } from '@/data/types/database'
 
 /**
@@ -77,6 +78,10 @@ export function InvitationsPage() {
         description="El registro público está deshabilitado: nadie entra sin figurar aquí."
         actions={<Button onClick={() => setOpen(true)}><Plus /> Nueva invitación</Button>}
       />
+
+      {/* Primero lo que requiere acción: una cuenta creada a mano no la ve
+          nadie hasta que se autoriza, ni siquiera quien la creó. */}
+      <PendingAccountsCard />
 
       <div className="grid grid-cols-3 gap-3">
         <Stat label="Pendientes de enviar" value={pending.length} tone="amber" />

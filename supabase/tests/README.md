@@ -92,6 +92,11 @@ usuarios). **Es solo para pruebas**: nunca se aplica a un proyecto real.
 93 | **Retirar** una línea **no** la quita de los trabajos que la usaban: esa es la diferencia con borrar |
 94 | Un director tampoco toca titulaciones ni cursos académicos |
 95 | No puede haber dos cursos académicos marcados como actuales (índice único parcial) |
+96 | La administración **ve** una cuenta creada a mano, sin organización |
+97 | ...pero **`profiles_select` no se ha ensanchado**: por la vía normal ese perfil sigue siendo invisible. Es la prueba que justifica haber hecho una función en vez de ampliar la política |
+98 | Quien no administra nada recibe una lista **vacía**, no un error: un error diría «aquí hay algo que no puedes ver» |
+99 | Al autorizar la cuenta deja de estar pendiente y aparece en el directorio |
+100 | `anon` no puede listar cuentas pendientes |
 
 La prueba 33 ha vuelto a ganarse el sueldo en la Fase 3. Recorre todas las funciones del
 esquema `app` y exige que `anon` no pueda ejecutar ninguna; al añadir la migración `0012` falló,
