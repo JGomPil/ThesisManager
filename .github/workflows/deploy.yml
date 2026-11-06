@@ -42,9 +42,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Node 22, no 20. `@supabase/realtime-js` exige WebSocket NATIVO: con Node
+      # 20 la tanda de pruebas murió entera con «native WebSocket not found» en
+      # cuanto un fichero de pruebas importó, de rebote, `lib/supabase`. En local
+      # pasaba (Node 24 sí lo trae), y ese desfase es el problema de fondo: una
+      # comprobación local que es más débil que la de Actions no comprueba nada.
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - run: npm ci
@@ -54,6 +59,7 @@ jobs:
           npm run typecheck
           npm run lint
           npm run test -- --run
+          ./scripts/check-pure-tests.sh
 
       - name: Comprobar las pistas de los embeds de PostgREST
         # Entre dos tablas unidas por más de una clave ajena, un embed sin

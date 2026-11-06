@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 import { useAvatarUrl } from '@/lib/avatars'
+import { iniciales, tonoDe } from '@/domain/people/avatar'
 
 /**
  * Cara o iniciales. Nunca un hueco.
@@ -13,29 +14,9 @@ import { useAvatarUrl } from '@/lib/avatars'
  *
  * EL COLOR SALE DEL NOMBRE, no de una lista cíclica. Así la misma persona tiene
  * siempre el mismo color en todas las pantallas, que es lo que permite
- * reconocerla de un vistazo —el único motivo por el que esto existe—. Se reusan
- * los tonos del catálogo (`.tone-*` de globals.css), que ya están probados en
- * claro y en oscuro.
+ * reconocerla de un vistazo —el único motivo por el que esto existe—. Eso y las
+ * iniciales viven en `domain/people/avatar.ts`, puro y con pruebas.
  */
-const TONOS = ['sky', 'violet', 'emerald', 'amber', 'teal', 'pink', 'blue', 'cyan'] as const
-
-/** Hash estable y pequeño; no necesita ser criptográfico, solo repetible. */
-function tonoDe(texto: string): string {
-  let h = 0
-  for (let i = 0; i < texto.length; i += 1) h = (h * 31 + texto.charCodeAt(i)) % 100000
-  return TONOS[h % TONOS.length] ?? 'sky'
-}
-
-/** Primera letra del nombre y del último apellido: «Javier Gómez Pilar» → «JP». */
-export function iniciales(nombre: string): string {
-  const partes = nombre.trim().split(/\s+/).filter(Boolean)
-  const primera = partes[0]
-  const ultima = partes[partes.length - 1]
-  if (primera === undefined || ultima === undefined) return '?'
-  if (partes.length === 1) return primera.slice(0, 2).toUpperCase()
-  return (primera.slice(0, 1) + ultima.slice(0, 1)).toUpperCase()
-}
-
 const TAMANOS = {
   xs: 'size-6 text-[10px]',
   sm: 'size-7 text-xs',

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { iniciales } from '@/components/ui/avatar'
-import { esUrlExterna } from '@/lib/avatars'
+import { esUrlExterna, iniciales, tonoDe } from '@/domain/people/avatar'
+
+// Ni una importación de `lib/`: estas pruebas no deben levantar el cliente de
+// Supabase para comprobar cómo se abrevia un nombre. Ver la cabecera de
+// `domain/people/avatar.ts`.
 
 /**
  * Las iniciales se ven en cada tarjeta y en cada comentario, así que un caso
@@ -57,5 +60,19 @@ describe('esUrlExterna', () => {
     // foto: que caiga del lado de «ruta» y falle al firmar es lo correcto.
     expect(esUrlExterna('javascript:alert(1)')).toBe(false)
     expect(esUrlExterna('data:image/png;base64,AAA')).toBe(false)
+  })
+})
+
+describe('tonoDe', () => {
+  it('da SIEMPRE el mismo color al mismo nombre', () => {
+    // Es la razón de ser de la función: reconocer a alguien de un vistazo.
+    expect(tonoDe('Ada Lovelace')).toBe(tonoDe('Ada Lovelace'))
+  })
+
+  it('devuelve un tono del catálogo, no cualquier cosa', () => {
+    const permitidos = ['sky', 'violet', 'emerald', 'amber', 'teal', 'pink', 'blue', 'cyan']
+    for (const n of ['Ada', 'Javier Gómez Pilar', '', 'X', 'Ñoño Ñáñez']) {
+      expect(permitidos).toContain(tonoDe(n))
+    }
   })
 })

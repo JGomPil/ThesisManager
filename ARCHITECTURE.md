@@ -85,6 +85,16 @@ features/          ↛  lib/supabase.ts  (los componentes NO llaman a Supabase)
 Esto es lo que hace portable el sistema: si algún día hay que salir de Supabase, se reescribe
 `data/`, y `domain/` y la interfaz permanecen intactos.
 
+**Comprobada, no confiada** (`scripts/check-pure-tests.sh`, en el workflow). Las pruebas
+unitarias solo pueden importar de `@/domain/`; los `import type` no cuentan, porque TypeScript los
+borra y no ejecutan ningún módulo. Existe por un fallo real: una prueba de cómo se abrevian los
+nombres importaba `iniciales` de un componente, el componente importaba `lib/avatars` y este
+`lib/supabase`, **que crea el cliente al cargarse**. En local pasó —Node 24 trae WebSocket
+nativo—; en Actions, con Node 20, la tanda entera murió con «native WebSocket not found» y el
+despliegue se quedó sin hacer. Dos lecciones: si una función merece pruebas, es lógica y su sitio
+es `domain/`; y una comprobación local más débil que la de Actions no comprueba nada (ahora las
+dos usan Node 22).
+
 ## 4. Pila técnica
 
 | Capa | Elección | Motivo |

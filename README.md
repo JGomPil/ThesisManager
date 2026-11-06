@@ -14,7 +14,7 @@ código.
 >   quedarse en blanco.
 > - Migraciones `0001…0016` aplicadas en el proyecto real; la `0017` (fotos de perfil) está
 >   escrita y probada, **pendiente de aplicar**. 135 pruebas de seguridad contra PostgreSQL 16 y
->   82 pruebas unitarias del dominio.
+>   84 pruebas unitarias del dominio.
 > - Progreso detallado en [`ROADMAP.md`](ROADMAP.md); decisiones técnicas en
 >   [`docs/FASE_0.md`](docs/FASE_0.md).
 
@@ -75,6 +75,7 @@ npm run test:rls         # pruebas de seguridad en PostgreSQL desechable (requie
 npm run check:secrets    # verifica que dist/ no publica credenciales privilegiadas
 npm run check:embeds     # embeds de PostgREST que necesitan pista explícita
 npm run check:export     # ejecuta las consultas de docs/EXPORTACION.md contra el esquema
+npm run check:pure       # las pruebas unitarias no importan infraestructura
 npm run drill            # ensaya la restauración de una copia (sin argumento: autoprueba)
 ```
 

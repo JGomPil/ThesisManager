@@ -7,16 +7,11 @@ export const AVATARS_BUCKET = 'avatars'
 /** Duración de la URL firmada. Una hora: la pantalla se mira, no se guarda. */
 const VIGENCIA = 3600
 
-/**
- * `profiles.avatar_url` guarda, pese a su nombre, la RUTA dentro del cubo
- * privado (`<user_id>/<fichero>`), no una URL. La razón está en la cabecera de
- * la migración 0017: la URL de un cubo privado va firmada y caduca, así que
- * guardarla sería guardar algo que mañana no funciona.
- *
- * Se admite también una URL `http(s)` por si algún perfil tuviera ya una
- * externa; en ese caso se usa tal cual y no hay nada que firmar.
- */
-export const esUrlExterna = (valor: string): boolean => /^https?:\/\//i.test(valor)
+// `esUrlExterna` es pura y vive en el dominio (lo importan las pruebas, que no
+// deben arrastrar el cliente de Supabase). Se reexporta para que quien ya la
+// importaba de aquí no tenga que cambiar.
+export { esUrlExterna } from '@/domain/people/avatar'
+import { esUrlExterna } from '@/domain/people/avatar'
 
 // -----------------------------------------------------------------------------
 // Firma AGRUPADA
