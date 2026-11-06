@@ -347,6 +347,16 @@ export function WorkRolesCard() {
           migración, que queda escrita, revisable y con sus pruebas. La «clasificación» no concede
           acceso a nada: sirve para contar cuántos directores tiene un trabajo y si tiene estudiante.
         </p>
+        <p className="text-xs text-muted-foreground">
+          El «orden» es solo la posición: de menor a mayor, decide en qué sitio sale cada rol
+          en los desplegables donde se elige uno —al añadir un participante a un trabajo y al
+          asignar un rol a una tarea de plantilla—. No concede acceso a nada y no ordena la
+          lista de participantes de un trabajo, que va por orden de incorporación. Tiene un
+          efecto menos visible: al crear un trabajo, el rol que recibe la persona marcada como
+          estudiante es el PRIMERO con clasificación «estudiante» según este orden, y el de la
+          dirección, el primero con capacidad para gestionar participantes. Si algún día hay dos
+          roles de estudiante, este número decide cuál se usa.
+        </p>
       </form>
     </div>
   )
