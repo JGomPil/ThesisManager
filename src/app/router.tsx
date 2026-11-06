@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { supabaseConfigured } from '@/lib/supabase'
 import { ConfigurationScreen } from '@/app/configuration-screen'
 import { AppShell, PendingApprovalScreen } from '@/app/layout/app-shell'
+import { DesktopSiteNotice } from '@/app/layout/desktop-site-notice'
 import { useAuth } from '@/features/auth/auth-context'
 import { LoginPage } from '@/features/auth/login-page'
 import { ResetPasswordPage } from '@/features/auth/reset-password-page'
@@ -60,44 +61,50 @@ export function Router() {
   if (!supabaseConfigured) return <ConfigurationScreen />
 
   return (
-    // basename = el subdirectorio de GitHub Pages (/ThesisManager/).
-    <BrowserRouter basename={import.meta.env.BASE_URL}>
-      <Routes>
-        <Route path="/acceso" element={<PublicOnly><LoginPage /></PublicOnly>} />
-        <Route path="/restablecer" element={<ResetPasswordPage />} />
+    <>
+      {/* Fuera del enrutador a propósito: el aviso tiene que verse también en
+          la pantalla de acceso, que es la primera que ve alguien que entra por
+          primera vez desde el móvil —y justo cuando decide si esto funciona. */}
+      <DesktopSiteNotice />
+      {/* basename = el subdirectorio de GitHub Pages (/ThesisManager/). */}
+      <BrowserRouter basename={import.meta.env.BASE_URL}>
+        <Routes>
+          <Route path="/acceso" element={<PublicOnly><LoginPage /></PublicOnly>} />
+          <Route path="/restablecer" element={<ResetPasswordPage />} />
 
-        <Route element={<RequireAuth><AppShell /></RequireAuth>}>
-          <Route index element={<DashboardPage />} />
-          <Route path="trabajos" element={<WorksListPage />} />
-          <Route path="trabajos/nuevo" element={<RequireAdmin><WorkFormPage /></RequireAdmin>} />
-          <Route path="trabajos/:id" element={<WorkDetailPage />} />
-          <Route path="trabajos/:id/editar" element={<WorkFormPage />} />
-          <Route path="calendario" element={<CalendarPage />} />
-          {/* Los informes NO llevan guarda de administración: cada cual ve los
-              indicadores de sus propios trabajos, que es lo que RLS le
-              devuelve. Reservarlos a la administración escondería a un director
-              el seguimiento de los trabajos que dirige. */}
-          <Route path="informes" element={<ReportsPage />} />
-          <Route path="informes/trabajo/:id" element={<WorkReportPage />} />
-          <Route path="personas" element={<PeoplePage />} />
-          <Route path="perfil" element={<ProfilePage />} />
-          <Route path="admin" element={<RequireAdmin><AdminHomePage /></RequireAdmin>} />
-          <Route path="admin/tipos" element={<RequireAdmin><WorkTypesPage /></RequireAdmin>} />
-          <Route path="admin/invitaciones" element={<RequireAdmin><InvitationsPage /></RequireAdmin>} />
-          <Route path="admin/archivados" element={<RequireAdmin><ArchivedWorksPage /></RequireAdmin>} />
-          <Route path="admin/plantillas" element={<RequireAdmin><TemplatesPage /></RequireAdmin>} />
-          <Route path="admin/catalogos" element={<RequireAdmin><CatalogsPage /></RequireAdmin>} />
-          <Route
-            path="*"
-            element={
-              <EmptyState
-                title="Página no encontrada"
-                description="La dirección no corresponde a ninguna sección de la aplicación."
-              />
-            }
-          />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+          <Route element={<RequireAuth><AppShell /></RequireAuth>}>
+            <Route index element={<DashboardPage />} />
+            <Route path="trabajos" element={<WorksListPage />} />
+            <Route path="trabajos/nuevo" element={<RequireAdmin><WorkFormPage /></RequireAdmin>} />
+            <Route path="trabajos/:id" element={<WorkDetailPage />} />
+            <Route path="trabajos/:id/editar" element={<WorkFormPage />} />
+            <Route path="calendario" element={<CalendarPage />} />
+            {/* Los informes NO llevan guarda de administración: cada cual ve los
+                indicadores de sus propios trabajos, que es lo que RLS le
+                devuelve. Reservarlos a la administración escondería a un director
+                el seguimiento de los trabajos que dirige. */}
+            <Route path="informes" element={<ReportsPage />} />
+            <Route path="informes/trabajo/:id" element={<WorkReportPage />} />
+            <Route path="personas" element={<PeoplePage />} />
+            <Route path="perfil" element={<ProfilePage />} />
+            <Route path="admin" element={<RequireAdmin><AdminHomePage /></RequireAdmin>} />
+            <Route path="admin/tipos" element={<RequireAdmin><WorkTypesPage /></RequireAdmin>} />
+            <Route path="admin/invitaciones" element={<RequireAdmin><InvitationsPage /></RequireAdmin>} />
+            <Route path="admin/archivados" element={<RequireAdmin><ArchivedWorksPage /></RequireAdmin>} />
+            <Route path="admin/plantillas" element={<RequireAdmin><TemplatesPage /></RequireAdmin>} />
+            <Route path="admin/catalogos" element={<RequireAdmin><CatalogsPage /></RequireAdmin>} />
+            <Route
+              path="*"
+              element={
+                <EmptyState
+                  title="Página no encontrada"
+                  description="La dirección no corresponde a ninguna sección de la aplicación."
+                />
+              }
+            />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </>
   )
 }

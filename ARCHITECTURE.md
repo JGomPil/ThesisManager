@@ -202,6 +202,17 @@ de tipos de trabajo extensibles: concentra `work_types`, `work_statuses`, `work_
   Gantt). Esconder sigue siendo trabajo de las clases.
 - **16 px en los campos de formulario por debajo de `sm:`**: Safari en iOS hace zoom al enfocar un
   campo con letra menor y no lo deshace al salir.
+- **Aviso de «sitio para ordenador»** (`DesktopSiteNotice`). Con ese ajuste del navegador, el
+  móvil declara ~980 px de ancho y la página se encoge para caber: todo se ve diminuto y, peor,
+  **nada de lo responsive se aplica**, porque las reglas miran el ancho declarado. Es un ajuste
+  por sitio que sobrevive a cualquier despliegue, así que la aplicación no puede deshacerlo: solo
+  puede decirlo. Se detecta cruzando tres indicios (puntero grueso, ancho declarado ≥ 700 px y
+  —pantalla real estrecha **o** escala del viewport < 0,9) para que un iPad no lo vea nunca. Pasó
+  de verdad el 6 de noviembre de 2026 y nos costó un rato con el síntoma delante.
+- **El tamaño base NO se toca en móvil.** Se probó subirlo a 17,5 px (+9 %) y en un teléfono real
+  se veía demasiado grande: cabía menos en cada pantalla, que en un móvil se paga en
+  desplazamiento. La palanca queda documentada en `globals.css` con su resultado, para no repetir
+  la prueba.
 
 ## 8. Limitaciones asumidas
 

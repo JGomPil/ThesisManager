@@ -84,12 +84,19 @@
      Es deliberado hacerlo así y no retocar cien clases: un `text-sm` suelto
      cambiado a mano se desalinea con el `gap` de al lado, y además habría que
      acertar cien veces. Aquí hay un solo número que se puede subir o bajar.
-     El valor es moderado (+9 %) porque el diseño se pensó para 14 px y pasarse
-     hace que quepa menos en cada pantalla, que en un móvil también se paga.
+     PROBADO Y DESCARTADO: se subió a 17,5 px (+9 %) y en un teléfono real se
+     veía demasiado grande —cabía bastante menos en cada pantalla, que en un
+     móvil se paga en desplazamiento—, así que se volvió al base de 16 px. La
+     palanca queda documentada aquí, con su resultado, para no repetir la
+     prueba: si algún día hace falta, es UNA regla y un número.
+
+         @media (max-width: 639px) { html { font-size: 17.5px; } }
+
+     Lo que de verdad hacía ilegible la interfaz en el móvil no era el tamaño:
+     era el ajuste «sitio para ordenador» del navegador, que declara 980 px de
+     ancho y encoge la página entera para que quepa. Eso lo avisa ahora
+     `DesktopSiteNotice`.
      =========================================================================== */
-  @media (max-width: 639px) {
-    html { font-size: 17.5px; }
-  }
 
   * { @apply border-border; }
 
