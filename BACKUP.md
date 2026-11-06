@@ -23,25 +23,43 @@ Lo valioso y frágil es la base de datos. Los ficheros grandes están fuera por 
 
 ### 2.1. Con el guion (procedimiento recomendado)
 
+**Una sola orden, y hace la copia entera:**
+
 ```bash
-./scripts/backup-dump.sh                      # pregunta región y contraseña
-./scripts/backup-dump.sh eu-west-3 ~/copias   # si ya se saben
+cd ~/ThesisManager
+./scripts/backup-dump.sh eu-west-1
 ```
 
-Pide la contraseña sin que se vea ni quede en el historial, construye la cadena de
-conexión, vuelca los cuatro esquemas y **ensaya la copia acto seguido** con
-`restore-drill.sh` (§5.0). No hace falta instalar PostgreSQL ni la CLI de Supabase:
-usa `pg_dump` dentro de Docker. Se niega a escribir dentro del repositorio.
+Por orden: pide la contraseña de la base de datos sin que se vea, vuelca los cuatro
+esquemas, **ensaya la restauración** (§5.0), y después pide el correo y la contraseña
+de **tu cuenta de la plataforma** para descargar los ficheros de Storage y comprobar
+que no falte ninguno (§4). Son dos contraseñas distintas y las pide en ese orden.
+
+Deja las dos piezas juntas en `~/copias-thesis-manager`:
+
+```
+thesis-manager-20261106-2041.sql   la base de datos
+storage-20261106/                  los ficheros
+```
+
+**Solo sirven juntas.** El `.sql` sin los ficheros deja las fotos y los documentos
+apuntando a la nada; los ficheros sin el `.sql` no tienen dueño ni trabajo al que
+pertenecer. Lo que se lleva al pincho o a la unidad institucional es **la carpeta
+entera**.
+
+Con `--sin-ficheros` se queda solo en la base de datos, y entonces avisa de que la
+copia no está completa. No hace falta instalar PostgreSQL ni la CLI de Supabase: usa
+`pg_dump` dentro de Docker. Se niega a escribir dentro del repositorio.
 
 Los dos únicos datos que hay que tener a mano:
 
 - **La contraseña de la base de datos**: panel → *Settings → Database*. Si no se
   recuerda, se restablece ahí mismo sin consecuencias: la aplicación **no la usa**
   (entra con la clave pública `anon`), así que cambiarla no rompe nada.
-- **La región del proyecto**: aparece en el panel, en la página del proyecto, junto
-  a su nombre. No se puede deducir desde fuera: las cabeceras HTTP de la API
-  devuelven el nodo de Cloudflare más cercano a quien pregunta, no la región de
-  Supabase.
+- **La región del proyecto**, que para este proyecto es `eu-west-1`. Aparece en el
+  panel, en la página del proyecto. No se puede deducir desde fuera: las cabeceras
+  HTTP de la API devuelven el nodo de Cloudflare más cercano a quien pregunta, no la
+  región de Supabase.
 
 ### 2.2. A mano, si se prefiere
 
@@ -178,13 +196,52 @@ psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f thesis-manager
 
 ### En un proyecto nuevo de Supabase (desastre)
 
-1. Crear proyecto nuevo (región UE).
-2. Restaurar el volcado completo con `psql` o `pg_restore`.
-3. Reconfigurar `Authentication`: registro público desactivado, URLs de redirección, SMTP.
-4. Actualizar los *secrets* `SUPABASE_URL` y `SUPABASE_ANON_KEY` en GitHub.
-5. Volver a desplegar (`deploy.yml` → *Run workflow*).
-6. Ejecutar `keepalive.yml` manualmente y comprobar que responde 200.
-7. Verificar RLS: sin sesión, `academic_works` devuelve 0 filas.
+Antes de nada: **si el proyecto solo está pausado por inactividad, esto no hace
+falta** (ver más abajo). Esto es para cuando el proyecto ya no está.
+
+1. **Ensayar la copia que se va a usar**, antes de tocar nada:
+   `./scripts/restore-drill.sh ~/copias-thesis-manager/thesis-manager-FECHA.sql`.
+   Si esa copia estuviera mal, mejor saberlo antes de haber creado el proyecto nuevo.
+2. **Crear un proyecto nuevo** en Supabase, región `eu-west-1`, y anotar su
+   identificador. Guardar la contraseña de base de datos que se elija.
+3. **Restaurar el volcado completo** con `psql`, desde el *session pooler* del
+   proyecto NUEVO:
+
+   ```bash
+   docker run --rm -v ~/copias-thesis-manager:/c postgres:17-alpine \
+     psql "postgresql://postgres.<REF-NUEVO>:<PASS>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres" \
+     -f /c/thesis-manager-FECHA.sql 2>&1 | tee ~/restauracion.log
+   ```
+
+   **Van a salir errores, y la mayoría son normales.** Un proyecto de Supabase ya
+   trae los esquemas `auth` y `storage` creados, así que todos los `CREATE ...
+   already exists` de esos dos esquemas son ruido esperado: lo que importa es que
+   entren los datos. Lo que **no** es normal es un error en una tabla de `public` o
+   en un `COPY`; para eso se guarda el registro con `tee`.
+4. **Comprobar lo restaurado** antes de seguir: `select count(*) from
+   academic_works;` y `select count(*) from auth.users;` en el editor SQL. Si
+   `auth.users` sale vacía, nadie podrá entrar y hay que repetir ese trozo.
+5. **Volver a subir los ficheros de Storage**: el volcado trae los metadatos y no
+   los bytes (§4), así que mientras no se suban, las fotos y los documentos apuntan
+   a ficheros que no existen. Con una copia pequeña se hace desde la propia
+   aplicación, subiendo de nuevo cada fichero de `storage-FECHA/`.
+6. **Reconfigurar `Authentication`**: registro público desactivado, URLs de
+   redirección, SMTP. Esto no viaja en el volcado.
+7. **Cambiar los *secrets* de GitHub** `SUPABASE_URL` y `SUPABASE_ANON_KEY` por los
+   del proyecto nuevo, y `.env.local` en el portátil.
+8. **Volver a desplegar** (*Actions → Deploy to GitHub Pages → Run workflow*) y
+   ejecutar `keepalive.yml` a mano, comprobando que responde 200.
+9. **Verificar que RLS protege**: sin sesión, `academic_works` devuelve 0 filas. Si
+   devolviera filas, la restauración ha dejado el proyecto abierto.
+
+> **Lo que está ensayado y lo que no.** Los pasos 1 y la integridad de la copia están
+> ensayados de verdad y en automático: `restore-drill.sh` restaura la copia en un
+> PostgreSQL limpio y comprueba las tablas, RLS, los privilegios de `anon`, que haya
+> usuarios y que las funciones de `app` estén. Lo que **no** se ha ensayado nunca es
+> el paso 3 contra un proyecto de Supabase vivo, donde `auth` y `storage` ya existen.
+> El plan gratuito permite dos proyectos, así que se puede ensayar creando uno de
+> usar y tirar y borrándolo después. Hasta que se haga, ese paso es el único de esta
+> lista que es teoría.
 
 ### Proyecto pausado por inactividad
 

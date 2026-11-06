@@ -29,13 +29,22 @@
 #   ./scripts/backup-dump.sh eu-west-3 ~/copias    # y carpeta de destino
 #   SUPABASE_DB_URL="postgresql://..." ./scripts/backup-dump.sh
 #                                                  # cadena completa, si la tienes
+#   ./scripts/backup-dump.sh eu-west-3 --sin-ficheros   # solo la base de datos
 # =============================================================================
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 IMAGE=postgres:17-alpine          # el cliente debe ser >= que el servidor
-REGION="${1:-}"
-DESTINO="${2:-$HOME/copias-thesis-manager}"
+ARGS=()
+SIN_FICHEROS=0
+for a in "$@"; do
+  case "$a" in
+    --sin-ficheros) SIN_FICHEROS=1 ;;
+    *) ARGS+=("$a") ;;
+  esac
+done
+REGION="${ARGS[0]:-}"
+DESTINO="${ARGS[1]:-$HOME/copias-thesis-manager}"
 
 # El identificador del proyecto no es un secreto (va en la URL pública de la
 # API), así que se lee de `.env.local` y, si no está, se pregunta.
@@ -205,6 +214,30 @@ echo "  · $(du -h "$DESTINO/$FICHERO" | cut -f1), permisos 600"
 # -----------------------------------------------------------------------------
 echo
 "$ROOT/scripts/restore-drill.sh" "$DESTINO/$FICHERO"
+
+# -----------------------------------------------------------------------------
+# Y los ficheros de Storage, que NO van en un volcado SQL
+#
+# Se hace aquí y no en una orden aparte porque aquí ya se sabe el nombre del
+# volcado con el que hay que comparar, y porque una copia en dos ordenes es una
+# copia en la que algun dia se olvida la segunda. Pide la contraseña de la
+# CUENTA (otra distinta), asi que se puede saltar con --sin-ficheros.
+# -----------------------------------------------------------------------------
+if [ "${SIN_FICHEROS:-0}" = "1" ]; then
+  echo
+  echo "▸ Ficheros de Storage: omitidos (--sin-ficheros)."
+  echo "  La copia NO está completa hasta que se ejecute:"
+  echo "  python3 scripts/backup-storage.py $DESTINO/storage-$(date +%Y%m%d) --segun-volcado $DESTINO/$FICHERO"
+elif command -v python3 >/dev/null 2>&1; then
+  echo
+  if ! python3 "$ROOT/scripts/backup-storage.py" "$DESTINO/storage-$(date +%Y%m%d)" \
+       --segun-volcado "$DESTINO/$FICHERO"; then
+    echo >&2
+    echo "▸ LA BASE DE DATOS SÍ ESTÁ COPIADA Y ENSAYADA: $DESTINO/$FICHERO" >&2
+    echo "  Lo que ha fallado son los FICHEROS. La copia no está completa." >&2
+    exit 1
+  fi
+fi
 
 echo
 echo "▸ La copia está en: $DESTINO/$FICHERO"
