@@ -186,8 +186,23 @@ Created deployment for a4ab112…, ID: a4ab112…
 **El identificador del despliegue de Pages es el SHA del commit.** Si ese
 despliegue quedó cancelado, volver a lanzar el mismo trabajo intenta crear uno
 con el mismo identificador y nace cancelado. Por eso `gh run rerun --failed` no
-arregla este fallo concreto: hace falta **un commit nuevo** —cualquiera, aunque
-solo toque documentación— para que haya un identificador distinto.
+arregla este fallo concreto: hace falta un SHA distinto.
+
+Y aquí está la trampa, porque se cayó en ella: **un commit de solo documentación
+no vale**. Este workflow tiene `paths-ignore: ['maintenance/**', '**/*.md']`, así
+que un commit que solo toca `.md` no lanza nada y se queda esperando un
+despliegue que nunca iba a existir. Las dos salidas correctas son:
+
+```bash
+# a) lanzarlo a mano sobre el commit actual (lo normal en este caso)
+gh workflow run "Deploy to GitHub Pages" --ref main
+
+# b) o un commit que toque de verdad el frontend
+```
+
+Sobre (a): el comentario de la cabecera de `deploy.yml` advierte de no usar
+`workflow_dispatch` sobre un commit que **acabas de empujar**, porque se crearían
+dos despliegues del mismo SHA. Aquí no aplica: el *push* no había lanzado nada.
 
 ### Lo importante: un `200` no prueba nada
 
@@ -195,12 +210,26 @@ Al fallar la publicación, la web **sigue sirviendo la versión anterior**, así
 responde `HTTP 200` con normalidad. Comprobar un despliegue con un código de
 estado es comprobar que GitHub Pages está vivo, no que tu versión esté arriba.
 
-Lo que sí lo prueba es el nombre del paquete, que lleva el *hash* del contenido:
+Lo que sí lo prueba es **qué contiene** el paquete publicado. El nombre lleva el
+*hash* del contenido, así que lo primero es ver si ha cambiado respecto al de
+antes del despliegue:
 
 ```bash
 curl -s https://jgompil.github.io/ThesisManager/ | grep -o 'assets/index-[A-Za-z0-9_-]*\.js'
-ls dist/assets/ | grep '^index-.*\.js$'
 ```
 
-Si los dos nombres no coinciden, lo publicado no es lo que acabas de construir,
-responda lo que responda el servidor.
+Cuidado con la comparación «fácil»: **el nombre publicado no tiene por qué
+coincidir con el de tu `dist/` local**, aunque el código sea idéntico. El de
+Actions se construye con `npm ci` en otra máquina y otra versión de Node, y eso
+basta para cambiar el *hash*. Compararlos y ver que difieren no demuestra nada.
+
+La comprobación que sí vale es buscar en el paquete publicado algo que solo
+exista en la versión nueva —un texto de la interfaz recién añadido—:
+
+```bash
+curl -s https://jgompil.github.io/ThesisManager/assets/index-XXXX.js \
+  | grep -c 'Cerrar el menú'      # 1 = la versión nueva está arriba
+```
+
+Un texto visible sirve de testigo porque el minificador no lo toca: renombra
+variables, no cadenas.
