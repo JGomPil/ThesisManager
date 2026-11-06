@@ -71,6 +71,11 @@ export const qk = {
     taskFiles: (templateTaskId: string) => ['templates', 'task-files', templateTaskId] as const,
   },
 
+  reports: {
+    snapshot: (filters: unknown) => ['reports', 'snapshot', filters] as const,
+    work: (workId: string) => ['reports', 'work', workId] as const,
+  },
+
   calendar: (from: string, to: string) => ['calendar', from, to] as const,
 
   invitations: ['invitations'] as const,

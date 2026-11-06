@@ -619,6 +619,34 @@ De ahí que las dos reglas convivan sin contradecirse: para tablas basta el
 `revoke` por defecto de la `0006`; para funciones hace falta el `revoke` en
 bloque inmediato al final de cada migración que cree alguna.
 
+### 5.2.sexdecies · Un informe se imprime, y lo impreso circula
+
+Los informes de la Fase 4 no añaden ni una política: se calculan sobre lo que RLS
+ya devuelve. Pero son la primera pantalla pensada para salir de la aplicación —a
+una impresora, a un PDF, a un correo— y eso obliga a dos decisiones que no son
+de permisos sino de qué se pone en un papel.
+
+**1. La ficha de seguimiento de un trabajo NO incluye notas privadas de reunión.**
+La política `notes_select` ya se las niega a quien no debe verlas, así que esto no
+corrige un agujero: se las niega también a quien SÍ puede leerlas. Un documento
+hecho para circular no es sitio para lo que se escribió para no circular, y la
+diferencia entre «leerlo en pantalla» y «llevarlo impreso a una comisión» es
+precisamente la que la nota privada existe para mantener. El informe lleva las
+actas compartidas, que el estudiante también ve, y lo dice en el pie del
+apartado.
+
+**2. Los informes no están reservados a la administración.** Habría sido lo
+cómodo, y habría sido peor: un director no podría ver el seguimiento de los
+trabajos que dirige. La ruta no lleva `RequireAdmin` porque no hace falta —las
+cifras se calculan sobre las filas que RLS entrega—, de modo que cada cual ve un
+panel de sus propios trabajos y la administración ve el del grupo. Lo que sí hace
+la pantalla es **decirlo**: sin esa frase, un panel de indicadores se lee como un
+total institucional, y una regla de permisos se convertiría en un error de dato.
+
+**3. El CSV no exporta nada que no esté en la pantalla.** Sale de las mismas filas
+ya cargadas, no de una consulta nueva y más ancha, que es la forma habitual de
+que una exportación acabe conteniendo más de lo que la pantalla mostraba.
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.

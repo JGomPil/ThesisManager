@@ -19,7 +19,7 @@ Estado a 6 de noviembre de 2026:
 | ✅ | Andamiaje Vite + React + TS + Tailwind, `base` y `404.html`, build verificado |
 | ✅ | Capa de acceso a datos (repositorios) y tipos de la base de datos |
 | ✅ | Autenticación PKCE, guardas de ruta, recuperación de contraseña, pantalla de cuenta pendiente |
-| ✅ | Dominio puro con 20 pruebas unitarias (capacidades, progreso, estados por tipo) |
+| ✅ | Dominio puro con pruebas unitarias (capacidades, progreso, estados por tipo; 72 en total hoy) |
 | ✅ | Administración del catálogo de tipos de trabajo (crear, editar, desactivar) |
 | ✅ | Administración de los catálogos planos: líneas de investigación, titulaciones y cursos académicos, con la diferencia entre **retirar** y **borrar** explicada en pantalla (pruebas `[90]`–`[95]`) |
 | ✅ | Trabajos: listado con filtros, ficha, alta y edición, cambio de estado |
@@ -143,13 +143,31 @@ la `0002`: los ciclos de dependencias se «validaban en aplicación», una tarea
 una tarea de otro trabajo, y el `alter default privileges` de la `0007` no protegía las funciones
 futuras (`SECURITY.md` §5.2.decies a §5.2.duodecies).
 
-## Fase 4 — Informes y analítica
+## Fase 4 — Informes y analítica · **implementada**
 
-Indicadores · gráficos (Recharts) · informe por estudiante y por trabajo · informe global ·
-exportación a PDF y Excel · consultas de exportación documentadas.
+Estado a 6 de noviembre de 2026:
+
+| | Elemento |
+|---|---|
+| ✅ | **Panel de indicadores**: trabajos, en curso, terminados, con retraso y sin planificación, con filtros por tipo, estado, curso y archivados |
+| ✅ | **Cuatro gráficos** (Recharts, en un paquete aparte cargado solo al abrir los informes): por tipo, por estado, carga por dirección y progreso de los trabajos en curso |
+| ✅ | **Informe trabajo por trabajo** en tabla, y **ficha de seguimiento de un trabajo** pensada para imprimirse: datos académicos, las dos cifras de progreso, hitos, plan, actas y documentos |
+| ✅ | **Informe por estudiante y por dirección**, con la misma persona apareciendo en los dos cuando corresponde (roles no excluyentes) |
+| ✅ | **Exportación a CSV** (separador `;` y BOM de UTF-8, que es lo que Excel en español necesita) y **a PDF por la impresión del navegador**, sin meter un generador de PDF en el paquete |
+| ✅ | **Aviso si el servidor recorta las listas**: un informe con totales incompletos parecería bueno, así que se dice en vez de mostrar la cifra |
+| ⏸ | Exportación a `.xlsx` nativo: descartada por ahora. Son unos 400 kB de biblioteca para lo que el CSV ya abre en Excel |
+
+Los indicadores son los de **quien mira**: RLS devuelve a cada cual sus trabajos, así que un
+director ve los suyos y la administración ve todos. La pantalla lo dice bajo el título, porque un
+panel sin esa frase se leería como un total del grupo.
 
 **Criterios**: el progreso académico (`progress_override`) y el porcentaje de tareas completadas
 aparecen siempre **como dos cifras distintas y etiquetadas**, nunca fundidas en una.
+
+**Estado del criterio**: cumplido y con prueba que lo fija (`buildWorkReports` arrastra las dos
+cifras separadas hasta el CSV, donde son dos columnas con dos títulos). En la tabla y en la ficha,
+una cifra sin dato se escribe con una raya y no con un 0 %: un cero afirma «no ha avanzado nada»,
+que es otra cosa.
 
 ## Fase 5 — Automatización y mantenimiento
 

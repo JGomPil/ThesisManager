@@ -7,11 +7,13 @@ Gestiona TFG, TFM, tesis doctorales, **Academia de Alumnos Internos** y cualquie
 trabajo que el grupo necesite: los tipos son un **catálogo configurable**, no una lista fija en el
 código.
 
-> **Estado: Fase 1 en curso.** Fase 0 aprobada el 5 de noviembre de 2026.
+> **Estado: fases 1 a 4 implementadas y en uso.** Fase 0 aprobada el 5 de noviembre de 2026.
 >
-> - Aplicación publicada en **https://jgompil.github.io/ThesisManager/**
-> - Pendiente de conectar con un proyecto de Supabase: hasta entonces la web muestra una
->   pantalla que indica qué variables faltan.
+> - Aplicación publicada en **https://jgompil.github.io/ThesisManager/**, conectada a un proyecto
+>   de Supabase real. Sin las variables de entorno, la web explica cuáles faltan en lugar de
+>   quedarse en blanco.
+> - Migraciones `0001…0014` aplicadas; 110 pruebas de seguridad contra PostgreSQL 16 y 72
+>   pruebas unitarias del dominio.
 > - Progreso detallado en [`ROADMAP.md`](ROADMAP.md); decisiones técnicas en
 >   [`docs/FASE_0.md`](docs/FASE_0.md).
 

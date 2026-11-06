@@ -18,6 +18,8 @@ import { ArchivedWorksPage } from '@/features/admin/archived-works-page'
 import { TemplatesPage } from '@/features/admin/templates-page'
 import { CatalogsPage } from '@/features/admin/catalogs-page'
 import { CalendarPage } from '@/features/calendar/calendar-page'
+import { ReportsPage } from '@/features/reports/reports-page'
+import { WorkReportPage } from '@/features/reports/work-report-page'
 import { LoadingPanel, EmptyState } from '@/components/common/states'
 
 /**
@@ -71,6 +73,12 @@ export function Router() {
           <Route path="trabajos/:id" element={<WorkDetailPage />} />
           <Route path="trabajos/:id/editar" element={<WorkFormPage />} />
           <Route path="calendario" element={<CalendarPage />} />
+          {/* Los informes NO llevan guarda de administración: cada cual ve los
+              indicadores de sus propios trabajos, que es lo que RLS le
+              devuelve. Reservarlos a la administración escondería a un director
+              el seguimiento de los trabajos que dirige. */}
+          <Route path="informes" element={<ReportsPage />} />
+          <Route path="informes/trabajo/:id" element={<WorkReportPage />} />
           <Route path="personas" element={<PeoplePage />} />
           <Route path="perfil" element={<ProfilePage />} />
           <Route path="admin" element={<RequireAdmin><AdminHomePage /></RequireAdmin>} />

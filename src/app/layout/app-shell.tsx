@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
-  BookOpen, CalendarDays, ChevronDown, GraduationCap, LayoutDashboard, LogOut, Menu,
+  BarChart3, BookOpen, CalendarDays, ChevronDown, GraduationCap, LayoutDashboard, LogOut, Menu,
   Moon, Settings, Sun, Users, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -15,6 +15,7 @@ const NAV = [
   { to: '/', label: 'Resumen', icon: LayoutDashboard, end: true },
   { to: '/trabajos', label: 'Trabajos', icon: BookOpen, end: false },
   { to: '/calendario', label: 'Calendario', icon: CalendarDays, end: false },
+  { to: '/informes', label: 'Informes', icon: BarChart3, end: false },
   { to: '/personas', label: 'Personas', icon: Users, end: false },
 ]
 
@@ -32,9 +33,9 @@ export function AppShell() {
   const orgName = memberships[0]?.organization?.name ?? 'Grupo de investigación'
 
   return (
-    <div className="min-h-dvh bg-muted/30">
+    <div className="min-h-dvh bg-muted/30 print:bg-white">
       {/* Barra superior */}
-      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur print:hidden">
         <div className="flex h-14 items-center gap-3 px-4">
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setOpen((v) => !v)} aria-label="Menú">
             {open ? <Menu /> : <Menu />}
@@ -72,7 +73,7 @@ export function AppShell() {
         {/* Navegación lateral */}
         <aside
           className={cn(
-            'fixed inset-y-14 left-0 z-30 w-60 shrink-0 border-r bg-background p-3 transition-transform lg:static lg:translate-x-0',
+            'fixed inset-y-14 left-0 z-30 w-60 shrink-0 border-r bg-background p-3 transition-transform lg:static lg:translate-x-0 print:hidden',
             open ? 'translate-x-0' : '-translate-x-full',
           )}
         >
@@ -98,7 +99,7 @@ export function AppShell() {
 
         {open && <div className="fixed inset-0 z-20 bg-black/40 lg:hidden" onClick={() => setOpen(false)} />}
 
-        <main className="min-w-0 flex-1 p-4 lg:p-6">
+        <main className="min-w-0 flex-1 p-4 lg:p-6 print:p-0">
           <div className="mx-auto max-w-7xl space-y-4">
             {isOrgAdmin && <KeepaliveBanner />}
             <Outlet />
