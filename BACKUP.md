@@ -51,8 +51,15 @@ Trimestral | Volcado completo |
 Antes de aplicar una migración que altere datos | Volcado completo |
 Antes de reactivar un proyecto pausado | No hace falta: los datos se conservan |
 
-Conservar las **cuatro** últimas copias. Una copia que nunca se ha probado no es una copia:
-restaurar una de ellas en Supabase local una vez al año (§5).
+Conservar las **cuatro** últimas copias. Una copia que nunca se ha restaurado no es una copia:
+es un fichero que se le parece. **Cada volcado se ensaya el mismo día**, con un comando:
+
+```bash
+./scripts/restore-drill.sh thesis-manager-YYYYMMDD.sql
+```
+
+Tarda menos de un minuto, no toca nada de producción y responde a la única pregunta que importa
+(§5.0).
 
 ## 4. Supabase Storage
 
@@ -64,7 +71,31 @@ Solo si se llegan a usar adjuntos. Por diseño, aquí hay poco que perder.
 
 ## 5. Restauración
 
-### En Supabase local (prueba de la copia)
+### 5.0. Ensayo automático de la copia (lo primero que hay que hacer)
+
+```bash
+./scripts/restore-drill.sh mi-copia.sql     # o .dump
+./scripts/restore-drill.sh                  # autoprueba: fabrica un volcado y lo ensaya
+```
+
+Levanta un PostgreSQL 16 desechable en Docker, restaura ahí la copia y después **interroga** a la
+base restaurada:
+
+| Comprueba | Por qué, si falla, la copia no sirve |
+|---|---|
+Las 18 tablas del núcleo académico | Una copia sin `work_members` restaura trabajos sin nadie dentro |
+**RLS activada en todas las tablas de `public`** | Una copia restaurada sin RLS lo deja todo a la vista en cuanto se pone en servicio, y no avisa |
+Que `anon` no ejecute ninguna función de `app` | Es la comprobación de la prueba `[33]`, aplicada a la copia |
+**Que haya filas en `auth.users`** | Lo que ningún documento decía: un volcado sin el esquema `auth` devuelve todos los datos y deja la plataforma sin nadie que pueda entrar |
+
+Termina con un recuento de lo restaurado (trabajos, participantes, tareas, documentos…) y **sale
+con código distinto de cero** si algo falla, así que vale para un *cron* local. No se conecta a
+Supabase y no necesita contraseñas: la copia se monta como solo lectura.
+
+Si avisa de que falta `auth.users`, el volcado necesita además el esquema de autenticación:
+`supabase db dump` con `-s auth`, guardado junto al principal.
+
+### En Supabase local (prueba manual de la copia)
 
 ```bash
 supabase start
@@ -90,11 +121,19 @@ Ver `FREE_TIER.md` §7.
 
 Independiente de las copias técnicas, y pensada para que los datos no queden presos:
 
-- Desde la aplicación: exportación a **Excel** y **PDF** por trabajo, por estudiante y global
-  (Fase 4). Es lo que permite entregar a un estudiante su historial o a la universidad un informe.
-- Desde Supabase: `Table Editor → Export as CSV` por tabla.
-- Desde SQL: consultas de exportación documentadas en `docs/` (Fase 4), con los `JOIN` de
-  catálogos ya resueltos (tipo de trabajo, estado y roles con su nombre legible en lugar de UUID).
+- **Informes → CSV** (en la aplicación): una fila por trabajo con los catálogos resueltos y las
+  dos cifras de progreso separadas. Lleva separador `;` y BOM de UTF-8, que es lo que Excel en
+  español necesita. El PDF sale de la impresión del navegador, también por trabajo.
+- **Administración → Copia de los datos académicos**: un JSON con todo lo que la cuenta puede
+  leer, en un clic y sin la CLI. Es la red de seguridad de en medio entre dos volcados
+  trimestrales; **no** sustituye al volcado, y el propio fichero dice en su `_meta` qué no
+  incluye (usuarios de autenticación, esquema, Storage y notas privadas de reunión).
+- **Consultas SQL documentadas**: [`docs/EXPORTACION.md`](docs/EXPORTACION.md), con los `JOIN` de
+  catálogos ya hechos (tipo, estado, curso, titulación, línea y funciones con su nombre legible en
+  lugar de UUID). Las ejecuta de verdad `./scripts/check-export-queries.sh` contra el esquema
+  actual, de modo que no puedan quedarse obsoletas en silencio.
+- Desde Supabase: `Table Editor → Export as CSV` por tabla, que da UUID en vez de nombres y casi
+  nunca es lo que se quiere.
 
 ## 7. Qué no está cubierto
 

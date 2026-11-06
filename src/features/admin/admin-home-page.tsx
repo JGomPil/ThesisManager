@@ -9,6 +9,7 @@ import { qk } from '@/lib/query-keys'
 import { keepaliveHealth, maintenanceRepo } from '@/data/repositories/maintenance.repo'
 import { cn } from '@/lib/utils'
 import { PendingAccountsCard } from '@/features/admin/pending-accounts-card'
+import { BackupCard } from '@/features/admin/backup-card'
 
 const SECTIONS = [
   {
@@ -83,6 +84,8 @@ export function AdminHomePage() {
           </Link>
         ))}
       </div>
+
+      <BackupCard />
 
       <Card>
         <CardHeader className="pb-3">

@@ -52,6 +52,7 @@ mediante RLS: el frontend es código público y no protege nada por sí mismo.
 [`DEPLOYMENT.md`](DEPLOYMENT.md) | Despliegue en GitHub Pages y configuración de Supabase |
 [`FREE_TIER.md`](FREE_TIER.md) | Límites, condiciones, riesgos y costes reales |
 [`BACKUP.md`](BACKUP.md) | Copias de seguridad, restauración y exportación |
+[`docs/EXPORTACION.md`](docs/EXPORTACION.md) | Consultas SQL de exportación con los catálogos resueltos |
 [`ROADMAP.md`](ROADMAP.md) | Fases y criterios de aceptación |
 [`supabase/tests/README.md`](supabase/tests/README.md) | Pruebas de seguridad del modelo de datos |
 
@@ -71,6 +72,9 @@ npm run lint
 npm test                 # pruebas unitarias del dominio (permisos, progreso, estados)
 npm run test:rls         # pruebas de seguridad en PostgreSQL desechable (requiere Docker)
 npm run check:secrets    # verifica que dist/ no publica credenciales privilegiadas
+npm run check:embeds     # embeds de PostgREST que necesitan pista explícita
+npm run check:export     # ejecuta las consultas de docs/EXPORTACION.md contra el esquema
+npm run drill            # ensaya la restauración de una copia (sin argumento: autoprueba)
 ```
 
 Base de datos: aplicar `supabase/migrations/0001…0015` y después
@@ -79,7 +83,9 @@ Base de datos: aplicar `supabase/migrations/0001…0015` y después
 Pruebas de seguridad del modelo de datos, sin necesidad de proyecto en Supabase (requiere Docker):
 
 ```bash
-./scripts/test-rls.sh          # 24 comprobaciones de RLS, catálogos y keepalive
+./scripts/test-rls.sh                      # 118 pruebas de RLS, catálogos, storage y keepalive
+./scripts/restore-drill.sh copia.sql       # ¿esta copia se puede restaurar de verdad?
+./scripts/check-export-queries.sh          # ¿siguen siendo válidas las consultas documentadas?
 ```
 
 ## Aviso sobre datos

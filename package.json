@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Gestión y supervisión de trabajos académicos (GIB-UVa)",
+  "description": "Gesti\u00f3n y supervisi\u00f3n de trabajos acad\u00e9micos (GIB-UVa)",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -15,7 +15,9 @@
     "test:rls": "./scripts/test-rls.sh",
     "check:secrets": "./scripts/check-no-secrets.sh dist",
     "types:db": "supabase gen types typescript --local > src/data/types/database.ts",
-    "check:embeds": "bash scripts/check-embeds.sh"
+    "check:embeds": "bash scripts/check-embeds.sh",
+    "check:export": "./scripts/check-export-queries.sh",
+    "drill": "./scripts/restore-drill.sh"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

@@ -169,7 +169,23 @@ cifras separadas hasta el CSV, donde son dos columnas con dos títulos). En la t
 una cifra sin dato se escribe con una raya y no con un 0 %: un cero afirma «no ha avanzado nada»,
 que es otra cosa.
 
-## Fase 5 — Automatización y mantenimiento
+## Fase 5 — Automatización y mantenimiento · **en curso**
+
+Estado a 6 de noviembre de 2026:
+
+| | Elemento |
+|---|---|
+| ✅ | `deploy.yml`, `keepalive.yml` y `repo-activity.yml` en marcha, y aviso de `last_ping_at` en Administración (adelantado a la Fase 1, como decía esta misma sección) |
+| ✅ | **Ensayo de restauración automático** (`scripts/restore-drill.sh`): restaura una copia en un PostgreSQL desechable y comprueba las tablas del núcleo, que RLS siga activada en todas, que `anon` no ejecute nada de `app` y **que haya usuarios de autenticación**. Sale con código distinto de cero si algo falla |
+| ✅ | **Copia de los datos académicos desde la aplicación** (JSON, un clic, sin la CLI), con lo que no incluye escrito en el propio fichero |
+| ✅ | **Consultas de exportación documentadas** (`docs/EXPORTACION.md`) y ejecutadas de verdad por `scripts/check-export-queries.sh`, para que no se queden obsoletas en silencio |
+| ⏳ | El volcado completo de los datos reales lo tiene que ejecutar la administración: necesita la contraseña de la base de datos y **no puede automatizarse en este repositorio**, que es público (`BACKUP.md`) |
+
+El ensayo dejó un aviso que ningún documento daba: un volcado que no incluya el esquema `auth`
+restaura todos los datos académicos y deja la plataforma **sin nadie que pueda entrar**. Ahora lo
+dice el propio ensayo, y `BACKUP.md` §5.0 explica cómo arreglarlo.
+
+Alcance original de la fase:
 
 Afinado de `deploy.yml`, `keepalive.yml` y `repo-activity.yml` · panel de administración con
 `last_ping_at` y aviso si supera 24 h · documentación de recuperación · procedimiento de copias
