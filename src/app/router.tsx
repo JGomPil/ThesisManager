@@ -14,6 +14,7 @@ import { AdminHomePage } from '@/features/admin/admin-home-page'
 import { InvitationsPage } from '@/features/admin/invitations-page'
 import { ProfilePage } from '@/features/auth/profile-page'
 import { WorkTypesPage } from '@/features/admin/work-types-page'
+import { ArchivedWorksPage } from '@/features/admin/archived-works-page'
 import { LoadingPanel, EmptyState } from '@/components/common/states'
 
 /**
@@ -71,6 +72,7 @@ export function Router() {
           <Route path="admin" element={<RequireAdmin><AdminHomePage /></RequireAdmin>} />
           <Route path="admin/tipos" element={<RequireAdmin><WorkTypesPage /></RequireAdmin>} />
           <Route path="admin/invitaciones" element={<RequireAdmin><InvitationsPage /></RequireAdmin>} />
+          <Route path="admin/archivados" element={<RequireAdmin><ArchivedWorksPage /></RequireAdmin>} />
           <Route
             path="*"
             element={

@@ -208,6 +208,42 @@ siguientes sin tener que acordarse de nada. `document_versions` ya depende de
 ella. Verificado apartando la 0007: la suite pasa de 36 correctas a señalar
 5 fallos y salir con código 1.
 
+### 5.2.quater · Archivar un trabajo: dos fallos que solo aparecieron al probarlo
+
+Al implementar el botón de archivar (pedido por el usuario el 6 de noviembre de
+2026, al no encontrar cómo borrar un trabajo de pruebas) salieron dos problemas
+que la lectura del código no revelaba.
+
+**Uno, las dos vías de borrado no coincidían.** `works_delete` (borrado físico)
+estaba reservada a la administración, pero el archivado se implementa como
+`update academic_works set deleted_at = now()`, y `works_update` permite
+actualizar también a los directores del trabajo. Es decir: un director podía
+hacer desaparecer un trabajo de todos los listados. Lo corrige el disparador
+`app.enforce_soft_delete_scope()` de la migración `0008`, que exige ser
+administrador para tocar esa columna y no toca nada más: la prueba `[38]`
+comprueba que el director conserva la edición del trabajo.
+
+Se usa un disparador y no una política porque **una política no puede
+distinguir qué columna ha cambiado**: restringir `works_update` habría quitado
+a los directores la edición legítima. Es el mismo patrón que
+`app.enforce_task_update_scope()`, que limita al estudiante a la columna
+`status` de sus tareas.
+
+**Dos, archivar era imposible, y además habría sido irreversible.** La política
+de `SELECT` llevaba `deleted_at is null`, y PostgreSQL exige que la fila
+resultante de un `UPDATE` siga siendo visible para quien lo ejecuta.
+Comprobado en PostgreSQL 16.15: el `update` fallaba con *new row violates
+row-level security policy*, y bastaba quitar `deleted_at is null` de la
+política de `SELECT` para que pasara.
+
+Lo segundo es lo grave: si se hubiera conseguido archivar, el trabajo habría
+quedado invisible para **todo el mundo**, también para la administración, y por
+tanto irrecuperable desde la aplicación. Un archivado del que no se puede
+volver no es un archivado, es un borrado con otro nombre. La política pasa a
+dejar ver lo archivado a la administración y solo a ella (prueba `[41]`: ni los
+propios directores del trabajo lo ven), y hay una pantalla
+`/admin/archivados` para restaurar.
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.
@@ -282,7 +318,7 @@ Cada una debe ejecutarse **contra la base de datos** con el JWT del usuario corr
 desde la interfaz.
 
 > **Ya verificadas.** Las migraciones de `supabase/migrations/` se han aplicado a un
-> PostgreSQL 16 real y se ejecutan **36 pruebas** de seguridad, todas correctas:
+> PostgreSQL 16 real y se ejecutan **41 pruebas** de seguridad, todas correctas:
 > `./scripts/test-rls.sh` (detalle en `supabase/tests/README.md`). Cubren los puntos 1–6, 12 y 13
 > de la lista siguiente. Los puntos 7, 10 y 11 dependen del frontend y del despliegue, y los 8 y 9
 > del proyecto real de Supabase; se validan en la Fase 1.
@@ -295,7 +331,7 @@ desde la interfaz.
 >
 > El segundo apareció ya en producción y la suite **no** lo detectó: el `EXECUTE` que faltaba en
 > `app.has_work_capability` (§5.2.ter). Las cuatro razones por las que se escapó, y lo que se ha
-> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 36
+> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 41
 > pruebas y el runner ahora falla de verdad cuando algo va mal, que antes no lo hacía.
 
 

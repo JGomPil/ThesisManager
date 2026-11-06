@@ -20,6 +20,7 @@ export const qk = {
     list: (filters: unknown) => ['works', 'list', filters] as const,
     detail: (id: string) => ['works', 'detail', id] as const,
     members: (id: string) => ['works', id, 'members'] as const,
+    archived: ['works', 'archived'] as const,
   },
 
   tasks: {

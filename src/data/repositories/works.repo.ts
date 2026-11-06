@@ -96,13 +96,44 @@ export const worksRepo = {
     return data
   },
 
-  /** Borrado lógico: los trabajos históricos tienen valor académico. */
-  softDelete: async (id: string): Promise<void> => {
+  /**
+   * Archivado (borrado lógico): los trabajos históricos tienen valor académico,
+   * así que nunca se borran de verdad. Dos cosas que no son evidentes:
+   *
+   * - Solo la administración puede hacerlo. Lo impone el disparador
+   *   `app.enforce_soft_delete_scope()` de la migración 0008, no este código:
+   *   un director tiene permiso de UPDATE sobre el trabajo, pero no sobre esta
+   *   columna.
+   * - La política de SELECT deja ver lo archivado SOLO a la administración.
+   *   Es imprescindible: PostgreSQL exige que la fila resultante de un UPDATE
+   *   siga siendo visible para quien lo ejecuta, así que sin eso esta llamada
+   *   fallaría; y además un archivado invisible para todos sería irreversible.
+   */
+  archive: async (id: string): Promise<void> => {
     const { error } = await supabase
       .from('academic_works')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', id)
     if (error) throw error
+  },
+
+  restore: async (id: string): Promise<void> => {
+    const { error } = await supabase
+      .from('academic_works')
+      .update({ deleted_at: null })
+      .eq('id', id)
+    if (error) throw error
+  },
+
+  /** Archivados. Solo devuelve filas a la administración, por la política de SELECT. */
+  listArchived: async (): Promise<WorkWithRelations[]> => {
+    const { data, error } = await supabase
+      .from('academic_works')
+      .select(WORK_SELECT)
+      .not('deleted_at', 'is', null)
+      .order('deleted_at', { ascending: false })
+    if (error) throw error
+    return (data ?? []) as unknown as WorkWithRelations[]
   },
 
   addMember: async (input: MemberInsert): Promise<WorkMemberRow> => {

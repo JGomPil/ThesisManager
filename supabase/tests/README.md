@@ -39,6 +39,11 @@ usuarios). **Es solo para pruebas**: nunca se aplica a un proyecto real.
 34 | El director lee los participantes de su trabajo: el `embed` que hacen el resumen y la ficha |
 35 | El director principal añade un participante (política `wm_write`) |
 36 | El estudiante no puede añadir participantes |
+37 | Un director **no** puede archivar su trabajo (reservado a la administración) |
+38 | ...pero conserva la edición del trabajo: el disparador no le quita nada más |
+39 | La administración sí archiva |
+40 | Y puede restaurar: el archivado es reversible |
+41 | **Un trabajo archivado lo ve la administración y nadie más**, ni sus propios directores |
 
 Las pruebas 32 y 33 son estructurales y son las importantes: en lugar de comprobar casos sueltos,
 leen las políticas reales de `pg_policy`, extraen cada función del esquema `app` que invocan y

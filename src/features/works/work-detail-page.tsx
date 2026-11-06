@@ -1,12 +1,16 @@
-import { Link, useParams } from 'react-router-dom'
+import * as React from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Pencil } from 'lucide-react'
+import { AlertTriangle, Archive, Pencil } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { PageHeader } from '@/app/layout/app-shell'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
 import { ToneBadge } from '@/components/ui/badge'
 import { EmptyState, ErrorPanel, LoadingPanel } from '@/components/common/states'
 import { useToast } from '@/components/ui/toast'
@@ -32,6 +36,20 @@ export function WorkDetailPage() {
   const tasks = useQuery({ queryKey: qk.tasks.byWork(id ?? ''), queryFn: () => tasksRepo.byWork(id!), enabled: Boolean(id) })
   const statuses = useWorkStatuses()
   const typeStatuses = useWorkTypeStatuses()
+
+  const [archiveOpen, setArchiveOpen] = React.useState(false)
+  const navigate = useNavigate()
+
+  const archive = useMutation({
+    mutationFn: () => worksRepo.archive(id!),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: qk.works.all })
+      void qc.invalidateQueries({ queryKey: qk.works.archived })
+      toast.push('success', 'Trabajo archivado. Puedes restaurarlo desde Administración → Archivados.')
+      navigate('/trabajos')
+    },
+    onError: (e) => toast.push('error', errorMessage(e)),
+  })
 
   const changeStatus = useMutation({
     mutationFn: (statusId: string) => worksRepo.update(id!, { status_id: statusId }),
@@ -73,9 +91,19 @@ export function WorkDetailPage() {
           w.academic_year?.code,
         ].filter(Boolean).join(' · ')}
         actions={
-          caps.canEditWork && (
-            <Button asChild variant="outline"><Link to={`/trabajos/${w.id}/editar`}><Pencil /> Editar</Link></Button>
-          )
+          <div className="flex items-center gap-2">
+            {caps.canEditWork && (
+              <Button asChild variant="outline"><Link to={`/trabajos/${w.id}/editar`}><Pencil /> Editar</Link></Button>
+            )}
+            {/* Archivar queda reservado a la administración. Esconder el botón
+                es comodidad; quien lo impide de verdad es el disparador
+                app.enforce_soft_delete_scope() de la migración 0008. */}
+            {isOrgAdmin && (
+              <Button variant="outline" onClick={() => setArchiveOpen(true)}>
+                <Archive /> Archivar
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -208,6 +236,26 @@ export function WorkDetailPage() {
           </Card>
         </div>
       </div>
+
+      <Dialog open={archiveOpen} onOpenChange={setArchiveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¿Archivar «{w.title}»?</DialogTitle>
+            <DialogDescription>
+              El trabajo desaparece de los listados y de la vista de todos sus participantes,
+              pero <strong>no se borra</strong>: los trabajos tienen valor académico y su
+              historial se conserva. Podrás restaurarlo desde{' '}
+              <strong>Administración → Trabajos archivados</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setArchiveOpen(false)}>Cancelar</Button>
+            <Button variant="destructive" loading={archive.isPending} onClick={() => archive.mutate()}>
+              <Archive /> Archivar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -27,7 +27,7 @@ Estado a 6 de noviembre de 2026:
 | ✅ | Dashboard con tarjetas por tipo generadas desde el catálogo |
 | ✅ | Aviso de mantenimiento (`last_ping_at`) en el panel de administración |
 | ✅ | Comprobación de secretos en el despliegue, con pruebas de detección |
-| ✅ | Proyecto de Supabase creado, migraciones `0001`–`0007` aplicadas y privilegios de `anon` y `authenticated` verificados contra el proyecto real |
+| ✅ | Proyecto de Supabase creado, migraciones `0001`–`0008` aplicadas y privilegios de `anon` y `authenticated` verificados contra el proyecto real |
 | ✅ | Datos de demostración ficticios, validados (el usuario con tres papeles incluido) |
 | ✅ | Cola de invitaciones con alta automática al aceptar (decisión D3) |
 | ✅ | Perfil propio editable y cambio de contraseña |

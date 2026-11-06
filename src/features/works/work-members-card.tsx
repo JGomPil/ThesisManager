@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -16,6 +17,7 @@ import { useToast } from '@/components/ui/toast'
 import { qk } from '@/lib/query-keys'
 import { errorMessage } from '@/lib/supabase'
 import { worksRepo, type WorkWithRelations } from '@/data/repositories/works.repo'
+import { useAuth } from '@/features/auth/auth-context'
 import { peopleRepo } from '@/data/repositories/people.repo'
 import { useWorkRoles } from '@/hooks/use-catalogs'
 import { memberFormSchema, type MemberFormValues } from '@/schemas/work'
@@ -34,6 +36,26 @@ export function WorkMembersCard({ work, caps }: { work: WorkWithRelations; caps:
     },
     onError: (e) => toast.push('error', errorMessage(e)),
   })
+
+  const { userId } = useAuth()
+  const roles = useWorkRoles()
+
+  // Atajo para el caso más común al crear un trabajo: el director se asigna a
+  // sí mismo. Sin esto había que abrir el diálogo y buscarse en una lista que,
+  // al principio, solo contiene a una persona.
+  const addSelf = useMutation({
+    mutationFn: (roleId: string) =>
+      worksRepo.addMember({ work_id: work.id, user_id: userId!, work_role_id: roleId, is_primary: true }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: qk.works.detail(work.id) })
+      void qc.invalidateQueries({ queryKey: qk.works.all })
+      toast.push('success', 'Te has asignado como dirección de este trabajo.')
+    },
+    onError: (e) => toast.push('error', errorMessage(e)),
+  })
+
+  const primarySupervisorRole = (roles.data ?? []).find((r) => r.is_supervisory && r.can_manage_members)
+  const iAmMember = userId !== null && work.members.some((m) => m.user_id === userId && m.status === 'ACTIVE')
 
   const active = work.members.filter((m) => m.status === 'ACTIVE')
   const students = active.filter((m) => m.role?.is_student)
@@ -57,9 +79,34 @@ export function WorkMembersCard({ work, caps }: { work: WorkWithRelations; caps:
         )}
 
         {active.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            Sin participantes. {caps.canManageMembers && 'Añade al estudiante y a la dirección.'}
-          </p>
+          /* Un trabajo recién creado no tiene participantes, y sin ellos no hay
+             nada que seguir: ni progreso, ni tareas asignadas, ni permisos
+             académicos. Antes esto era una línea de texto gris y el único
+             acceso a la acción era un botón pequeño en la cabecera, que pasaba
+             desapercibido. Ahora el camino está aquí, donde se nota el hueco. */
+          <div className="rounded-lg border border-dashed p-4 text-center">
+            <p className="text-sm font-medium">Todavía no hay participantes</p>
+            <p className="mx-auto mt-1 max-w-xs text-xs text-muted-foreground">
+              Un trabajo sin participantes no aparece en el panel de nadie y no puede tener tareas
+              asignadas. Añade al menos a la dirección y al estudiante.
+            </p>
+            {caps.canManageMembers && (
+              <div className="mt-3 flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
+                {!iAmMember && primarySupervisorRole && (
+                  <Button
+                    size="sm"
+                    loading={addSelf.isPending}
+                    onClick={() => addSelf.mutate(primarySupervisorRole.id)}
+                  >
+                    <UserPlus /> Añadirme como dirección
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+                  <Plus /> Añadir otra persona
+                </Button>
+              </div>
+            )}
+          </div>
         )}
       </CardContent>
 
@@ -168,6 +215,21 @@ function AddMemberDialog({
               ))}
             </Select>
             <FieldError>{form.formState.errors.user_id?.message}</FieldError>
+            {/* Solo se puede asignar a personas que ya tienen cuenta, porque
+                `profiles.id` referencia a `auth.users`. Si la lista está casi
+                vacía no es un error de la pantalla: es que todavía no hay a
+                quién asignar, y conviene decirlo en lugar de dejar un
+                desplegable mudo. */}
+            {(people.data ?? []).length <= 1 && (
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Aquí solo aparecen personas que ya tienen cuenta. Para dar de alta a un estudiante
+                o a un codirector, pasa por{' '}
+                <Link to="/admin/invitaciones" className="font-medium underline underline-offset-2">
+                  Administración → Invitaciones
+                </Link>
+                .
+              </p>
+            )}
           </div>
 
           <div>
