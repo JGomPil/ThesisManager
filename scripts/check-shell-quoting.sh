@@ -48,7 +48,9 @@ if ! command -v perl >/dev/null 2>&1; then
 fi
 
 # Autocomprobación: un caso que está mal, a ver si lo ve.
-CEBO="$(mktemp -t cebo)"
+# `mktemp -t cebo` vale en macOS y GNU lo rechaza: exige las X en la plantilla.
+# La forma portatil es dar la ruta completa.
+CEBO="$(mktemp "${TMPDIR:-/tmp}/cebo.XXXXXX")"
 printf 'echo "mal con «$VARIABLE»"\necho "bien con «${VARIABLE}»"\n' > "$CEBO"
 PILLADAS="$(perl -ne "$PATRON" "$CEBO" | wc -l | tr -d ' ')"
 rm -f "$CEBO"

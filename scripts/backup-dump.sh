@@ -145,7 +145,7 @@ if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
 fi
 
 # Y aquí la salida de error se guarda aparte, no en la variable.
-ERRORES="$(mktemp -t volcado)"
+ERRORES="$(mktemp "${TMPDIR:-/tmp}/volcado.XXXXXX")"
 trap 'rm -f "$ERRORES"' EXIT
 VERSION="$(docker run --rm -e PGCONNECT_TIMEOUT=15 "$IMAGE" \
   psql "$URL" -Atqc 'show server_version_num' 2>"$ERRORES" || true)"
