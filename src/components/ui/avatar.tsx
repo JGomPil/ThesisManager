@@ -67,15 +67,20 @@ export function Avatar({
     )
   }
 
+  // Tres iniciales (nombre y dos apellidos, como se nombra en España) van justas
+  // en el círculo pequeño, así que se aprietan. Dos no necesitan apretarse, y
+  // apretarlas se nota.
+  const letras = iniciales(nombre)
+
   return (
     <span
-      className={cn(base, `tone-${tonoDe(nombre)}`)}
+      className={cn(base, `tone-${tonoDe(nombre)}`, letras.length > 2 && 'tracking-tighter')}
       title={title ?? nombre}
       // El nombre va siempre al lado en texto, así que las iniciales son
       // decoración: anunciarlas a un lector de pantalla sería repetir.
       aria-hidden
     >
-      {iniciales(nombre)}
+      {letras}
     </span>
   )
 }

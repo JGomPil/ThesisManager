@@ -11,10 +11,19 @@ import { esUrlExterna, iniciales, tonoDe } from '@/domain/people/avatar'
  * persona real. Y los nombres españoles traen justo los casos raros.
  */
 describe('iniciales', () => {
-  it('toma el nombre y el ÚLTIMO apellido, no las dos primeras palabras', () => {
-    // Con dos apellidos, «JG» sería el nombre y el primer apellido; la pareja
-    // que identifica a alguien en castellano es nombre + último apellido.
-    expect(iniciales('Javier Gómez Pilar')).toBe('JP')
+  it('toma el nombre y LOS DOS apellidos, como se nombra en España', () => {
+    // «JP» —nombre y último apellido— es la convención anglosajona, donde hay un
+    // solo apellido. Aquí hay dos, y el primero es el que se usa para nombrar a
+    // alguien: «JP» se salta justo ese, y deja a «Javier Gómez Pilar» y «Javier
+    // García Pilar» con las mismas iniciales.
+    expect(iniciales('Javier Gómez Pilar')).toBe('JGP')
+    expect(iniciales('Roberto Hornero Sánchez')).toBe('RHS')
+  })
+
+  it('con nombre compuesto toma la primera palabra y los dos apellidos', () => {
+    // Sin una base de datos de nombres no hay forma de saber si «Carlos» es
+    // parte del nombre o el primer apellido. Tres letras es el tope que cabe.
+    expect(iniciales('Juan Carlos Pérez Gómez')).toBe('JPG')
   })
 
   it('con un solo nombre usa sus dos primeras letras', () => {
@@ -38,10 +47,21 @@ describe('iniciales', () => {
     expect(iniciales('Álvaro Íñigo')).toBe('ÁÍ')
   })
 
-  it('no rompe los nombres con partícula: cuenta la última palabra', () => {
+  it('no rompe los nombres con partícula: no cuenta «de», «la», «del»', () => {
     // «María de la Fuente» → M + F. Tratar «de» o «la» como apellido daría
-    // «MD», que no identifica a nadie.
+    // «MDL», que no identifica a nadie.
     expect(iniciales('María de la Fuente')).toBe('MF')
+    expect(iniciales('José de la Fuente Martín')).toBe('JFM')
+    expect(iniciales('Ana De La Cruz Soto')).toBe('ACS')
+  })
+
+  it('«San» NO es partícula: en «San Martín» es el apellido', () => {
+    expect(iniciales('Ana San Martín Ruiz')).toBe('AMR')
+  })
+
+  it('si todo son partículas, usa lo que haya antes que rendirse', () => {
+    // Entrada sin sentido: lo que importa es que no se caiga ni devuelva «?».
+    expect(iniciales('de la')).toBe('DL')
   })
 })
 
