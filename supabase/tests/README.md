@@ -57,6 +57,9 @@ usuarios). **Es solo para pruebas**: nunca se aplica a un proyecto real.
 57 | ...pero **sí** puede retirar el que subió él |
 58-59 | **Aprobar es acto de supervisión**: el estudiante no puede aprobarse su entrega; la dirección sí |
 60 | Un documento no puede vincularse a una tarea de **otro** trabajo |
+61 | Un director **no** puede borrar definitivamente un trabajo |
+62 | La administración **sí**, y se lleva en cascada participantes, tareas, documentos y versiones |
+63 | **Los ficheros NO se van en cascada**: por eso `worksRepo.destroy()` los borra antes, y tras el borrado quedan inalcanzables incluso para la administración |
 
 Las pruebas 32 y 33 son estructurales y son las importantes: en lugar de comprobar casos sueltos,
 leen las políticas reales de `pg_policy`, extraen cada función del esquema `app` que invocan y

@@ -323,6 +323,35 @@ ejecutarse, lo archivado sería irrecuperable desde la aplicación, que es peor
 que el propio fallo. Está escrita como comentario en la migración `0010`, junto
 a la política que la cumple.
 
+### 5.2.octies · Borrado definitivo, y los ficheros que no se van con él
+
+La política `works_delete` reservaba el borrado físico a la administración desde
+la migración `0003`, pero **ninguna pantalla la usaba y ninguna prueba la
+cubría**. Al añadir la opción (Administración → Trabajos archivados, a petición
+del usuario el 6 de noviembre de 2026) llegaron las pruebas `[61]`–`[63]`, y con
+ellas un detalle que no era evidente.
+
+El borrado arrastra en cascada todo lo del trabajo: participantes, fases, hitos,
+tareas, reuniones con sus actas y notas privadas, documentos con sus versiones,
+comentarios, notificaciones y el registro de actividad. **Los ficheros del cubo,
+no.** `storage.objects` no tiene clave ajena hacia `academic_works`, así que
+sobreviven al borrado de la fila (prueba `[63]`).
+
+Y no sobreviven de forma inocua: una vez borrado el trabajo, su uuid ya no está
+en `app.accessible_work_ids()`, de modo que **las políticas del cubo dejan de
+autorizar a cualquiera**, también a la administración. Los ficheros quedarían
+ocupando sitio del gigabyte gratuito sin que nadie pueda verlos ni borrarlos
+desde la aplicación. Por eso `worksRepo.destroy()` los borra **antes** de la
+fila, y aborta sin borrar el trabajo si esa limpieza falla: es preferible un
+trabajo que sigue ahí a unos ficheros inalcanzables.
+
+La interfaz exige **escribir el título** del trabajo para confirmar. No es
+ceremonia: el plan gratuito no tiene copias de seguridad automáticas
+(`BACKUP.md`), así que un clic en la fila equivocada borraría el trabajo de un
+alumno sin vuelta atrás. El flujo es de dos pasos a propósito —archivar y
+después borrar— para que ningún borrado definitivo esté a un solo clic desde un
+listado.
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.
@@ -397,7 +426,7 @@ Cada una debe ejecutarse **contra la base de datos** con el JWT del usuario corr
 desde la interfaz.
 
 > **Ya verificadas.** Las migraciones de `supabase/migrations/` se han aplicado a un
-> PostgreSQL 16 real y se ejecutan **60 pruebas** de seguridad, todas correctas:
+> PostgreSQL 16 real y se ejecutan **63 pruebas** de seguridad, todas correctas:
 > `./scripts/test-rls.sh` (detalle en `supabase/tests/README.md`). Cubren los puntos 1–6, 12 y 13
 > de la lista siguiente. Los puntos 7, 10 y 11 dependen del frontend y del despliegue, y los 8 y 9
 > del proyecto real de Supabase; se validan en la Fase 1.
@@ -410,7 +439,7 @@ desde la interfaz.
 >
 > El segundo apareció ya en producción y la suite **no** lo detectó: el `EXECUTE` que faltaba en
 > `app.has_work_capability` (§5.2.ter). Las cuatro razones por las que se escapó, y lo que se ha
-> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 60
+> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 63
 > pruebas y el runner ahora falla de verdad cuando algo va mal, que antes no lo hacía.
 
 

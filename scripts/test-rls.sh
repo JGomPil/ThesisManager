@@ -35,9 +35,27 @@ echo "▸ Ejecutando pruebas…"
 # así como una tanda con «permission denied for function has_work_capability»
 # en tres pruebas seguía dando el visto bueno.
 SALIDA="$(mktemp)"
-for f in "$ROOT"/supabase/tests/[1-9]0_*.sql; do
+# Se ejecutan TODOS los .sql de supabase/tests/ salvo el arnes, y se dice cual.
+#
+# Antes el patron era `[1-9]0_*.sql`, que exige un 0 en la segunda posicion. Se
+# comio dos ficheros sin avisar: `40_invitations.sql` cuando el patron era
+# `[123]0_*` y `95_hard_delete.sql` despues. Una prueba que no se ejecuta es
+# peor que una que falla, porque cuenta como verde. Ahora el patron no
+# selecciona nada: coge todo y lo lista, de modo que un fichero que falte se vea.
+EJECUTADOS=0
+for f in "$ROOT"/supabase/tests/*.sql; do
+  [ "$(basename "$f")" = "00_harness.sql" ] && continue
+  echo "  · $(basename "$f")"
   docker exec -i "$CONTAINER" psql -U postgres -q < "$f" 2>&1 | tee -a "$SALIDA"
+  EJECUTADOS=$((EJECUTADOS + 1))
 done
+
+ESPERADOS="$(find "$ROOT/supabase/tests" -maxdepth 1 -name '*.sql' ! -name '00_harness.sql' | wc -l | tr -d ' ')"
+if [ "$EJECUTADOS" -ne "$ESPERADOS" ]; then
+  echo "▸ ERROR: se han ejecutado $EJECUTADOS ficheros de $ESPERADOS."
+  rm -f "$SALIDA"
+  exit 1
+fi
 
 echo
 # Las pruebas que esperan un error lo capturan en un bloque de excepciones y

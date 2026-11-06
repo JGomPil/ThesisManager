@@ -57,11 +57,42 @@ export function errorMessage(error: unknown): string {
   for (const [needle, message] of Object.entries(map)) {
     if (raw.includes(needle)) return message
   }
-  if (raw.includes('new row violates row-level security')) {
-    return 'No tienes permiso para realizar esta acción.'
-  }
   if (raw.includes('Failed to fetch')) {
     return 'No se ha podido contactar con el servidor. Puede que el proyecto de Supabase esté pausado.'
   }
-  return raw || 'Error desconocido.'
+
+  // Detalle técnico que PostgREST sí envía y que antes se tiraba a la basura.
+  // Los errores de PostgreSQL llegan con `code`, `details` y `hint`, y sin
+  // ellos un fallo de permisos es indistinguible de otro: «No tienes permiso»
+  // no dice si falta un privilegio, si lo ha rechazado una política o si una
+  // migración está sin aplicar. Esa ambigüedad costó un rato de diagnóstico el
+  // 6 de noviembre de 2026, con un archivado que fallaba porque la política de
+  // la migración 0008 todavía no estaba en el proyecto.
+  const e = error as { code?: string; details?: string; hint?: string }
+  const extra = [e.details, e.hint].filter(Boolean).join(' ')
+  const codigo = e.code ? ` [${e.code}]` : ''
+
+  if (raw.includes('new row violates row-level security')) {
+    return (
+      'La base de datos ha rechazado el cambio: tu cuenta no puede dejar esa fila en ese estado. ' +
+      'Si deberías poder, lo más probable es que falte aplicar alguna migración de supabase/migrations/.' +
+      codigo
+    )
+  }
+  if (e.code === '42501' || raw.includes('permission denied')) {
+    // 42501 lo usan dos cosas distintas: un privilegio de tabla o función que
+    // falta, y los `raise ... using errcode = 'insufficient_privilege'` de
+    // nuestros disparadores, que traen un mensaje propio ya en castellano y
+    // mucho más útil. Si hay mensaje propio, manda él.
+    if (raw && !raw.includes('permission denied')) return raw
+    return `Permiso denegado por la base de datos.${codigo} ${extra}`.trim()
+  }
+  if (raw.includes('violates row-level security')) {
+    return `La política de seguridad ha rechazado la operación.${codigo} ${extra}`.trim()
+  }
+
+  // Cualquier otro error: el mensaje tal cual, más el detalle si lo hay. Es
+  // menos bonito y mucho más útil que un texto genérico.
+  if (raw) return extra ? `${raw}${codigo} ${extra}` : `${raw}${codigo}`
+  return 'Error desconocido.'
 }

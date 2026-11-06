@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { DOCS_BUCKET } from '@/data/repositories/documents.repo'
 import type { AcademicWorkRow, Database, TaskStatus, WorkMemberRow } from '@/data/types/database'
 
 type WorkInsert = Database['public']['Tables']['academic_works']['Insert']
@@ -123,6 +124,57 @@ export const worksRepo = {
       .update({ deleted_at: null })
       .eq('id', id)
     if (error) throw error
+  },
+
+  /**
+   * BORRADO DEFINITIVO. No tiene vuelta atrás.
+   *
+   * La política `works_delete` lo reserva a la administración de la
+   * organización; esta función no añade ninguna comprobación porque no es ella
+   * la frontera. El borrado arrastra en cascada TODO lo del trabajo:
+   * participantes, fases, hitos, tareas, reuniones y sus actas y notas
+   * privadas, documentos y sus versiones, comentarios, notificaciones y el
+   * registro de actividad.
+   *
+   * Los ficheros del cubo NO se borran en cascada: `storage.objects` no tiene
+   * clave ajena hacia `academic_works`, así que quedarían huérfanos ocupando
+   * sitio del gigabyte gratuito para siempre. Se borran aquí, ANTES de la fila,
+   * porque las políticas del cubo autorizan por el uuid del trabajo: una vez
+   * borrado el trabajo, `app.accessible_work_ids()` ya no lo incluye y los
+   * ficheros dejarían de ser accesibles incluso para la administración.
+   *
+   * Si la limpieza de ficheros falla, se aborta sin borrar el trabajo: es
+   * preferible un trabajo que sigue ahí a unos ficheros inalcanzables.
+   */
+  destroy: async (id: string): Promise<{ removedFiles: number }> => {
+    let removedFiles = 0
+    const { data: files, error: listError } = await supabase.storage
+      .from(DOCS_BUCKET)
+      .list(id, { limit: 1000 })
+
+    if (listError) throw listError
+
+    // `list` de Storage no es recursivo: devuelve las carpetas de cada
+    // documento, y hay que entrar en ellas para encontrar los ficheros.
+    const paths: string[] = []
+    for (const entry of files ?? []) {
+      const { data: inner } = await supabase.storage.from(DOCS_BUCKET).list(`${id}/${entry.name}`, { limit: 1000 })
+      if (inner && inner.length > 0) {
+        for (const f of inner) paths.push(`${id}/${entry.name}/${f.name}`)
+      } else {
+        paths.push(`${id}/${entry.name}`)
+      }
+    }
+
+    if (paths.length > 0) {
+      const { error: rmError } = await supabase.storage.from(DOCS_BUCKET).remove(paths)
+      if (rmError) throw rmError
+      removedFiles = paths.length
+    }
+
+    const { error } = await supabase.from('academic_works').delete().eq('id', id)
+    if (error) throw error
+    return { removedFiles }
   },
 
   /** Archivados. Solo devuelve filas a la administración, por la política de SELECT. */
