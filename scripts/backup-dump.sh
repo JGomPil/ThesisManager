@@ -32,7 +32,7 @@
 # =============================================================================
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 IMAGE=postgres:17-alpine          # el cliente debe ser >= que el servidor
 REGION="${1:-}"
 DESTINO="${2:-$HOME/copias-thesis-manager}"
@@ -50,16 +50,31 @@ fi
 # -----------------------------------------------------------------------------
 # El destino NUNCA dentro del repositorio.
 # -----------------------------------------------------------------------------
-mkdir -p "$DESTINO"
-DESTINO="$(cd "$DESTINO" && pwd)"
-case "$DESTINO/" in
-  "$ROOT"/*)
+# PRIMERO SE COMPRUEBA, DESPUÉS SE CREA. Al revés —que es como estaba— el guion
+# creaba la carpeta dentro del repositorio y solo entonces se negaba a escribir
+# en ella: se quedaba una carpeta `copias/` suelta en un repositorio público,
+# esperando a que alguien la llenara a mano. Y para comprobarlo sin crearla hay
+# que resolver la ruta a partir del antepasado que SÍ existe, porque `cd` a una
+# carpeta que no existe no se puede.
+ancestro="$DESTINO"
+while [ ! -d "$ancestro" ]; do
+  padre="$(dirname "$ancestro")"
+  [ "$padre" = "$ancestro" ] && break
+  ancestro="$padre"
+done
+ancestro="$(cd "$ancestro" 2>/dev/null && pwd -P || echo "$PWD")"
+
+case "$ancestro/" in
+  "$ROOT"/* | "$ROOT")
     echo "▸ ERROR: «${DESTINO}» está dentro del repositorio, que es PÚBLICO." >&2
     echo "  Un volcado lleva datos personales. Elige una carpeta de fuera," >&2
-    echo "  por ejemplo: ./scripts/backup-dump.sh '$REGION' ~/copias-thesis-manager" >&2
+    echo "  por ejemplo: ./scripts/backup-dump.sh '${REGION}' ~/copias-thesis-manager" >&2
     exit 1
     ;;
 esac
+
+mkdir -p "$DESTINO"
+DESTINO="$(cd "$DESTINO" && pwd -P)"
 
 # -----------------------------------------------------------------------------
 # La cadena de conexión
