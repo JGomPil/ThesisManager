@@ -12,11 +12,10 @@ código.
 > - Aplicación publicada en **https://jgompil.github.io/ThesisManager/**, conectada a un proyecto
 >   de Supabase real. Sin las variables de entorno, la web explica cuáles faltan en lugar de
 >   quedarse en blanco.
-> - Migraciones `0001…0019` **aplicadas** en el proyecto real (comprobado el 2026-11-06). La
->   `0020` —administrar los estados de los trabajos y los roles académicos desde la pantalla de
->   catálogos, sin tocar las capacidades, que son el modelo de permisos— está escrita y probada,
->   **pendiente de aplicar**. 149 pruebas de seguridad contra PostgreSQL 16 y 92 pruebas
->   unitarias del dominio.
+> - Migraciones `0001…0020` **aplicadas** en el proyecto real y verificadas el 2026-11-06 con
+>   `supabase/verify.sql`: RLS en todas las tablas, `anon` sin acceso a ninguna función de `app`,
+>   las 18 tablas del núcleo y el rol de estudiante sin capacidades. 149 pruebas de seguridad
+>   contra PostgreSQL 16 y 92 pruebas unitarias del dominio.
 > - Progreso detallado en [`ROADMAP.md`](ROADMAP.md); decisiones técnicas en
 >   [`docs/FASE_0.md`](docs/FASE_0.md).
 
