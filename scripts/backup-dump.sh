@@ -54,7 +54,7 @@ mkdir -p "$DESTINO"
 DESTINO="$(cd "$DESTINO" && pwd)"
 case "$DESTINO/" in
   "$ROOT"/*)
-    echo "▸ ERROR: «$DESTINO» está dentro del repositorio, que es PÚBLICO." >&2
+    echo "▸ ERROR: «${DESTINO}» está dentro del repositorio, que es PÚBLICO." >&2
     echo "  Un volcado lleva datos personales. Elige una carpeta de fuera," >&2
     echo "  por ejemplo: ./scripts/backup-dump.sh '$REGION' ~/copias-thesis-manager" >&2
     exit 1
@@ -67,6 +67,18 @@ esac
 URL="${SUPABASE_DB_URL:-}"
 
 if [ -z "$URL" ]; then
+  # Hace falta un terminal de verdad: la contraseña se lee con `read -s`, y sin
+  # terminal esa lectura devuelve vacío sin avisar. El fallo aparecería después
+  # como «password authentication failed», que manda a mirar la contraseña en
+  # lugar de dónde se está ejecutando el guion.
+  if [ ! -t 0 ]; then
+    echo "▸ ERROR: este guion pide la contraseña por teclado y necesita un terminal." >&2
+    echo "  Ábrelo en tu Terminal:  cd ~/ThesisManager && ./scripts/backup-dump.sh" >&2
+    echo "  O, sin teclado, pásale la cadena entera por el entorno:" >&2
+    echo "  SUPABASE_DB_URL='postgresql://...' ./scripts/backup-dump.sh" >&2
+    exit 1
+  fi
+
   if [ -z "$REF" ]; then
     read -r -p "Identificador del proyecto (lo de <esto>.supabase.co): " REF
   fi
@@ -107,13 +119,27 @@ echo "▸ Conectando a: $URL_SEGURA"
 # found» es la REGIÓN equivocada; «password authentication failed» es la
 # contraseña.
 # -----------------------------------------------------------------------------
+# La imagen se descarga APARTE, y antes. Docker manda el progreso de la descarga
+# por la salida de error, así que si se mezcla con la de `psql` acaba dentro de
+# la variable de la versión: el primer uso fallaría aunque la conexión fuese
+# perfecta, y el mensaje de error vendría sepultado bajo cincuenta líneas de
+# «Pulling fs layer».
+if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+  echo "  · descargando $IMAGE (solo la primera vez)"
+  docker pull -q "$IMAGE" >/dev/null
+fi
+
+# Y aquí la salida de error se guarda aparte, no en la variable.
+ERRORES="$(mktemp -t volcado)"
+trap 'rm -f "$ERRORES"' EXIT
 VERSION="$(docker run --rm -e PGCONNECT_TIMEOUT=15 "$IMAGE" \
-  psql "$URL" -Atqc 'show server_version_num' 2>&1 || true)"
+  psql "$URL" -Atqc 'show server_version_num' 2>"$ERRORES" || true)"
 
 if ! printf '%s' "$VERSION" | grep -qE '^[0-9]+$'; then
   echo "▸ ERROR: no se ha podido conectar." >&2
-  printf '%s\n' "$VERSION" | sed 's/^/    /' >&2
-  echo "  · «Tenant or user not found»        → la REGIÓN no es esa." >&2
+  sed 's/^/    /' "$ERRORES" >&2
+  echo "  · «tenant/user ... not found»        → la REGIÓN no es esa (o falta" >&2
+  echo "    el «.${REF:-<REF>}» detrás de «postgres» en el usuario)." >&2
   echo "  · «password authentication failed»  → la contraseña." >&2
   echo "  · La contraseña se restablece en Settings → Database. La aplicación" >&2
   echo "    NO la usa (entra con la clave pública anon), así que cambiarla no" >&2
@@ -149,13 +175,12 @@ volcar() {
 }
 
 echo "▸ Volcando a $DESTINO/$FICHERO"
-if ! volcar --schema=public --schema=auth --schema=app --schema=storage 2>/tmp/dump.err; then
+if ! volcar --schema=public --schema=auth --schema=app --schema=storage 2>"$ERRORES"; then
   echo "  · con el esquema «storage» ha fallado; se repite sin él:"
-  sed 's/^/      /' /tmp/dump.err | tail -4
+  sed 's/^/      /' "$ERRORES" | tail -4
   volcar --schema=public --schema=auth --schema=app
   echo "  · AVISO: la copia NO incluye los metadatos de Storage."
 fi
-rm -f /tmp/dump.err
 
 chmod 600 "$DESTINO/$FICHERO"
 echo "  · $(du -h "$DESTINO/$FICHERO" | cut -f1), permisos 600"

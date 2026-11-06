@@ -62,7 +62,7 @@ Dos mensajes de error que conviene saber leer:
 
 | Mensaje | Qué significa de verdad |
 |---|---|
-| `Tenant or user not found` | La región no es esa, o el usuario no lleva `.<REF>` detrás de `postgres` |
+| `tenant/user ... not found` | La región no es esa, o el usuario no lleva `.<REF>` detrás de `postgres` |
 | `password authentication failed` | La contraseña |
 
 **Los cuatro esquemas, y cada uno por un motivo**: `public` son los datos

@@ -102,7 +102,7 @@ SQL
 fi
 
 if [ ! -f "$COPIA" ]; then
-  echo "▸ ERROR: no existe el fichero «$COPIA»." >&2
+  echo "▸ ERROR: no existe el fichero «${COPIA}»." >&2
   exit 1
 fi
 

@@ -20,6 +20,7 @@
     "drill": "./scripts/restore-drill.sh",
     "check:wrap": "./scripts/check-text-wrap.sh",
     "check:pure": "./scripts/check-pure-tests.sh",
+    "check:shell": "./scripts/check-shell-quoting.sh",
     "check:pwa": "./scripts/check-pwa.sh",
     "icons": "python3 scripts/make-icons.py"
   },
