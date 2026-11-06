@@ -137,13 +137,18 @@ async function contar(
  * Las fotos de perfil pueden ser una ruta del cubo o una dirección externa
  * (Gravatar, la ficha institucional). Solo las primeras ocupan sitio, así que
  * las que empiezan por `http` no se cuentan.
+ *
+ * `ilike` y no `like`: la regla del dominio es `/^https?:\/\//i`, sin
+ * distinguir mayúsculas, y las dos tienen que decir lo mismo. Con `like`, un
+ * `HTTPS://…` escrito a mano contaría como fichero del cubo y la tarjeta
+ * avisaría de que «falta un fichero» que nunca existió.
  */
 async function contarAvatares(): Promise<number> {
   const { count, error } = await supabase
     .from('profiles')
     .select('id', { count: 'exact', head: true })
     .not('avatar_url', 'is', null)
-    .not('avatar_url', 'like', 'http%')
+    .not('avatar_url', 'ilike', 'http%')
   if (error) throw error
   return count ?? 0
 }
