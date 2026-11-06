@@ -1,12 +1,25 @@
+-- NO SE CONCEDEN PERMISOS AQUÍ A PROPÓSITO.
+--
+-- Antes este fichero hacía:
+--     grant usage on schema public, app to authenticated, anon;
+--     grant select, insert, update, delete on all tables in schema public to authenticated;
+--     grant execute on all functions in schema app to authenticated;
+--
+-- Es decir: las pruebas concedían exactamente los permisos que tenían que
+-- estar verificando, y por tanto no verificaban nada. Así se escapó el fallo
+-- real de `app.has_work_capability`, cuyo EXECUTE la migración 0003 revocaba a
+-- `public` sin devolvérselo a `authenticated`. En producción dejó el resumen y
+-- la ficha de trabajo sin datos; aquí las 31 pruebas seguían en verde.
+--
+-- Ahora el estado de permisos lo fijan solo dos cosas, las mismas que en
+-- producción: los ALTER DEFAULT PRIVILEGES de Supabase que emula el harness
+-- (00_harness.sql) y lo que concedan las propias migraciones (0004, 0006, 0007).
 -- =============================================================================
 -- Prueba del núcleo de seguridad: roles no excluyentes + notas privadas.
 -- Emula el escenario 5 del prompt.
 -- =============================================================================
 
 -- auth.uid() suplantable y los permisos de rol los aporta 00_harness.sql.
-grant usage on schema public, app to authenticated, anon;
-grant select, insert, update, delete on all tables in schema public to authenticated;
-grant execute on all functions in schema app to authenticated;
 
 -- --- Datos de prueba (ficticios) ---------------------------------------------
 insert into auth.users (id, email) values
@@ -100,5 +113,21 @@ select count(*) as filas from academic_works;
 reset role;
 set role anon;
 set session "test.uid" = '';
-\echo '[7] anon: academic_works (esperado: error de permisos o 0 filas)'
-select count(*) as filas from academic_works;
+\echo '[7] anon: academic_works (esperado: sin acceso)'
+-- Se comprueba dentro de un bloque con manejo de excepciones en lugar de
+-- dejar que psql escupa el ERROR: así cualquier linea `ERROR:` que aparezca
+-- en la salida es un fallo de verdad, y el runner puede abortar por ella.
+do $$
+declare n bigint;
+begin
+  begin
+    select count(*) into n from academic_works;
+    if n > 0 then
+      raise exception 'FALLO [7]: anon ve % trabajos', n;
+    end if;
+    raise notice 'CORRECTO: anon no ve ningun trabajo (RLS, 0 filas)';
+  exception
+    when insufficient_privilege then
+      raise notice 'CORRECTO: anon no tiene privilegio sobre academic_works';
+  end;
+end $$;

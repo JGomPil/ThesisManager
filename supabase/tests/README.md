@@ -34,6 +34,22 @@ usuarios). **Es solo para pruebas**: nunca se aplica a un proyecto real.
 29 | **Al entrar por primera vez, la invitación se cierra y la persona queda de alta con la función prevista** |
 30 | **Quien entra SIN invitación no obtiene ninguna pertenencia**: la cuenta existe y no ve nada |
 31 | Un usuario no administrador no ve ninguna invitación (contienen correos de terceros) |
+**32** | **Estructural: toda función de `app` invocada por una política es ejecutable por `authenticated`** |
+**33** | **Ninguna función de `app` es ejecutable por `anon`** |
+34 | El director lee los participantes de su trabajo: el `embed` que hacen el resumen y la ficha |
+35 | El director principal añade un participante (política `wm_write`) |
+36 | El estudiante no puede añadir participantes |
+
+Las pruebas 32 y 33 son estructurales y son las importantes: en lugar de comprobar casos sueltos,
+leen las políticas reales de `pg_policy`, extraen cada función del esquema `app` que invocan y
+exigen el privilegio correcto. Existen porque un fallo de este tipo llegó a producción y las 31
+pruebas anteriores no lo vieron; el relato completo está en `SECURITY.md` §5.2.ter.
+
+**Las pruebas no conceden permisos.** Antes lo hacían, y por eso no verificaban nada: concedían
+`grant execute on all functions in schema app to authenticated`, exactamente el permiso que
+faltaba en producción. Hoy el estado de privilegios lo fijan solo el arnés (que emula los
+`alter default privileges` de Supabase) y las propias migraciones. Si añades una prueba, **no
+pongas un `grant` para que funcione**: si hace falta, es que falta en una migración.
 
 Todos los datos son ficticios y los dominios de correo son `.invalid`, reservado por el RFC 2606
 precisamente para ejemplos.

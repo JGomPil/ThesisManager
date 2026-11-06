@@ -1,5 +1,19 @@
-grant select on table keepalive to anon;
-grant usage on schema public to anon;
+-- NO SE CONCEDEN PERMISOS AQUÍ A PROPÓSITO.
+--
+-- Antes este fichero hacía:
+--     grant usage on schema public, app to authenticated, anon;
+--     grant select, insert, update, delete on all tables in schema public to authenticated;
+--     grant execute on all functions in schema app to authenticated;
+--
+-- Es decir: las pruebas concedían exactamente los permisos que tenían que
+-- estar verificando, y por tanto no verificaban nada. Así se escapó el fallo
+-- real de `app.has_work_capability`, cuyo EXECUTE la migración 0003 revocaba a
+-- `public` sin devolvérselo a `authenticated`. En producción dejó el resumen y
+-- la ficha de trabajo sin datos; aquí las 31 pruebas seguían en verde.
+--
+-- Ahora el estado de permisos lo fijan solo dos cosas, las mismas que en
+-- producción: los ALTER DEFAULT PRIVILEGES de Supabase que emula el harness
+-- (00_harness.sql) y lo que concedan las propias migraciones (0004, 0006, 0007).
 
 \echo '================ CATÁLOGO DE TIPOS ================'
 \echo '[8] Tipos precargados'

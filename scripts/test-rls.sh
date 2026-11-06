@@ -30,9 +30,27 @@ echo "▸ Aplicando catálogos…"
 run < "$ROOT/supabase/seed/0001_catalogs.sql"
 
 echo "▸ Ejecutando pruebas…"
+# Toda la salida se guarda para poder analizarla: psql devuelve 0 aunque haya
+# habido errores, así que mirar solo su código de salida no vale de nada. Fue
+# así como una tanda con «permission denied for function has_work_capability»
+# en tres pruebas seguía dando el visto bueno.
+SALIDA="$(mktemp)"
 for f in "$ROOT"/supabase/tests/[1-9]0_*.sql; do
-  docker exec -i "$CONTAINER" psql -U postgres -q < "$f"
+  docker exec -i "$CONTAINER" psql -U postgres -q < "$f" 2>&1 | tee -a "$SALIDA"
 done
 
 echo
-echo "▸ Fin. Si arriba no aparece ninguna linea marcada como fallo, todo correcto."
+# Las pruebas que esperan un error lo capturan en un bloque de excepciones y
+# avisan con NOTICE, así que a estas alturas cualquier `ERROR:` es real.
+FALLOS="$(grep -cE '^(ERROR|FALLO)|FALLO \[' "$SALIDA" || true)"
+EJECUTADAS="$(grep -cE '^\[[0-9]+\]' "$SALIDA" || true)"
+CORRECTAS="$(grep -c 'CORRECTO' "$SALIDA" || true)"
+echo "▸ Pruebas ejecutadas: $EJECUTADAS   ·   comprobaciones correctas: $CORRECTAS"
+if [ "$FALLOS" -gt 0 ]; then
+  echo "▸ HAY $FALLOS FALLO(S):"
+  grep -nE '^(ERROR|FALLO)|FALLO \[' "$SALIDA" | sed 's/^/    /'
+  rm -f "$SALIDA"
+  exit 1
+fi
+rm -f "$SALIDA"
+echo "▸ Todo correcto."

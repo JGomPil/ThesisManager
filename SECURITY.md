@@ -151,6 +151,63 @@ Estado garantizado desde entonces: el rol `anon` solo puede hacer `SELECT` sobre
 - Las vistas usadas por el dashboard se crean con `security_invoker = true` para que hereden RLS.
 - Los permisos nunca se heredan entre trabajos: todas las políticas se anclan en `work_id`.
 
+### 5.2.ter · El EXECUTE que faltaba en `app.has_work_capability`
+
+Encontrado en producción el 6 de noviembre de 2026, con la aplicación ya en
+funcionamiento. La migración `0003` terminaba con una línea suelta:
+
+```sql
+revoke all on function app.has_work_capability(uuid, text) from public;
+```
+
+que quitaba el permiso de ejecución al pseudo-rol `public` **sin concedérselo a
+`authenticated`**. La política `wm_write` de `work_members` invoca esa función
+directamente, y como el resumen y la ficha de trabajo embeben `work_members`,
+ambas pantallas abortaban con `permission denied for function
+has_work_capability`. No era un problema de datos ni de RLS: la consulta entera
+fallaba antes de evaluar nada.
+
+Lo corrige `0007_grant_app_functions.sql`, que no se limita a deshacer aquel
+`revoke`: adopta la postura contraria y la aplica a todas las funciones del
+esquema `app`. Revoca `public` y `anon` en todas, concede `execute` a
+`authenticated` una por una, y fija los `alter default privileges` para que las
+futuras nazcan igual. Esto cerró además un segundo hueco que nadie había
+mirado: antes de la 0007, **`anon` podía ejecutar 14 funciones del esquema
+`app`**, entre ellas `app.can_see_private_notes` y `app.accessible_work_ids`.
+No era explotable, porque PostgREST solo expone el esquema `public` y estas
+viven en `app`, pero era una protección que dependía de una configuración
+ajena en lugar de un privilegio nuestro.
+
+#### Por qué 31 pruebas no lo vieron
+
+Esta es la parte incómoda, y la que más ha cambiado:
+
+1. **Los ficheros de prueba concedían el permiso que debían verificar.**
+   `10_roles_and_privacy.sql` y `40_invitations.sql` hacían
+   `grant execute on all functions in schema app to authenticated`. Retirado.
+
+2. **El arnés no emulaba los privilegios por defecto de Supabase.** Supabase
+   fija `alter default privileges` sobre `public` para `anon` y `authenticated`;
+   sin eso, `authenticated` corría sin privilegios de tabla y las pruebas eran
+   ciegas a cualquier `revoke` mal puesto. Añadido a `00_harness.sql`.
+
+3. **Ninguna prueba leía ni escribía `work_members` como `authenticated`.** Las
+   llamadas a `has_work_capability` desde dentro de otra función `SECURITY
+   DEFINER` se ejecutan con los privilegios de su propietario y por tanto no
+   fallan: el error solo aparece cuando una política la invoca directamente.
+
+4. **El runner devolvía 0 aunque hubiera errores.** `psql` no aborta sin
+   `ON_ERROR_STOP`, así que una tanda con tres `permission denied` seguía dando
+   el visto bueno. Ahora analiza la salida, cuenta los fallos y sale con 1.
+
+La prueba `[32]` de `50_policy_function_privileges.sql` es la que impide que
+vuelva a pasar, y no por el caso concreto: lee las políticas reales de
+`pg_policy`, extrae cada función de `app` que invocan y exige que
+`authenticated` pueda ejecutarla. Cubre así las políticas de las fases
+siguientes sin tener que acordarse de nada. `document_versions` ya depende de
+ella. Verificado apartando la 0007: la suite pasa de 36 correctas a señalar
+5 fallos y salir con código 1.
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.
@@ -224,17 +281,22 @@ Dos detalles que un simple `grep` no resuelve, y que están documentados en el p
 Cada una debe ejecutarse **contra la base de datos** con el JWT del usuario correspondiente, no
 desde la interfaz.
 
-> **Ya verificadas en la Fase 0.** Las migraciones de `supabase/migrations/` se han aplicado a un
-> PostgreSQL 16 real y se han ejecutado 24 comprobaciones de seguridad, todas correctas:
+> **Ya verificadas.** Las migraciones de `supabase/migrations/` se han aplicado a un
+> PostgreSQL 16 real y se ejecutan **36 pruebas** de seguridad, todas correctas:
 > `./scripts/test-rls.sh` (detalle en `supabase/tests/README.md`). Cubren los puntos 1–6, 12 y 13
 > de la lista siguiente. Los puntos 7, 10 y 11 dependen del frontend y del despliegue, y los 8 y 9
 > del proyecto real de Supabase; se validan en la Fase 1.
 >
-> Esa ejecución encontró y corrigió un fallo real: la política de `SELECT` de `academic_works`
+> Esa suite encontró y corrigió **dos** fallos reales. El primero, la política de `SELECT` de `academic_works`
 > rechazaba el `INSERT ... RETURNING` de un administrador, porque `app.accessible_work_ids()` es
 > `STABLE` y no ve la fila recién insertada. Dado que `supabase-js` usa `RETURNING` por defecto en
 > `.insert().select()`, el fallo habría aparecido en el primer formulario de creación de trabajos
 > de la Fase 1.
+>
+> El segundo apareció ya en producción y la suite **no** lo detectó: el `EXECUTE` que faltaba en
+> `app.has_work_capability` (§5.2.ter). Las cuatro razones por las que se escapó, y lo que se ha
+> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 36
+> pruebas y el runner ahora falla de verdad cuando algo va mal, que antes no lo hacía.
 
 
 1. Un usuario es estudiante de un trabajo y supervisor de otro: ambas cosas funcionan.
