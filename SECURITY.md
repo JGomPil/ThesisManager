@@ -730,6 +730,44 @@ buscar, y es muchísimo menos que el padrón.
 `app.shares_organization` sigue existiendo, pero ya **no** es la regla de
 visibilidad de nadie: solo acota esa búsqueda al propio grupo.
 
+### 5.2.undevicies · Una foto se ve exactamente como el nombre
+
+Las fotos de perfil (`0017`) no traen una regla de visibilidad nueva: traen el
+riesgo de tener **dos** reglas donde debe haber una. La fila de `profiles` la
+protegía `profiles_select`; el fichero del cubo lo protege una política de
+`storage.objects`. Si las dos expresan el mismo criterio con dos textos
+distintos, el día que se afine una se olvidará la otra, y entonces proteger la
+fila no protegerá nada: se vería la cara con la URL. Una foto es un dato
+personal más revelador que un nombre.
+
+Así que la `0017` extrae la regla de la `0016` a **una sola función**,
+`app.can_see_profile(uuid)` —uno mismo, quien participa en un trabajo visible, y
+los miembros de una organización que uno administre—, reescribe
+`profiles_select` para llamarla y la usa también en la política del cubo. Mismo
+criterio, un solo sitio donde cambiarlo. La prueba `[131]` no comprueba cada
+frontera por separado: comprueba que **coinciden** —del compañero de trabajo se
+ve nombre y foto; del ajeno, ninguna de las dos—, que es la invariante que
+importa.
+
+El resto son decisiones de alcance, todas probadas:
+
+- **El cubo es privado.** Público en Supabase significa legible por internet sin
+  sesión: serían las caras del grupo en una URL abierta e indexable. La
+  migración lo comprueba y se niega a terminar si alguien lo pone en público
+  desde el panel (`[129]`).
+- **La ruta es `<user_id>/<fichero>` y el primer segmento es la llave**, como en
+  los otros dos cubos. Si no es un uuid, `app.avatar_owner` devuelve nulo y se
+  deniega: una ruta con formato desconocido no la ha generado esta aplicación
+  (`[133]`).
+- **Nadie le cambia la foto a nadie** (`[130]`). La administración **puede
+  retirar** una foto inapropiada pero **no subir** una en nombre de otro
+  (`[134]`): moderar es retirar, no suplantar. Es una asimetría deliberada y
+  tiene su propia prueba porque es fácil conceder «todo» a quien administra sin
+  pensar para qué lo necesita.
+- **La URL firmada caduca, así que no se guarda.** `profiles.avatar_url` guarda
+  la ruta en el cubo, no una URL; se firma al pintar, con vigencia de una hora y
+  caché de cincuenta minutos para no entregar nunca una a punto de vencer.
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.
@@ -809,7 +847,7 @@ Cada una debe ejecutarse **contra la base de datos** con el JWT del usuario corr
 desde la interfaz.
 
 > **Ya verificadas.** Las migraciones de `supabase/migrations/` se han aplicado a un
-> PostgreSQL 16 real y se ejecutan **128 pruebas** de seguridad, todas correctas:
+> PostgreSQL 16 real y se ejecutan **135 pruebas** de seguridad, todas correctas:
 > `./scripts/test-rls.sh` (detalle en `supabase/tests/README.md`). Cubren los puntos 1–6, 12 y 13
 > de la lista siguiente. Los puntos 7, 10 y 11 dependen del frontend y del despliegue, y los 8 y 9
 > del proyecto real de Supabase; se validan en la Fase 1.
@@ -822,7 +860,7 @@ desde la interfaz.
 >
 > El segundo apareció ya en producción y la suite **no** lo detectó: el `EXECUTE` que faltaba en
 > `app.has_work_capability` (§5.2.ter). Las cuatro razones por las que se escapó, y lo que se ha
-> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 128
+> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 135
 > pruebas y el runner ahora falla de verdad cuando algo va mal, que antes no lo hacía.
 
 

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { PageHeader } from '@/app/layout/app-shell'
 import { Card } from '@/components/ui/card'
 import { ToneBadge } from '@/components/ui/badge'
+import { Avatar } from '@/components/ui/avatar'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EmptyState, ErrorPanel, LoadingPanel } from '@/components/common/states'
 import { qk } from '@/lib/query-keys'
@@ -74,7 +75,9 @@ export function PeoplePage() {
               justamente lo que se viene a consultar. */}
           <Card className="divide-y sm:hidden">
             {filas.map(({ p, relaciones }) => (
-              <div key={p.id} className="p-3">
+              <div key={p.id} className="flex gap-3 p-3">
+                <Avatar name={p.full_name} src={p.avatar_url} size="md" />
+                <div className="min-w-0 flex-1">
                 <p className="font-medium">{p.full_name}</p>
                 <p className="truncate text-sm text-muted-foreground">
                   <a href={`mailto:${p.email}`} className="hover:underline">{p.email}</a>
@@ -93,6 +96,7 @@ export function PeoplePage() {
                     ))}
                   </div>
                 )}
+                </div>
               </div>
             ))}
           </Card>
@@ -111,7 +115,12 @@ export function PeoplePage() {
               {filas.map(({ p, relaciones }) => {
                 return (
                   <TableRow key={p.id}>
-                    <TableCell className="font-medium">{p.full_name}</TableCell>
+                    <TableCell className="font-medium">
+                      <span className="flex items-center gap-2">
+                        <Avatar name={p.full_name} src={p.avatar_url} size="sm" />
+                        <span className="min-w-0 truncate">{p.full_name}</span>
+                      </span>
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{p.email}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{p.department ?? '—'}</TableCell>
                     <TableCell>

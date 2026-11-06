@@ -4,6 +4,7 @@ import { AtSign, Send, Trash2 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
+import { Avatar } from '@/components/ui/avatar'
 import { Textarea } from '@/components/ui/input'
 import { Spinner } from '@/components/common/states'
 import { useToast } from '@/components/ui/toast'
@@ -92,12 +93,15 @@ export function CommentsThread({
         <ul className="space-y-3">
           {rows.map((c) => (
             <li key={c.id} className="flex gap-2">
-              <span
-                className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium"
-                aria-hidden
-              >
-                {(c.author?.full_name ?? '?').slice(0, 1).toUpperCase()}
-              </span>
+              {/* Antes era un círculo gris con una sola letra. Con foto se
+                  reconoce a quien escribe sin leer, que en un hilo largo es la
+                  diferencia entre seguirlo y releerlo. */}
+              <Avatar
+                name={c.author?.full_name}
+                src={c.author?.avatar_url}
+                size="sm"
+                className="mt-0.5"
+              />
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-baseline gap-x-2 text-xs text-muted-foreground">
                   <span className="font-medium text-foreground">{c.author?.full_name ?? '—'}</span>

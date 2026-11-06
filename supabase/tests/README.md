@@ -125,6 +125,13 @@ usuarios). **Es solo para pruebas**: nunca se aplica a un proyecto real.
 126 | Un estudiante **no puede** buscar personas por correo: lista vacía, no error |
 127 | `anon` no ve ningún perfil y no puede ejecutar la búsqueda |
 128 | Dar de baja a alguien de un trabajo **no borra su nombre del historial**: sus actas y comentarios siguen resolviéndose |
+129 | El cubo `avatars` es **privado**: público en Supabase es legible por internet sin sesión |
+130 | Cada cual sube la foto **solo en su carpeta**: nadie le cambia la foto a nadie |
+131 | **La foto se ve exactamente como el nombre.** No comprueba cada frontera por separado, comprueba que *coinciden*: del compañero de trabajo, nombre y foto; del ajeno, ninguna de las dos |
+132 | La administración ve las fotos de su organización, igual que ve los nombres |
+133 | Una ruta cuyo primer segmento no es un uuid **no la lee nadie**: no la ha generado esta aplicación |
+134 | La administración puede **retirar** una foto inapropiada pero **no subir** una en nombre de otro: moderar es retirar, no suplantar |
+135 | `anon` no ve ninguna foto |
 
 La prueba 33 ha vuelto a ganarse el sueldo en la Fase 3. Recorre todas las funciones del
 esquema `app` y exige que `anon` no pueda ejecutar ninguna; al añadir la migración `0012` falló,
@@ -164,6 +171,13 @@ justo lo que la prueba comprueba. El `select` devolvía `NULL` y la búsqueda, 0
 fallaba por su propio montaje, no por la función. Los datos de entrada se preparan antes de
 `set role`, como `postgres`; si se preparan con los permisos que se quieren medir, la prueba mide
 el montaje.
+
+La prueba 134 nació dando verde sin comprobar nada: hacía el `delete` y acto seguido
+`v_borrado := 1` escrito a mano. Un `delete` que no borra ninguna fila no da error, así que la
+prueba habría pasado igual con la política mal puesta. Ahora cuenta con `get diagnostics ... =
+row_count`. Es el tercer caso del mismo error de método en este proyecto —medir con algo que sale
+verde por razones ajenas a lo que se quiere comprobar—, y conviene mirarlo con lupa en cada prueba
+nueva que afirme que algo **sí** se puede hacer.
 
 Todos los datos son ficticios y los dominios de correo son `.invalid`, reservado por el RFC 2606
 precisamente para ejemplos.

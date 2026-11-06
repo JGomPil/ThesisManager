@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge, ToneBadge } from '@/components/ui/badge'
+import { Avatar } from '@/components/ui/avatar'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
@@ -131,6 +132,7 @@ function Group({
       <ul className="space-y-1.5">
         {members.map((m) => (
           <li key={m.id} className="flex items-center gap-2 text-sm">
+            <Avatar name={m.profile?.full_name} src={m.profile?.avatar_url} size="sm" />
             <span className="min-w-0 flex-1 truncate">
               {m.profile?.full_name ?? '—'}
               {m.is_primary && <Badge variant="secondary" className="ml-1.5">principal</Badge>}

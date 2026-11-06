@@ -15,6 +15,7 @@ import { qk } from '@/lib/query-keys'
 import { errorMessage, supabase } from '@/lib/supabase'
 import { peopleRepo } from '@/data/repositories/people.repo'
 import { useAuth } from '@/features/auth/auth-context'
+import { AvatarCard } from '@/features/auth/avatar-card'
 
 const profileSchema = z.object({
   full_name: z.string().trim().min(3, 'Indica tu nombre y apellidos').max(150),
@@ -92,6 +93,12 @@ export function ProfilePage() {
   return (
     <div className="space-y-4">
       <PageHeader title="Mi perfil" description="Una sola cuenta para todas tus funciones académicas." />
+
+      <AvatarCard
+        userId={userId!}
+        name={profile?.full_name ?? ''}
+        avatarUrl={profile?.avatar_url ?? null}
+      />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">

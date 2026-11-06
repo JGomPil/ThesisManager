@@ -253,3 +253,17 @@ documentos pesados como **enlace externo** en lugar de subirlos (la aplicación
 ya lo admite en la misma ficha), o descargar y retirar lo de los cursos
 cerrados. **El aviso aparecerá en el panel de Supabase, no en la aplicación**,
 así que conviene mirarlo en la revisión mensual de §6.
+
+Hay tres cubos, todos privados, y los dos pequeños están acotados para que no
+compitan por el gigabyte con lo que de verdad importa:
+
+| Cubo | Qué guarda | Tope por fichero | Coste realista |
+|---|---|--:|---|
+| `work-documents` | entregas y memorias | 25 MB | lo que se lleva el gigabyte |
+| `template-files` | guiones y rúbricas compartidos | 10 MB | material común, una copia para todos |
+| `avatars` | fotos de perfil | 2 MB | **~20 kB por persona**: el navegador las reduce a 256 px antes de subir |
+
+Las fotos no son un problema de espacio y conviene decirlo con números: cuarenta
+personas son unos 800 kB, menos del 0,1 % del cubo. Lo serían si se subieran tal
+cual salen del móvil (4–6 MB cada una, un cuarto del gigabyte) y por eso se
+redimensionan en el cliente, con el tope de 2 MB del cubo como cinturón.

@@ -2,10 +2,11 @@ import * as React from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   BarChart3, BookOpen, CalendarDays, ChevronDown, GraduationCap, LayoutDashboard, LogOut, Menu,
-  Moon, Settings, Sun, UserRound, Users, X,
+  Moon, Settings, Sun, Users, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Avatar } from '@/components/ui/avatar'
 import { useAuth } from '@/features/auth/auth-context'
 import { useTheme } from '@/hooks/use-theme'
 import { KeepaliveBanner } from '@/features/admin/keepalive-banner'
@@ -68,10 +69,11 @@ export function AppShell() {
             </Button>
             <Link
               to="/perfil"
-              className="hidden max-w-[12rem] truncate rounded-md px-2 py-1 text-sm hover:bg-accent sm:block"
+              className="hidden max-w-[14rem] items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-accent sm:flex"
               title="Mi perfil"
             >
-              {profile?.full_name ?? '—'}
+              <Avatar name={profile?.full_name} src={profile?.avatar_url} size="sm" />
+              <span className="min-w-0 truncate">{profile?.full_name ?? '—'}</span>
             </Link>
             <Button variant="ghost" size="icon" onClick={() => void signOut()} aria-label="Salir">
               <LogOut />
@@ -117,7 +119,7 @@ export function AppShell() {
               to="/perfil"
               className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
             >
-              <UserRound className="size-4 shrink-0" />
+              <Avatar name={profile?.full_name} src={profile?.avatar_url} size="sm" />
               <span className="min-w-0 truncate">{profile?.full_name ?? 'Mi perfil'}</span>
             </Link>
             <button

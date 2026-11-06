@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent } from '@/components/ui/card'
 import { ToneBadge } from '@/components/ui/badge'
+import { Avatar } from '@/components/ui/avatar'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -176,7 +177,14 @@ export function TaskBoard({
                     <span className={cn(late && 'font-medium text-destructive')}>
                       {t.due_date ? format(parseISO(t.due_date), 'd MMM yyyy', { locale: es }) : 'Sin fecha'}
                     </span>
-                    <span className="min-w-0 truncate">· {t.assignee?.full_name ?? 'Sin responsable'}</span>
+                    {t.assignee ? (
+                      <span className="flex min-w-0 items-center gap-1">
+                        <Avatar name={t.assignee.full_name} src={t.assignee.avatar_url} size="xs" />
+                        <span className="min-w-0 truncate">{t.assignee.full_name}</span>
+                      </span>
+                    ) : (
+                      <span>· Sin responsable</span>
+                    )}
                     {puntos.length > 0 && (
                       <span className="flex items-center gap-1">
                         <ListChecks className="size-3" />
@@ -230,7 +238,14 @@ export function TaskBoard({
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{t.assignee?.full_name ?? '—'}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {t.assignee ? (
+                        <span className="flex items-center gap-2">
+                          <Avatar name={t.assignee.full_name} src={t.assignee.avatar_url} size="sm" />
+                          <span className="min-w-0 truncate">{t.assignee.full_name}</span>
+                        </span>
+                      ) : '—'}
+                    </TableCell>
                     <TableCell><ToneBadge tone={priority?.tone ?? null}>{priority?.label}</ToneBadge></TableCell>
                     <TableCell className={cn('text-sm', late ? 'font-medium text-destructive' : 'text-muted-foreground')}>
                       {t.due_date ? format(parseISO(t.due_date), 'd MMM yyyy', { locale: es }) : '—'}
@@ -358,7 +373,16 @@ function TaskCard({
             </span>
           )}
         </div>
-        {task.assignee && <p className="truncate text-xs text-muted-foreground">{task.assignee.full_name}</p>}
+        {/* Estilo Trello: la cara identifica de un vistazo quién tiene la
+            tarea en un tablero con veinte tarjetas. El nombre se queda al
+            lado: una cara sin nombre obliga a adivinar, y quien acaba de
+            entrar en el grupo todavía no conoce ninguna. */}
+        {task.assignee && (
+          <div className="flex min-w-0 items-center gap-1.5">
+            <Avatar name={task.assignee.full_name} src={task.assignee.avatar_url} size="xs" />
+            <p className="truncate text-xs text-muted-foreground">{task.assignee.full_name}</p>
+          </div>
+        )}
         <div className="flex items-center gap-1">
           <StatusSelect task={task} caps={caps} userId={userId} onChange={onStatus} />
           {caps.canManagePlan && (

@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { AVATARS_BUCKET, esUrlExterna, reducirImagen } from '@/lib/avatars'
 import type { OrganizationMemberRow, ProfileRow } from '@/data/types/database'
 
 export type PendingAccount = {
@@ -98,6 +99,58 @@ export const peopleRepo = {
       .order('full_name')
     if (error) throw error
     return data ?? []
+  },
+
+  /**
+   * Sube la foto de perfil y deja la RUTA en `profiles.avatar_url`.
+   *
+   * Tres cosas que no son evidentes:
+   *
+   *  a) La ruta es `<user_id>/<timestamp>.webp`. El primer segmento es la llave
+   *     de autorización de las políticas del cubo (migración 0017): cambiarlo
+   *     sin cambiar las políticas abriría el cubo.
+   *  b) El nombre lleva marca de tiempo para que cambiar de foto NO sobrescriba
+   *     la anterior en la misma ruta. Si se sobrescribiera, las URL firmadas que
+   *     ya estén en pantalla seguirían sirviendo la vieja desde la caché del
+   *     navegador y el usuario creería que no se ha guardado.
+   *  c) Se borra la anterior DESPUÉS de guardar la nueva, y si ese borrado falla
+   *     no se deshace nada: quedaría un fichero huérfano de 20 kB, que es
+   *     muchísimo menos grave que quedarse sin foto por un error de limpieza.
+   */
+  uploadAvatar: async (userId: string, file: File): Promise<string> => {
+    const reducida = await reducirImagen(file)
+    const ruta = `${userId}/${Date.now()}.webp`
+
+    const { error: errSubida } = await supabase.storage
+      .from(AVATARS_BUCKET)
+      .upload(ruta, reducida, { contentType: 'image/webp', upsert: false, cacheControl: '3600' })
+    if (errSubida) throw errSubida
+
+    const anterior = (await peopleRepo.me(userId))?.avatar_url ?? null
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ avatar_url: ruta })
+      .eq('id', userId)
+    if (error) throw error
+
+    if (anterior && !esUrlExterna(anterior) && anterior !== ruta) {
+      await supabase.storage.from(AVATARS_BUCKET).remove([anterior])
+    }
+    return ruta
+  },
+
+  /** Quita la foto: primero la referencia, después el fichero. */
+  removeAvatar: async (userId: string, rutaActual: string | null): Promise<void> => {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ avatar_url: null })
+      .eq('id', userId)
+    if (error) throw error
+
+    if (rutaActual && !esUrlExterna(rutaActual)) {
+      await supabase.storage.from(AVATARS_BUCKET).remove([rutaActual])
+    }
   },
 
   /**

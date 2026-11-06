@@ -4,6 +4,7 @@ import { Download, ExternalLink, MessageSquare, Send, Trash2 } from 'lucide-reac
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
+import { Avatar } from '@/components/ui/avatar'
 import { Textarea } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { ToneBadge } from '@/components/ui/badge'
@@ -239,7 +240,8 @@ function VersionComments({
         <ul className="space-y-2.5">
           {filas.map((c) => (
             <li key={c.id} className="text-sm">
-              <div className="flex items-baseline gap-2">
+              <div className="flex items-center gap-2">
+                <Avatar name={c.author?.full_name} src={c.author?.avatar_url} size="xs" />
                 <span className="font-medium">{c.author?.full_name ?? 'Alguien'}</span>
                 <span className="text-xs text-muted-foreground">
                   {format(parseISO(c.created_at), "d MMM yyyy, HH:mm", { locale: es })}
