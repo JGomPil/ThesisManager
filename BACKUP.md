@@ -102,13 +102,34 @@ Tarda menos de un minuto, no toca nada de producción y responde a la única pre
 que no tener nada: al restaurar, la plataforma apunta a ficheros que no existen, y
 el síntoma no es un error sino una foto en blanco o una descarga vacía.
 
-Los tres cubos, y hay que copiarlos los tres:
-
 ```bash
-supabase storage cp -r ss://avatars         ./storage-backup/avatars         --experimental
-supabase storage cp -r ss://work-documents  ./storage-backup/work-documents  --experimental
-supabase storage cp -r ss://template-files  ./storage-backup/template-files  --experimental
+python3 scripts/backup-storage.py ~/copias-thesis-manager/storage-$(date +%Y%m%d) \
+  --segun-volcado ~/copias-thesis-manager/thesis-manager-FECHA.sql
 ```
+
+Pide el correo y la contraseña de **tu cuenta de la plataforma** (no la de la base de
+datos) y descarga los tres cubos: `avatars`, `work-documents` y `template-files`.
+
+**No usa `service_role` ni la CLI de Supabase**: habla con la API documentada con la
+clave pública `anon` y se identifica con tu cuenta. Por tanto solo puede guardar lo
+que tú podrías descargar a mano desde la aplicación. Si la copia saliera incompleta
+no sería un fallo del guion, sino que esa cuenta no tiene acceso; la respuesta es
+ejecutarlo con una que sí, no elevar privilegios.
+
+### Por qué `--segun-volcado` no es opcional de verdad
+
+Sin sesión válida, `/storage/v1/object/list/<cubo>` responde **HTTP 200 y una lista
+vacía**: igual para un cubo sin acceso que para un cubo que no existe. Comprobado
+contra el proyecto real. De modo que «0 ficheros» no demuestra «no hay ficheros», y
+una copia que no distingue esas dos cosas es peor que no tener copia, porque se
+anuncia como correcta.
+
+Por eso el guion compara lo descargado con `storage.objects` del volcado SQL, que es
+una fuente independiente, y sale con error si falta alguno. Sin ese argumento avisa
+de que no ha comprobado nada, y si no descarga **ni un fichero** falla siempre.
+El propio contador se autocomprueba (`--autoprueba`) contra un volcado fabricado,
+porque es un analizador de texto escrito a mano: si cambiara el formato del volcado
+devolvería cero y aprobaría cualquier cosa.
 
 El ensayo (§5.0) cuenta cuántos ficheros hay en los metadatos y lo recuerda si hay
 alguno. **No lo cuenta como problema**, y es deliberado: el volcado está haciendo lo

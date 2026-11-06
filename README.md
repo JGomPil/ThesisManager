@@ -91,6 +91,7 @@ Pruebas de seguridad del modelo de datos, sin necesidad de proyecto en Supabase 
 ```bash
 ./scripts/test-rls.sh                      # 142 pruebas de RLS, catálogos, storage y keepalive
 ./scripts/backup-dump.sh                    # vuelca la base real y ensaya la copia seguida
+python3 scripts/backup-storage.py <carpeta> # y los ficheros de Storage, que no van en el .sql
 ./scripts/restore-drill.sh copia.sql       # ¿esta copia se puede restaurar de verdad?
 ./scripts/check-export-queries.sh          # ¿siguen siendo válidas las consultas documentadas?
 ```
