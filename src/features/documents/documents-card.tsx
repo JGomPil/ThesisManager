@@ -268,13 +268,17 @@ function DocumentRowItem({
               única cosa que se espera que hagas aquí. */}
           {caps.isMember && (
             <Button
-              variant={last ? 'ghost' : 'outline'} size={last ? 'icon' : 'sm'}
-              className={last ? 'size-8' : undefined}
+              // Siempre icono, nunca texto: esta tarjeta vive en la columna
+              // estrecha de la ficha del trabajo, y una palabra más en la fila
+              // de acciones empuja el nombre del documento fuera.
+              variant={last ? 'ghost' : 'outline'}
+              size="icon"
+              className="size-8"
               onClick={onNewVersion}
-              aria-label={last ? `Subir una versión de ${doc.name}` : undefined}
-              title="Subir una versión"
+              aria-label={last ? `Subir una versión de ${doc.name}` : `Entregar ${doc.name}`}
+              title={last ? 'Subir una versión' : 'Entregar: todavía no tiene ninguna versión'}
             >
-              <Upload /> {!last && 'Entregar'}
+              <Upload />
             </Button>
           )}
           {last?.storage_path && (

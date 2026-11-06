@@ -26,9 +26,34 @@ export const TEMPLATE_BUCKET = 'template-files'
  * devolvería otra cosa. Ver `scripts/check-embeds.sh`, que ahora cuenta las
  * relaciones sin mirar la dirección precisamente por este caso.
  */
-const SELECT_PLANTILLA =
+const SELECT_BASE =
   '*, work_type:work_types!templates_work_type_id_fkey(id,name,short_name)'
-  + ', tasks:template_tasks(*), files:template_files(*), documents:template_documents(*)'
+  + ', tasks:template_tasks(*), files:template_files(*)'
+
+const SELECT_PLANTILLA = `${SELECT_BASE}, documents:template_documents(*)`
+
+/**
+ * ¿Ha fallado por culpa de la `0019`, que todavía no está aplicada?
+ *
+ * Un embed a una tabla que no existe no devuelve una lista vacía: PostgREST
+ * responde un error y se cae la consulta ENTERA. O sea que, mientras la
+ * migración no esté aplicada en el proyecto real, pedir los documentos
+ * previstos dejaría la pantalla de Plantillas sin tareas y sin material
+ * —funcionalidad que ya estaba— por una sección nueva que todavía no puede
+ * funcionar. Pasó: la pantalla se queda en el panel de error y no hay forma de
+ * adivinar por qué.
+ *
+ * Es el mismo criterio que el recuento de comentarios de la `0015`: lo nuevo
+ * degrada, lo que ya estaba no se rompe. Se reconoce por el código (`42P01`,
+ * tabla inexistente; `PGRST200`, relación no encontrada) o por el nombre de la
+ * tabla en el mensaje, porque PostgREST no siempre manda el mismo código según
+ * la versión y aquí preferimos equivocarnos repitiendo la consulta.
+ */
+function faltaLaTabla(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false
+  if (error.code === '42P01' || error.code === 'PGRST200') return true
+  return (error.message ?? '').includes('template_documents')
+}
 
 export type TemplateWithTasks = TemplateRow & {
   work_type: { id: string; name: string; short_name: string } | null
@@ -44,19 +69,31 @@ export type TemplateWithTasks = TemplateRow & {
   documents: TemplateDocumentRow[]
 }
 
+/**
+ * Orden estable de lo que cuelga de una plantilla, en un solo sitio: las dos
+ * consultas lo necesitan igual, y `documents` tiene que quedar en `[]` —no en
+ * `undefined`— cuando la `0019` no está aplicada, o la pantalla reventaría al
+ * leer `.length`.
+ */
+function ordenar(data: unknown): TemplateWithTasks[] {
+  return ((data ?? []) as TemplateWithTasks[]).map((t) => ({
+    ...t,
+    tasks: [...(t.tasks ?? [])].sort((a, b) => a.order_index - b.order_index),
+    files: [...(t.files ?? [])].sort((a, b) => a.title.localeCompare(b.title, 'es')),
+    documents: [...(t.documents ?? [])].sort((a, b) => a.order_index - b.order_index),
+  }))
+}
+
 export const templatesRepo = {
   list: async (): Promise<TemplateWithTasks[]> => {
-    const { data, error } = await supabase
-      .from('templates')
-      .select(SELECT_PLANTILLA)
-      .order('name')
-    if (error) throw error
-    return ((data ?? []) as unknown as TemplateWithTasks[]).map((t) => ({
-      ...t,
-      tasks: [...(t.tasks ?? [])].sort((a, b) => a.order_index - b.order_index),
-      files: [...(t.files ?? [])].sort((a, b) => a.title.localeCompare(b.title, 'es')),
-      documents: [...(t.documents ?? [])].sort((a, b) => a.order_index - b.order_index),
-    }))
+    const completo = await supabase.from('templates').select(SELECT_PLANTILLA).order('name')
+    if (!faltaLaTabla(completo.error)) {
+      if (completo.error) throw completo.error
+      return ordenar(completo.data)
+    }
+    const basico = await supabase.from('templates').select(SELECT_BASE).order('name')
+    if (basico.error) throw basico.error
+    return ordenar(basico.data)
   },
 
   /**
@@ -66,19 +103,19 @@ export const templatesRepo = {
    * (prueba `[86]`); aquí solo evita ofrecer lo que va a fallar.
    */
   forWorkType: async (workTypeId: string): Promise<TemplateWithTasks[]> => {
-    const { data, error } = await supabase
-      .from('templates')
-      .select(SELECT_PLANTILLA)
-      .eq('is_active', true)
-      .or(`work_type_id.eq.${workTypeId},work_type_id.is.null`)
-      .order('name')
-    if (error) throw error
-    return ((data ?? []) as unknown as TemplateWithTasks[]).map((t) => ({
-      ...t,
-      tasks: [...(t.tasks ?? [])].sort((a, b) => a.order_index - b.order_index),
-      files: [...(t.files ?? [])].sort((a, b) => a.title.localeCompare(b.title, 'es')),
-      documents: [...(t.documents ?? [])].sort((a, b) => a.order_index - b.order_index),
-    }))
+    const filtro = `work_type_id.eq.${workTypeId},work_type_id.is.null`
+    const completo = await supabase
+      .from('templates').select(SELECT_PLANTILLA)
+      .eq('is_active', true).or(filtro).order('name')
+    if (!faltaLaTabla(completo.error)) {
+      if (completo.error) throw completo.error
+      return ordenar(completo.data)
+    }
+    const basico = await supabase
+      .from('templates').select(SELECT_BASE)
+      .eq('is_active', true).or(filtro).order('name')
+    if (basico.error) throw basico.error
+    return ordenar(basico.data)
   },
 
   create: async (input: TemplateInsert): Promise<TemplateRow> => {

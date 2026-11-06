@@ -11,6 +11,7 @@ import { useAuth } from '@/features/auth/auth-context'
 import { useTheme } from '@/hooks/use-theme'
 import { KeepaliveBanner } from '@/features/admin/keepalive-banner'
 import { NotificationsMenu } from '@/features/notifications/notifications-menu'
+import { InstallButton } from '@/app/layout/install-button'
 
 const NAV = [
   { to: '/', label: 'Resumen', icon: LayoutDashboard, end: true },
@@ -63,6 +64,10 @@ export function AppShell() {
           <span className="hidden truncate text-sm text-muted-foreground sm:inline">· {orgName}</span>
 
           <div className="ml-auto flex items-center gap-1">
+            {/* Solo se dibuja si el navegador ofrece instalar. Ver
+                `InstallButton`: en el escritorio la opción existe pero está
+                escondida en el menú del navegador. */}
+            <InstallButton />
             <NotificationsMenu />
             <Button variant="ghost" size="icon" onClick={toggle} aria-label="Cambiar tema">
               {theme === 'dark' ? <Sun /> : <Moon />}

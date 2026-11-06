@@ -287,13 +287,17 @@ export function TaskDetailDialog({
           {canTick && task.status !== 'COMPLETADA' ? (
             <Button
               variant="outline"
+              className="w-full sm:w-auto"
               loading={setStatus.isPending}
               onClick={() => setStatus.mutate('COMPLETADA')}
             >
-              <Check /> Marcar la tarea como completada
+              <Check /> Marcar como completada
             </Button>
-          ) : <span />}
-          <div className="flex gap-2">
+          ) : (
+            // En un teléfono el hueco vacío ocuparía una fila entera del pie.
+            <span className="hidden sm:block" />
+          )}
+          <div className="flex w-full flex-wrap justify-end gap-2 sm:w-auto">
             {caps.canManagePlan && (
               <Button variant="outline" onClick={onEdit}>
                 <Pencil /> Editar

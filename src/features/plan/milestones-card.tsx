@@ -147,14 +147,18 @@ export function MilestonesCard({
                   </label>
                   {caps.canManagePlan && (
                     <>
+                      {/* `shrink-0`: la tarjeta de hitos vive en la columna
+                          estrecha, y sin esto los dos botones se aplastan
+                          hasta volverse inpulsables antes de que el nombre
+                          del hito se decida a truncarse. */}
                       <Button
-                        variant="ghost" size="icon" className="size-7"
+                        variant="ghost" size="icon" className="size-7 shrink-0"
                         onClick={() => empezarEdicion(h)} aria-label={`Editar el hito ${h.name}`}
                       >
                         <Pencil className="size-3.5" />
                       </Button>
                       <Button
-                        variant="ghost" size="icon" className="size-7"
+                        variant="ghost" size="icon" className="size-7 shrink-0"
                         onClick={() => borrar.mutate(h.id)} aria-label={`Borrar el hito ${h.name}`}
                       >
                         <Trash2 className="size-3.5" />

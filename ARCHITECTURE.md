@@ -225,6 +225,19 @@ de tipos de trabajo extensibles: concentra `work_types`, `work_statuses`, `work_
   puede decirlo. Se detecta cruzando tres indicios (puntero grueso, ancho declarado ≥ 700 px y
   —pantalla real estrecha **o** escala del viewport < 0,9) para que un iPad no lo vea nunca. Pasó
   de verdad el 6 de noviembre de 2026 y nos costó un rato con el síntoma delante.
+- **Lo nuevo degrada; lo que ya estaba no se rompe.** Un *embed* de PostgREST a una tabla que no
+  existe no devuelve una lista vacía: responde error y tumba la consulta **entera**. Al añadir
+  `documents:template_documents(*)` al `select` de plantillas, la pantalla de Plantillas se quedaba
+  en el panel de error mientras la `0019` no estuviese aplicada —sin tareas y sin material, que ya
+  funcionaban—. Ahora, si el error habla de esa tabla, se repite la consulta sin ese *embed* y los
+  documentos previstos quedan en `[]`. Es el mismo criterio que el recuento de comentarios de la
+  `0015`: lo accesorio se cae solo.
+- **«Instalar la aplicación» es un botón nuestro** (`InstallButton`) que aparece únicamente cuando
+  el navegador dispara `beforeinstallprompt`. En Android, Chrome ofrece instalar por su cuenta; en
+  el escritorio cumple exactamente los mismos requisitos pero esconde la opción en el cuadro de
+  direcciones o en el menú de tres puntos, así que la aplicación *era* instalable y parecía que no.
+  Si el evento no llega, el botón no se dibuja, y su ausencia también informa: ese navegador no la
+  instala (Safari no implementa el evento) o ya está instalada.
 - **La plantilla dice qué hay que hacer y qué hay que entregar** (`0019`). Son dos cosas con ciclos
   de vida distintos y por eso se modelan distinto: el *material de referencia* (0014) **no se
   copia** —la tarea guarda `template_task_id` y lee de la plantilla, así una rúbrica corregida se

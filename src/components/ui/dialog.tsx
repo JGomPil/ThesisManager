@@ -41,8 +41,19 @@ export const DialogHeader = ({ className, ...props }: React.ComponentProps<'div'
   <div className={cn('flex flex-col space-y-1.5 text-left', className)} {...props} />
 )
 
+/**
+ * `flex-wrap` no es decorativo: el diálogo tiene ancho FIJO
+ * (`w-[calc(100vw-2rem)] max-w-lg`) y `overflow-y-auto`, o sea que lo que se
+ * sale por los lados no se puede ni alcanzar. Con cuatro acciones —«Marcar como
+ * completada», «Editar», «Eliminar», «Cerrar»— la fila se salía del recuadro y
+ * en un teléfono se comía la ficha entera. Que envuelvan es la diferencia entre
+ * una fila de dos alturas y unos botones inalcanzables.
+ */
 export const DialogFooter = ({ className, ...props }: React.ComponentProps<'div'>) => (
-  <div className={cn('flex flex-col-reverse gap-2 sm:flex-row sm:justify-end', className)} {...props} />
+  <div
+    className={cn('flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end', className)}
+    {...props}
+  />
 )
 
 export const DialogTitle = React.forwardRef<
