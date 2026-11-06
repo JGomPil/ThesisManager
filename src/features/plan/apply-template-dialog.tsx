@@ -96,6 +96,7 @@ export function ApplyTemplateDialog({
                 {rows.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name} · {p.tasks.length} tarea(s)
+                    {p.files.length > 0 ? ` · ${p.files.length} material(es)` : ''}
                     {p.work_type ? ` · ${p.work_type.short_name}` : ' · cualquier tipo'}
                   </option>
                 ))}

@@ -223,6 +223,14 @@ export type TaskRow = {
   due_date: string | null
   completed_at: string | null
   order_index: number
+  /**
+   * De qué tarea de plantilla sale esta tarea (migración 0014). Es el enlace
+   * que le da su material de referencia SIN copiar ningún fichero: la rúbrica
+   * vive una sola vez en la plantilla y se corrige para todos los trabajos a la
+   * vez. `on delete set null`: si se borra la tarea de plantilla, la tarea se
+   * queda sin material y no avisa.
+   */
+  template_task_id: string | null
   created_by: string | null
   created_at: string
   updated_at: string
@@ -288,6 +296,35 @@ export type TemplateTaskRow = {
   priority: TaskPriority
   order_index: number
   parent_index: number | null
+  /**
+   * Quién hace la tarea, por FUNCIÓN y no por persona: una plantilla sirve para
+   * trabajos que todavía no existen. `app.apply_template` lo resuelve contra
+   * los participantes activos del trabajo, prefiriendo al principal.
+   */
+  assignee_role_id: string | null
+}
+
+/**
+ * Material de referencia de una plantilla: guiones, rúbricas, formatos. Con
+ * `template_task_id` cuelga de una tarea concreta; sin él, de la plantilla
+ * entera. Dos orígenes posibles, como en `document_versions`: fichero en el
+ * cubo `template-files` o enlace externo.
+ *
+ * NO contiene datos de ninguna persona: es material común a todos los trabajos
+ * de ese tipo, y lo lee cualquier miembro de la organización.
+ */
+export type TemplateFileRow = {
+  id: string
+  template_id: string
+  template_task_id: string | null
+  title: string
+  description: string | null
+  storage_path: string | null
+  external_url: string | null
+  mime_type: string | null
+  size_bytes: number | null
+  created_by: string | null
+  created_at: string
 }
 
 export type NotificationRow = {
@@ -451,7 +488,7 @@ export type Database = {
       document_types: Table<DocumentTypeRow, Auto<DocumentTypeRow, 'id' | 'organization_id' | 'display_order' | 'is_active'>>
       academic_works: Table<AcademicWorkRow, Auto<AcademicWorkRow, 'id' | 'research_group_id' | 'program_id' | 'academic_year_id' | 'research_line_id' | 'description' | 'objectives' | 'hypothesis' | 'methodology' | 'keywords' | 'notes' | 'start_date' | 'expected_end_date' | 'actual_end_date' | 'defense_date' | 'progress_override' | 'is_archived' | 'created_by' | 'created_at' | 'updated_at' | 'deleted_at'>>
       work_members: Table<WorkMemberRow, Auto<WorkMemberRow, 'id' | 'is_primary' | 'permissions' | 'start_date' | 'end_date' | 'status' | 'created_by' | 'created_at' | 'updated_at'>>
-      tasks: Table<TaskRow, Auto<TaskRow, 'id' | 'parent_task_id' | 'milestone_id' | 'description' | 'assignee_id' | 'status' | 'priority' | 'start_date' | 'due_date' | 'completed_at' | 'order_index' | 'created_by' | 'created_at' | 'updated_at'>>
+      tasks: Table<TaskRow, Auto<TaskRow, 'id' | 'parent_task_id' | 'milestone_id' | 'description' | 'assignee_id' | 'status' | 'priority' | 'start_date' | 'due_date' | 'completed_at' | 'order_index' | 'template_task_id' | 'created_by' | 'created_at' | 'updated_at'>>
       milestones: Table<MilestoneRow, Auto<MilestoneRow, 'id' | 'phase_id' | 'description' | 'is_met' | 'met_at' | 'order_index' | 'created_at'>>
       meetings: Table<MeetingRow, Auto<MeetingRow, 'id' | 'duration_min' | 'modality' | 'location' | 'topics' | 'summary' | 'next_meeting_at' | 'created_by' | 'created_at' | 'updated_at'>>
       meeting_participants: Table<MeetingParticipantRow, Auto<MeetingParticipantRow, 'attended'>>
@@ -465,7 +502,8 @@ export type Database = {
       work_phases: Table<WorkPhaseRow, Auto<WorkPhaseRow, 'id' | 'start_date' | 'end_date' | 'order_index'>>
       task_dependencies: Table<TaskDependencyRow, TaskDependencyRow>
       templates: Table<TemplateRow, Auto<TemplateRow, 'id' | 'work_type_id' | 'description' | 'is_active' | 'created_by' | 'created_at'>>
-      template_tasks: Table<TemplateTaskRow, Auto<TemplateTaskRow, 'id' | 'description' | 'offset_days' | 'duration_days' | 'priority' | 'order_index' | 'parent_index'>>
+      template_tasks: Table<TemplateTaskRow, Auto<TemplateTaskRow, 'id' | 'description' | 'offset_days' | 'duration_days' | 'priority' | 'order_index' | 'parent_index' | 'assignee_role_id'>>
+      template_files: Table<TemplateFileRow, Auto<TemplateFileRow, 'id' | 'template_task_id' | 'description' | 'storage_path' | 'external_url' | 'mime_type' | 'size_bytes' | 'created_by' | 'created_at'>>
       keepalive: Table<KeepaliveRow, Auto<KeepaliveRow, 'id' | 'label' | 'last_ping_at' | 'note' | 'created_at'>>
     }
     Views: Record<string, never>

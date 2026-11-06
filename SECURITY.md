@@ -550,6 +550,75 @@ solo grupo. La forma de acotarlo, si llega el caso, es cruzar con `invitations`
 por correo; queda escrito en la cabecera de la migración para no tener que
 volver a razonarlo.
 
+### 5.2.quaterdecies · La primera información que se comparte a propósito entre trabajos
+
+Hasta la migración `0014`, **todo** lo protegido pertenecía a un trabajo, y por
+eso casi todas las políticas acababan en `app.accessible_work_ids()`. El
+material de plantilla —el guion de la memoria, la rúbrica de evaluación, el
+formato de portada— es lo primero que no pertenece a ninguno: es común a todos
+los trabajos de un tipo y está escrito precisamente para que lo lean todos los
+estudiantes de ese perfil.
+
+Eso obliga a decir la frontera desde cero, y la respuesta es **la organización**:
+`template_files` se lee como `templates` (cualquier miembro activo) y se escribe
+como `templates` (solo la administración). Las pruebas `[102]` y `[103]` fijan
+los dos extremos: un director no puede adjuntar material común, y un estudiante
+sí puede leerlo. La prueba `[103]` es la que no es obvia: parece una fuga y es el
+objetivo.
+
+**El cubo tiene que decir lo mismo que la tabla.** `template-files` es privado y
+sus cuatro políticas usan `app.can_access_template_object` /
+`app.can_write_template_object`, que deducen la plantilla del primer segmento de
+la ruta —igual que `work-documents` deduce el trabajo (§5.2 de la `0010`)—. Una
+fila bien protegida que apunte a un objeto mal protegido no protege nada.
+
+**Por qué no se copian los ficheros al aplicar la plantilla.** La tarea creada
+guarda `tasks.template_task_id` y lee el material de la plantilla. Con copias,
+corregir una rúbrica obligaría a repasar los trabajos en curso uno a uno y nadie
+lo haría: cada estudiante leería una versión distinta sin saberlo. Además, el
+plan gratuito da 1 GB de Storage y treinta copias del mismo PDF lo gastan sin
+añadir nada. Lo que sí es propio de cada trabajo —el entregable del estudiante—
+ya tenía su sitio desde la `0010`.
+
+**El precio de esa decisión, escrito.** `on delete set null` en
+`tasks.template_task_id` significa que borrar una tarea de plantilla **no falla**
+y deja sin material a las tareas ya creadas desde ella, sin rastro. Es el mismo
+peligro que borrar una línea de investigación en uso (prueba `[92]`) y se trata
+igual: la base de datos lo permite, la prueba `[108]` lo documenta para que salte
+si alguien cambia el comportamiento, y la interfaz avisa con el recuento de
+adjuntos antes de borrar.
+
+**Y una regla nueva que conviene recordar:** el material de plantilla no debe
+contener datos de ninguna persona concreta. No es una recomendación de estilo:
+es lo único que lo hace compartible con toda la organización sin contradecir el
+§8. El aviso está en el formulario de subida, junto al límite de tamaño.
+
+### 5.2.quindecies · El `revoke` por defecto de la `0006` sí funciona (y por qué, a diferencia del de funciones)
+
+La prueba `[104]` dejó una lección que corrige a medias la de §5.2.decies. Allí se
+documentó que `alter default privileges ... revoke all on functions from public`
+**no hace nada**. Pero el `alter default privileges ... revoke all on tables from
+anon` de la `0006` **sí** funciona: `template_files`, creada ocho migraciones
+después, nace sin ningún privilegio para `anon`.
+
+La diferencia no es el tipo de objeto, es **qué hay debajo cuando se quita la
+concesión**. Comprobado en un PostgreSQL 16 limpio: el `grant` por defecto deja
+una fila en `pg_default_acl`, y el `revoke` posterior **la borra** (vuelve a cero
+filas, no guarda ninguna prohibición). Lo que queda es el comportamiento base de
+PostgreSQL, y ahí está toda la diferencia:
+
+- **Tablas**: el comportamiento base es «ningún privilegio para nadie». Quitar la
+  concesión de Supabase deja la tabla cerrada, que es lo que se quería. Por eso
+  `template_files` nace cerrada a `anon` sin tocar la `0006`.
+- **Funciones**: el comportamiento base es `EXECUTE` **para `PUBLIC`**, concedido
+  por PostgreSQL y no por Supabase. No hay ninguna fila de concesión que borrar,
+  y una vez borrada la que hubiera, PUBLIC sigue ahí. De ahí que el `revoke` por
+  defecto sobre funciones no cierre nada (§5.2.decies).
+
+De ahí que las dos reglas convivan sin contradecirse: para tablas basta el
+`revoke` por defecto de la `0006`; para funciones hace falta el `revoke` en
+bloque inmediato al final de cada migración que cree alguna.
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.
@@ -624,7 +693,7 @@ Cada una debe ejecutarse **contra la base de datos** con el JWT del usuario corr
 desde la interfaz.
 
 > **Ya verificadas.** Las migraciones de `supabase/migrations/` se han aplicado a un
-> PostgreSQL 16 real y se ejecutan **100 pruebas** de seguridad, todas correctas:
+> PostgreSQL 16 real y se ejecutan **110 pruebas** de seguridad, todas correctas:
 > `./scripts/test-rls.sh` (detalle en `supabase/tests/README.md`). Cubren los puntos 1–6, 12 y 13
 > de la lista siguiente. Los puntos 7, 10 y 11 dependen del frontend y del despliegue, y los 8 y 9
 > del proyecto real de Supabase; se validan en la Fase 1.
@@ -637,7 +706,7 @@ desde la interfaz.
 >
 > El segundo apareció ya en producción y la suite **no** lo detectó: el `EXECUTE` que faltaba en
 > `app.has_work_capability` (§5.2.ter). Las cuatro razones por las que se escapó, y lo que se ha
-> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 100
+> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 110
 > pruebas y el runner ahora falla de verdad cuando algo va mal, que antes no lo hacía.
 
 

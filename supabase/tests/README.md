@@ -97,6 +97,16 @@ usuarios). **Es solo para pruebas**: nunca se aplica a un proyecto real.
 98 | Quien no administra nada recibe una lista **vacía**, no un error: un error diría «aquí hay algo que no puedes ver» |
 99 | Al autorizar la cuenta deja de estar pendiente y aparece en el directorio |
 100 | `anon` no puede listar cuentas pendientes |
+101 | Una tarea de plantilla guarda **en qué consiste, quién la hace y con qué material** |
+102 | Un director **no** puede adjuntar material a una plantilla: es material común, lo pone la administración |
+103 | El estudiante **sí** ve el material de la plantilla. Es la única información del sistema compartida a propósito entre trabajos: son guiones y rúbricas escritos para que los lea |
+104 | `anon` no llega al material: **ni privilegio de tabla** —la `0006` canceló el `grant` por defecto y por eso sigue cerrada una tabla creada ocho migraciones después— ni filas |
+105 | El material **no puede cruzarse entre plantillas** (disparador `app.enforce_template_file_scope`) |
+106 | Al aplicar la plantilla, **cada tarea cae en quien ejerce esa función** en ese trabajo: la revisión en el director principal, la entrega en el estudiante. Y la tarea recuerda de qué tarea de plantilla sale |
+107 | Si **nadie** ejerce esa función, la tarea se crea **sin responsable**: un plan con una tarea sin asignar es mejor que negarse a crear el plan |
+108 | **Borrar una tarea de plantilla no falla** y deja sin material a las tareas ya creadas desde ella. Documenta el peligro, no lo celebra: es la razón del aviso con recuento en la interfaz |
+109 | El estudiante **descarga** el material del cubo y **no puede subir** nada a él |
+110 | La administración sube, y **ni ella** puede usar una ruta que no empiece por el uuid de una plantilla |
 
 La prueba 33 ha vuelto a ganarse el sueldo en la Fase 3. Recorre todas las funciones del
 esquema `app` y exige que `anon` no pueda ejecutar ninguna; al añadir la migración `0012` falló,

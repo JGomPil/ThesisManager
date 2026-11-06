@@ -67,6 +67,8 @@ export const qk = {
   templates: {
     all: ['templates'] as const,
     forWorkType: (workTypeId: string) => ['templates', 'work-type', workTypeId] as const,
+    /** Material de referencia de una tarea de plantilla, visto desde la tarea real. */
+    taskFiles: (templateTaskId: string) => ['templates', 'task-files', templateTaskId] as const,
   },
 
   calendar: (from: string, to: string) => ['calendar', from, to] as const,

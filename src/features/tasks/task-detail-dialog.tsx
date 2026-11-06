@@ -20,6 +20,7 @@ import { daysUntil } from '@/domain/works/progress'
 import { DocumentsCard } from '@/features/documents/documents-card'
 import { CommentsThread } from '@/features/comments/comments-thread'
 import { TaskDependencies } from '@/features/tasks/task-dependencies'
+import { TaskReferenceMaterial } from '@/features/tasks/task-reference-material'
 import type { WorkMemberWithRole } from '@/data/repositories/works.repo'
 import { canUpdateTaskStatus } from '@/domain/permissions/work-capabilities'
 import type { WorkCapabilities } from '@/domain/permissions/work-capabilities'
@@ -143,6 +144,12 @@ export function TaskDetailDialog({
               </p>
             </div>
           </section>
+
+          {/* El material de la plantilla va ANTES de la lista de comprobación:
+              se lee el guion y después se van marcando los puntos. */}
+          {task.template_task_id && (
+            <TaskReferenceMaterial templateTaskId={task.template_task_id} />
+          )}
 
           <section className="border-t pt-3">
             <h3 className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">

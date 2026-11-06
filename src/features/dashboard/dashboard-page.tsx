@@ -7,6 +7,7 @@ import { PageHeader } from '@/app/layout/app-shell'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ToneBadge } from '@/components/ui/badge'
 import { EmptyState, ErrorPanel, LoadingPanel } from '@/components/common/states'
+import { useRowLink } from '@/components/common/row-link'
 import { qk } from '@/lib/query-keys'
 import { worksRepo } from '@/data/repositories/works.repo'
 import { tasksRepo } from '@/data/repositories/tasks.repo'
@@ -17,6 +18,7 @@ import { resolveWorkCapabilities } from '@/domain/permissions/work-capabilities'
 
 export function DashboardPage() {
   const { userId, isOrgAdmin, profile } = useAuth()
+  const rowLink = useRowLink()
   const workTypes = useWorkTypes()
   const works = useQuery({ queryKey: qk.works.list({}), queryFn: () => worksRepo.list({ onlyActive: true }) })
   const myTasks = useQuery({
@@ -125,7 +127,7 @@ export function DashboardPage() {
               {(myTasks.data ?? []).slice(0, 8).map((t) => {
                 const late = t.due_date !== null && (daysUntil(t.due_date) ?? 0) < 0
                 return (
-                  <li key={t.id} className="flex items-center gap-3 py-2 text-sm">
+                  <li key={t.id} className="flex cursor-pointer items-center gap-3 py-2 text-sm" {...rowLink(`/trabajos/${t.work_id}`)}>
                     <Link to={`/trabajos/${t.work_id}`} className="min-w-0 flex-1 hover:underline">
                       <span className="block truncate font-medium">{t.title}</span>
                       <span className="block truncate text-xs text-muted-foreground">{t.work?.title}</span>
@@ -155,7 +157,7 @@ export function DashboardPage() {
             ) : (
               <ul className="divide-y">
                 {needAttention.map(({ work, reasons }) => (
-                  <li key={work.id} className="flex items-start gap-3 py-2 text-sm">
+                  <li key={work.id} className="flex cursor-pointer items-start gap-3 py-2 text-sm" {...rowLink(`/trabajos/${work.id}`)}>
                     <Link to={`/trabajos/${work.id}`} className="min-w-0 flex-1 hover:underline">
                       <span className="block truncate font-medium">{work.title}</span>
                       <span className="mt-0.5 flex flex-wrap gap-1">
@@ -185,7 +187,7 @@ export function DashboardPage() {
             ) : (
               <ul className="divide-y">
                 {upcoming.map(({ work, days }) => (
-                  <li key={work.id} className="flex items-center gap-3 py-2 text-sm">
+                  <li key={work.id} className="flex cursor-pointer items-center gap-3 py-2 text-sm" {...rowLink(`/trabajos/${work.id}`)}>
                     <Link to={`/trabajos/${work.id}`} className="min-w-0 flex-1 truncate font-medium hover:underline">
                       {work.title}
                     </Link>

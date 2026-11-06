@@ -97,7 +97,7 @@ compartida, una mención solo alcanza a quien ya es miembro activo del trabajo, 
 escribir en el buzón de otra persona porque `notifications` no tiene política de `INSERT`
 (`SECURITY.md` §5.2.nonies).
 
-## Fase 3 — Planificación avanzada · **implementada, pendiente de aplicar la migración `0012`**
+## Fase 3 — Planificación avanzada · **implementada, pendiente de aplicar la migración `0014`**
 
 Estado a 6 de noviembre de 2026:
 
@@ -109,7 +109,16 @@ Estado a 6 de noviembre de 2026:
 | ✅ | **Plantillas de tareas por tipo de trabajo**, con fechas relativas y jerarquía, aplicables en una sola llamada atómica |
 | ✅ | **Hitos** con fecha de cumplimiento escrita por la base de datos |
 | ✅ | Alertas de retraso: hitos vencidos y tareas que esperan a otra sin terminar, marcadas en el cronograma |
-| ⏳ | **La migración `0012` no está aplicada al proyecto real**: hasta entonces fallarán las dependencias, los hitos y el botón de aplicar plantilla |
+| ✅ | **Plantillas completas** (`0014`): la tarea de plantilla guarda en qué consiste, quién la hace —por función académica, resuelta al aplicarla— y su **material adjunto** (guiones, rúbricas, formatos), que la tarea real muestra sin copiar ningún fichero |
+| ⏳ | **La migración `0014` no está aplicada al proyecto real**: hasta entonces, la pantalla de plantillas fallará al guardar el responsable o el material |
+
+El **material de plantilla** se enlaza, no se copia: la tarea creada guarda `template_task_id` y
+lee el material de la plantilla, de modo que corregir una rúbrica la corrige en todos los
+trabajos, también los que ya están en marcha. El precio está escrito y probado: borrar una tarea
+de plantilla deja sin material a las tareas ya creadas desde ella y no avisa (prueba `[108]`, de
+ahí el aviso con recuento en la interfaz). Añadido a petición del usuario el 6 de noviembre de
+2026, junto con poder **entrar en un trabajo pinchando en cualquier parte de su fila** y no solo
+en el título.
 
 Las **subtareas** se adelantaron a la Fase 1 al implementar las listas de comprobación
 de cada tarea (`tasks.parent_task_id`), a petición del usuario el 6 de noviembre de 2026.

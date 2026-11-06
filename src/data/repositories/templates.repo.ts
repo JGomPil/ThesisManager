@@ -1,10 +1,16 @@
 import { supabase } from '@/lib/supabase'
-import type { Database, TemplateRow, TemplateTaskRow } from '@/data/types/database'
+import type {
+  Database, TemplateFileRow, TemplateRow, TemplateTaskRow,
+} from '@/data/types/database'
 
 type TemplateInsert = Database['public']['Tables']['templates']['Insert']
 type TemplateUpdate = Database['public']['Tables']['templates']['Update']
 type TemplateTaskInsert = Database['public']['Tables']['template_tasks']['Insert']
 type TemplateTaskUpdate = Database['public']['Tables']['template_tasks']['Update']
+type TemplateFileInsert = Database['public']['Tables']['template_files']['Insert']
+
+/** Cubo privado del material de plantilla, creado por la migración 0014. */
+export const TEMPLATE_BUCKET = 'template-files'
 
 /**
  * `templates` y `work_types` están unidas por DOS claves ajenas en sentidos
@@ -19,11 +25,19 @@ type TemplateTaskUpdate = Database['public']['Tables']['template_tasks']['Update
  * relaciones sin mirar la dirección precisamente por este caso.
  */
 const SELECT_PLANTILLA =
-  '*, work_type:work_types!templates_work_type_id_fkey(id,name,short_name), tasks:template_tasks(*)'
+  '*, work_type:work_types!templates_work_type_id_fkey(id,name,short_name)'
+  + ', tasks:template_tasks(*), files:template_files(*)'
 
 export type TemplateWithTasks = TemplateRow & {
   work_type: { id: string; name: string; short_name: string } | null
   tasks: TemplateTaskRow[]
+  /**
+   * Todo el material de la plantilla en una sola consulta. Se agrupa por
+   * `template_task_id` en la interfaz: traerlo tarea por tarea serían N
+   * consultas para unas pocas filas, y el plan gratuito de Supabase se mide en
+   * peticiones.
+   */
+  files: TemplateFileRow[]
 }
 
 export const templatesRepo = {
@@ -36,6 +50,7 @@ export const templatesRepo = {
     return ((data ?? []) as unknown as TemplateWithTasks[]).map((t) => ({
       ...t,
       tasks: [...(t.tasks ?? [])].sort((a, b) => a.order_index - b.order_index),
+      files: [...(t.files ?? [])].sort((a, b) => a.title.localeCompare(b.title, 'es')),
     }))
   },
 
@@ -56,6 +71,7 @@ export const templatesRepo = {
     return ((data ?? []) as unknown as TemplateWithTasks[]).map((t) => ({
       ...t,
       tasks: [...(t.tasks ?? [])].sort((a, b) => a.order_index - b.order_index),
+      files: [...(t.files ?? [])].sort((a, b) => a.title.localeCompare(b.title, 'es')),
     }))
   },
 
@@ -92,6 +108,84 @@ export const templatesRepo = {
 
   removeTask: async (id: string): Promise<void> => {
     const { error } = await supabase.from('template_tasks').delete().eq('id', id)
+    if (error) throw error
+  },
+
+  // ---------------------------------------------------------------------------
+  // Material de referencia (migración 0014)
+  //
+  // Ni al aplicar la plantilla ni al abrir la tarea se COPIA nada: la tarea
+  // creada guarda `template_task_id` y de ahí sale su material. Corregir la
+  // rúbrica una vez la corrige para todos los trabajos en curso, y el plan
+  // gratuito de Storage (1 GB) no paga treinta copias del mismo PDF.
+  // ---------------------------------------------------------------------------
+
+  /** El material de una tarea de plantilla: lo que ve quien abre la tarea real. */
+  filesForTemplateTask: async (templateTaskId: string): Promise<TemplateFileRow[]> => {
+    const { data, error } = await supabase
+      .from('template_files')
+      .select('*')
+      .eq('template_task_id', templateTaskId)
+      .order('title')
+    if (error) throw error
+    return data ?? []
+  },
+
+  addFile: async (input: TemplateFileInsert): Promise<TemplateFileRow> => {
+    const { data, error } = await supabase.from('template_files').insert(input).select('*').single()
+    if (error) throw error
+    return data
+  },
+
+  /**
+   * Sube el fichero al cubo privado.
+   *
+   * La ruta `<template_id>/<id>/<fichero>` NO es decorativa: el primer segmento
+   * es la llave de autorización de las políticas de `storage.objects`
+   * (migración 0014, `app.can_access_template_object`). Cambiarla sin cambiar
+   * las políticas abriría el cubo.
+   *
+   * El identificador intermedio lo pone el cliente y es el mismo que irá en la
+   * fila: así, si la fila no llega a crearse, el objeto queda en una carpeta
+   * que nadie referencia y se puede localizar y limpiar.
+   */
+  uploadFile: async (file: File, templateId: string, fileId: string): Promise<string> => {
+    const safe = file.name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9._-]/g, '-')
+      .replace(/-+/g, '-')
+      .slice(-120)
+    const path = `${templateId}/${fileId}/${safe}`
+    const { error } = await supabase.storage.from(TEMPLATE_BUCKET).upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type || undefined,
+    })
+    if (error) throw error
+    return path
+  },
+
+  /** El cubo es privado: no hay URL pública, solo una firmada de duración corta. */
+  downloadUrl: async (storagePath: string, seconds = 120): Promise<string> => {
+    const { data, error } = await supabase.storage
+      .from(TEMPLATE_BUCKET).createSignedUrl(storagePath, seconds)
+    if (error) throw error
+    return data.signedUrl
+  },
+
+  /**
+   * Quita el material. Primero el objeto y después la fila: al revés, un fallo
+   * entre las dos dejaría una fila apuntando a un fichero que ya no existe, que
+   * es un adjunto roto en la pantalla de todos los estudiantes. Si falla el
+   * orden que sí se usa, lo que queda son bytes huérfanos inaccesibles.
+   */
+  removeFile: async (file: TemplateFileRow): Promise<void> => {
+    if (file.storage_path) {
+      const { error } = await supabase.storage.from(TEMPLATE_BUCKET).remove([file.storage_path])
+      if (error) throw error
+    }
+    const { error } = await supabase.from('template_files').delete().eq('id', file.id)
     if (error) throw error
   },
 

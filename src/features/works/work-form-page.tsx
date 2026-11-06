@@ -396,6 +396,7 @@ export function WorkFormPage() {
                 {(plantillas.data ?? []).map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name} · {t.tasks.length} tarea(s)
+                    {t.files.length > 0 ? ` · ${t.files.length} material(es)` : ''}
                     {t.work_type ? '' : ' · cualquier tipo'}
                   </option>
                 ))}

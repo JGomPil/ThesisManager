@@ -16,6 +16,7 @@ import {
 import { useToast } from '@/components/ui/toast'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EmptyState, ErrorPanel, LoadingPanel } from '@/components/common/states'
+import { useRowLink } from '@/components/common/row-link'
 import { qk } from '@/lib/query-keys'
 import { worksRepo } from '@/data/repositories/works.repo'
 import { errorMessage } from '@/lib/supabase'
@@ -29,6 +30,8 @@ export function WorksListPage() {
   const { userId, isOrgAdmin } = useAuth()
   const qc = useQueryClient()
   const toast = useToast()
+  // La fila entera abre el trabajo, no solo el título. Ver `useRowLink`.
+  const rowLink = useRowLink()
   const [toArchive, setToArchive] = React.useState<{ id: string; title: string } | null>(null)
 
   const archive = useMutation({
@@ -170,7 +173,7 @@ export function WorksListPage() {
                 const supervisors = w.members.filter((m) => m.status === 'ACTIVE' && m.role?.is_supervisory)
                 const days = daysUntil(w.expected_end_date)
                 return (
-                  <TableRow key={w.id}>
+                  <TableRow key={w.id} className="cursor-pointer" {...rowLink(`/trabajos/${w.id}`)}>
                     <TableCell className="max-w-[22rem]">
                       <Link to={`/trabajos/${w.id}`} className="font-medium hover:underline">
                         <span className="line-clamp-2">{w.title}</span>
