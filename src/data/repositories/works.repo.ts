@@ -15,12 +15,12 @@ type MemberInsert = Database['public']['Tables']['work_members']['Insert']
 // devuelve a la persona equivocada. `scripts/check-embeds.sh` lo vigila.
 const WORK_SELECT = `
   *,
-  work_type:work_types(id,code,name,short_name,color,icon,requires_defense,requires_deposit,requires_program,allows_multiple_students,max_supervisors,default_duration_months),
+  work_type:work_types!academic_works_work_type_id_fkey(id,code,name,short_name,color,icon,requires_defense,requires_deposit,requires_program,allows_multiple_students,max_supervisors,default_duration_months),
   status:work_statuses(id,code,name,color,display_order,is_terminal),
   program:programs(id,code,name),
   academic_year:academic_years(id,code),
   research_line:research_lines(id,name),
-  members:work_members(
+  members:work_members!work_members_work_id_fkey(
     id,user_id,is_primary,status,permissions,
     role:work_roles(id,code,name,is_student,is_supervisory,can_manage_plan,can_see_private_notes,can_validate_deliverables,can_manage_members),
     profile:profiles!work_members_user_id_fkey(id,full_name,email,avatar_url)

@@ -40,6 +40,25 @@ export const supabase = createClient<Database>(safeUrl, safeKey, {
 })
 
 /** Mensaje de error legible en español a partir de un error de Supabase. */
+/**
+ * Convierte el `details` de un error de PostgREST en algo que se pueda leer.
+ *
+ * Puede llegar como cadena, como array de objetos (PGRST201) o como objeto.
+ * Se serializa con `JSON.stringify` y se recorta, porque un detalle de tres
+ * líneas en un aviso es un detalle que nadie lee; el completo sigue en la
+ * consola del navegador para quien lo necesite.
+ */
+function detalleLegible(details: unknown): string {
+  if (details === null || details === undefined) return ''
+  if (typeof details === 'string') return details
+  try {
+    const texto = JSON.stringify(details)
+    return texto.length > 300 ? `${texto.slice(0, 300)}…` : texto
+  } catch {
+    return ''
+  }
+}
+
 export function errorMessage(error: unknown): string {
   if (!error) return 'Error desconocido.'
   const raw = typeof error === 'string' ? error : ((error as { message?: string }).message ?? '')
@@ -68,8 +87,16 @@ export function errorMessage(error: unknown): string {
   // migración está sin aplicar. Esa ambigüedad costó un rato de diagnóstico el
   // 6 de noviembre de 2026, con un archivado que fallaba porque la política de
   // la migración 0008 todavía no estaba en el proyecto.
-  const e = error as { code?: string; details?: string; hint?: string }
-  const extra = [e.details, e.hint].filter(Boolean).join(' ')
+  const e = error as { code?: string; details?: unknown; hint?: string }
+
+  // `details` NO SIEMPRE ES UNA CADENA. En el error PGRST201 de un embed
+  // ambiguo, PostgREST manda un array de objetos describiendo cada relación
+  // candidata, y concatenarlo sin más produce «[object Object],[object
+  // Object]», que es exactamente lo contrario de un detalle técnico útil: ocupa
+  // el sitio del mensaje y no dice nada. Se vio en pantalla el 6 de noviembre
+  // de 2026 con el embed de `templates` y `work_types`.
+  const detalle = detalleLegible(e.details)
+  const extra = [detalle, e.hint].filter(Boolean).join(' ')
   const codigo = e.code ? ` [${e.code}]` : ''
 
   if (raw.includes('new row violates row-level security')) {

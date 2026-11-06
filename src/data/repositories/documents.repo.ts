@@ -21,7 +21,7 @@ const DOC_SELECT = `
   *,
   document_type:document_types(id,code,name),
   author:profiles!documents_created_by_fkey(id,full_name),
-  versions:document_versions(
+  versions:document_versions!document_versions_document_id_fkey(
     *,
     author:profiles!document_versions_author_id_fkey(id,full_name),
     reviewer:profiles!document_versions_reviewer_id_fkey(id,full_name)

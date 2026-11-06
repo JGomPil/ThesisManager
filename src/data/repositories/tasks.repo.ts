@@ -35,7 +35,7 @@ export const tasksRepo = {
   mine: async (userId: string): Promise<TaskWithWork[]> => {
     const { data, error } = await supabase
       .from('tasks')
-      .select(`${TASK_SELECT}, work:academic_works(id,title,work_type:work_types(short_name,color))`)
+      .select(`${TASK_SELECT}, work:academic_works(id,title,work_type:work_types!academic_works_work_type_id_fkey(short_name,color))`)
       .eq('assignee_id', userId)
       .neq('status', 'COMPLETADA')
       .order('due_date', { ascending: true, nullsFirst: false })
