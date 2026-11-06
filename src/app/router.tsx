@@ -11,6 +11,7 @@ import { WorksListPage } from '@/features/works/works-list-page'
 import { WorkFormPage } from '@/features/works/work-form-page'
 import { WorkDetailPage } from '@/features/works/work-detail-page'
 import { PeoplePage } from '@/features/works/people-page'
+import { PersonPage } from '@/features/works/person-page'
 import { AdminHomePage } from '@/features/admin/admin-home-page'
 import { InvitationsPage } from '@/features/admin/invitations-page'
 import { ProfilePage } from '@/features/auth/profile-page'
@@ -86,6 +87,10 @@ export function Router() {
             <Route path="informes" element={<ReportsPage />} />
             <Route path="informes/trabajo/:id" element={<WorkReportPage />} />
             <Route path="personas" element={<PeoplePage />} />
+            {/* Sin guarda: `profiles_select` decide si hay ficha que mostrar.
+                Una guarda aquí tendría que repetir ese criterio en TypeScript, y
+                las dos versiones se separarían en cuanto cambiara una. */}
+            <Route path="personas/:id" element={<PersonPage />} />
             <Route path="perfil" element={<ProfilePage />} />
             <Route path="admin" element={<RequireAdmin><AdminHomePage /></RequireAdmin>} />
             <Route path="admin/tipos" element={<RequireAdmin><WorkTypesPage /></RequireAdmin>} />

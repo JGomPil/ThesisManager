@@ -350,7 +350,7 @@ export function WorkFormPage() {
                   ))}
                 </Select>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Se asigna como {supervisorRole?.name.toLowerCase() ?? 'dirección'} principal.
+                  Se asigna como {supervisorRole?.name.toLowerCase() ?? 'dirección'} del trabajo.
                   Los codirectores se añaden después, desde la ficha.
                 </p>
               </div>

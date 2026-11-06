@@ -225,6 +225,17 @@ de tipos de trabajo extensibles: concentra `work_types`, `work_statuses`, `work_
   puede decirlo. Se detecta cruzando tres indicios (puntero grueso, ancho declarado ≥ 700 px y
   —pantalla real estrecha **o** escala del viewport < 0,9) para que un iPad no lo vea nunca. Pasó
   de verdad el 6 de noviembre de 2026 y nos costó un rato con el síntoma delante.
+- **Ficha de persona de solo lectura** (`/personas/:id`). El departamento, el puesto, el ORCID y la
+  información académica se guardaban y no había donde leerlos: en una tabla de cuatro columnas no
+  caben, y cada cual solo los veía de sí mismo. La fila entera de «Personas» abre la ficha, con el
+  nombre como enlace de verdad —el que ve un lector de pantalla y el que se puede copiar—; las
+  insignias de trabajo que hay dentro siguen llevando a su trabajo, porque `useRowLink` no navega
+  cuando el clic cae sobre un enlace. **La ruta no lleva guarda**: quién tiene ficha lo decide
+  `profiles_select`, y una guarda en TypeScript tendría que repetir ese criterio para separarse de
+  él en el primer cambio. «No visible» y «no existe» muestran **el mismo mensaje** a propósito:
+  distinguirlos convertiría la dirección en un comprobador de existencia de cuentas. Las relaciones
+  académicas que lista son las de los trabajos que ve **quien mira**, no todas las de esa persona;
+  el pie de la tarjeta lo dice, para que una lista corta no se lea como un dato que falta.
 - **El tamaño base NO se toca en móvil.** Se probó subirlo a 17,5 px (+9 %) y en un teléfono real
   se veía demasiado grande: cabía menos en cada pantalla, que en un móvil se paga en
   desplazamiento. La palanca queda documentada en `globals.css` con su resultado, para no repetir

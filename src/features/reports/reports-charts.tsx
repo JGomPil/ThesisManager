@@ -13,7 +13,7 @@ import type { Bucket } from '@/domain/reports/aggregate'
  * entra a ver sus tareas y nunca abre un informe.
  *
  * TODAS LAS BARRAS SON HORIZONTALES, y no por gusto: las etiquetas son nombres
- * de estado, de tipo y de personas («Director principal», «Pendiente de
+ * de estado, de tipo y de personas («Director», «Pendiente de
  * depósito»). En vertical habría que girarlas o recortarlas, que son las dos
  * formas de hacer ilegible un eje.
  *

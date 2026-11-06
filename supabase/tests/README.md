@@ -179,5 +179,16 @@ row_count`. Es el tercer caso del mismo error de método en este proyecto —med
 verde por razones ajenas a lo que se quiere comprobar—, y conviene mirarlo con lupa en cada prueba
 nueva que afirme que algo **sí** se puede hacer.
 
+**Las migraciones que corrigen DATOS se repiten sobre el catálogo sembrado.** El arnés aplica las
+migraciones y *después* el seed, así que una migración que arregla una fila del catálogo —la `0018`,
+que renombra «Director principal» a «Director»— no encuentra nada y se queda sin probar justo lo
+único que hace, avisando además de que no había nada que hacer: verde por el motivo equivocado, el
+mismo error de método de la prueba 134. En el proyecto real el orden es el contrario, porque el
+catálogo se sembró hace meses. Por eso `scripts/test-rls.sh`, después del seed, pone el nombre
+antiguo, vuelve a aplicar la `0018` y comprueba **las dos direcciones**: que renombra lo que puso el
+catálogo inicial y que **no** pisa un nombre cambiado a mano desde Administración → Catálogos.
+Comprobado también en negativo: con la condición de la migración estropeada, la tanda se detiene
+ahí. No lleva número porque no es una prueba de RLS; es un gate del guion.
+
 Todos los datos son ficticios y los dominios de correo son `.invalid`, reservado por el RFC 2606
 precisamente para ejemplos.

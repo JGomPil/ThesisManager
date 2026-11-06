@@ -6,6 +6,7 @@ import { ToneBadge } from '@/components/ui/badge'
 import { Avatar } from '@/components/ui/avatar'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EmptyState, ErrorPanel, LoadingPanel } from '@/components/common/states'
+import { useRowLink } from '@/components/common/row-link'
 import { qk } from '@/lib/query-keys'
 import { peopleRepo } from '@/data/repositories/people.repo'
 import { worksRepo } from '@/data/repositories/works.repo'
@@ -27,6 +28,10 @@ import { useAuth } from '@/features/auth/auth-context'
  */
 export function PeoplePage() {
   const { isOrgAdmin } = useAuth()
+  // La fila entera abre la ficha de la persona. Las insignias de trabajo que
+  // hay dentro siguen llevando a su trabajo: `useRowLink` no navega cuando el
+  // clic cae sobre un enlace.
+  const rowLink = useRowLink()
   const people = useQuery({ queryKey: qk.people.directory, queryFn: peopleRepo.directory })
   const works = useQuery({ queryKey: qk.works.list({}), queryFn: () => worksRepo.list({}) })
 
@@ -75,10 +80,16 @@ export function PeoplePage() {
               justamente lo que se viene a consultar. */}
           <Card className="divide-y sm:hidden">
             {filas.map(({ p, relaciones }) => (
-              <div key={p.id} className="flex gap-3 p-3">
+              <div
+                key={p.id}
+                className="flex cursor-pointer gap-3 p-3 active:bg-accent"
+                {...rowLink(`/personas/${p.id}`)}
+              >
                 <Avatar name={p.full_name} src={p.avatar_url} size="md" />
                 <div className="min-w-0 flex-1">
-                <p className="font-medium">{p.full_name}</p>
+                <p className="font-medium">
+                  <Link to={`/personas/${p.id}`} className="hover:underline">{p.full_name}</Link>
+                </p>
                 <p className="truncate text-sm text-muted-foreground">
                   <a href={`mailto:${p.email}`} className="hover:underline">{p.email}</a>
                 </p>
@@ -114,11 +125,13 @@ export function PeoplePage() {
             <TableBody>
               {filas.map(({ p, relaciones }) => {
                 return (
-                  <TableRow key={p.id}>
+                  <TableRow key={p.id} className="cursor-pointer" {...rowLink(`/personas/${p.id}`)}>
                     <TableCell className="font-medium">
                       <span className="flex items-center gap-2">
                         <Avatar name={p.full_name} src={p.avatar_url} size="sm" />
-                        <span className="min-w-0 truncate">{p.full_name}</span>
+                        <Link to={`/personas/${p.id}`} className="min-w-0 truncate hover:underline">
+                          {p.full_name}
+                        </Link>
                       </span>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{p.email}</TableCell>

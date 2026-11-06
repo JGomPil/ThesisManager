@@ -12,9 +12,9 @@ código.
 > - Aplicación publicada en **https://jgompil.github.io/ThesisManager/**, conectada a un proyecto
 >   de Supabase real. Sin las variables de entorno, la web explica cuáles faltan en lugar de
 >   quedarse en blanco.
-> - Migraciones `0001…0016` aplicadas en el proyecto real; la `0017` (fotos de perfil) está
->   escrita y probada, **pendiente de aplicar**. 135 pruebas de seguridad contra PostgreSQL 16 y
->   84 pruebas unitarias del dominio.
+> - Migraciones `0001…0016` aplicadas en el proyecto real; la `0017` (fotos de perfil) y la
+>   `0018` («Director» en vez de «Director principal») están escritas y probadas, **pendientes de
+>   aplicar**. 135 pruebas de seguridad contra PostgreSQL 16 y 84 pruebas unitarias del dominio.
 > - Progreso detallado en [`ROADMAP.md`](ROADMAP.md); decisiones técnicas en
 >   [`docs/FASE_0.md`](docs/FASE_0.md).
 
@@ -81,7 +81,7 @@ npm run icons            # regenera los iconos desde scripts/make-icons.py
 npm run drill            # ensaya la restauración de una copia (sin argumento: autoprueba)
 ```
 
-Base de datos: aplicar `supabase/migrations/0001…0017` y después
+Base de datos: aplicar `supabase/migrations/0001…0018` y después
 `supabase/seed/0001_catalogs.sql`. Detalle en [`DEPLOYMENT.md`](DEPLOYMENT.md) §5.
 
 Pruebas de seguridad del modelo de datos, sin necesidad de proyecto en Supabase (requiere Docker):

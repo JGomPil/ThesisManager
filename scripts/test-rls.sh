@@ -29,6 +29,37 @@ done
 echo "▸ Aplicando catálogos…"
 run < "$ROOT/supabase/seed/0001_catalogs.sql"
 
+# -----------------------------------------------------------------------------
+# Las migraciones que CORRIGEN DATOS del catálogo se repiten aquí, y no por
+# gusto: el arnés aplica las migraciones ANTES del seed, así que una migración
+# como la 0018 («Director principal» → «Director») no encuentra la fila y se
+# limita a avisar de que no hay nada que hacer. Quedaba sin probar justo lo
+# único que hace. En el proyecto real el orden es el contrario —el catálogo se
+# sembró hace meses—, y es ese orden el que hay que comprobar.
+#
+# Se prueba en LAS DOS DIRECCIONES: que renombra lo que puso el catálogo, y que
+# NO pisa un nombre cambiado a mano desde Administración → Catálogos. Lo
+# segundo es lo que de verdad puede estropear el trabajo de alguien.
+echo "▸ Repitiendo las migraciones de datos sobre el catálogo ya sembrado…"
+asegura() { # asegura <nombre esperado> <que se estaba comprobando>
+  run -c "do \$\$
+  declare v text;
+  begin
+    select name into v from work_roles where code = 'PRIMARY_SUPERVISOR';
+    if v is distinct from '$1' then
+      raise exception '0018 no $2: la funcion se llama %', coalesce(v, 'NADA');
+    end if;
+    raise notice 'CORRECTO: 0018 $2';
+  end \$\$;"
+}
+run -c "update work_roles set name = 'Director principal' where code = 'PRIMARY_SUPERVISOR';"
+run < "$ROOT/supabase/migrations/0018_role_names.sql"
+asegura 'Director' 'renombra el nombre que puso el catalogo inicial'
+run -c "update work_roles set name = 'Tutor academico' where code = 'PRIMARY_SUPERVISOR';"
+run < "$ROOT/supabase/migrations/0018_role_names.sql"
+asegura 'Tutor academico' 'respeta un nombre editado a mano'
+run -c "update work_roles set name = 'Director' where code = 'PRIMARY_SUPERVISOR';"
+
 echo "▸ Ejecutando pruebas…"
 # Toda la salida se guarda para poder analizarla: psql devuelve 0 aunque haya
 # habido errores, así que mirar solo su código de salida no vale de nada. Fue

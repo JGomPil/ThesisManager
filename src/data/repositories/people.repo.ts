@@ -36,6 +36,21 @@ export const peopleRepo = {
   },
 
   /**
+   * Una persona por su identificador, para su ficha.
+   *
+   * No lleva ningún filtro de autorización, y es correcto: `profiles_select`
+   * (0016/0017) ya devuelve 0 filas si quien pregunta no tiene relación con
+   * ella. Se usa `maybeSingle` precisamente por eso: «no visible» y «no existe»
+   * deben ser el MISMO resultado, porque distinguirlos confirmaría que esa
+   * persona existe a quien no puede verla.
+   */
+  byId: async (id: string): Promise<ProfileRow | null> => {
+    const { data, error } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  /**
    * Pertenencias administrativas del usuario. Son INDEPENDIENTES de las
    * relaciones académicas: ser administrador no convierte a nadie en director.
    */

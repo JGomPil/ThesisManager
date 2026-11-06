@@ -768,6 +768,31 @@ El resto son decisiones de alcance, todas probadas:
   la ruta en el cubo, no una URL; se firma al pintar, con vigencia de una hora y
   caché de cincuenta minutos para no entregar nunca una a punto de vencer.
 
+### 5.2.vicies · «No puedes verlo» y «no existe» tienen que verse igual
+
+La ficha de persona (`/personas/:id`) abre una dirección que acepta un
+identificador cualquiera, y ahí aparece una tentación razonable: distinguir el
+«no tienes acceso a esta persona» del «esa ficha no existe», porque son dos
+situaciones distintas y el usuario agradece saber cuál le ha tocado. No se hace,
+y conviene dejar escrito por qué: con mensajes distintos, la dirección se
+convierte en un **comprobador de existencia de cuentas**. Se prueba un uuid y la
+respuesta ya dice si hay alguien detrás. Para un despliegue de un grupo de
+investigación eso no es catastrófico, pero es información que no hay ninguna
+necesidad de regalar, y el precio de no darla es un mensaje algo más vago.
+
+Por eso `peopleRepo.byId` usa `maybeSingle` y la pantalla trata `null` como un
+único caso. **La pantalla no filtra nada**: no comprueba si quien mira tiene
+relación con esa persona, porque `profiles_select` (§5.2.duodevicies) ya
+devuelve 0 filas cuando no la tiene. Tampoco lleva guarda de ruta: una guarda en
+TypeScript tendría que repetir el criterio de la política, y dos textos del
+mismo criterio se separan en el primer cambio —es la lección de la `0017`
+(§5.2.undevicies) aplicada al cliente.
+
+Lo mismo vale para lo que la ficha **lista**: las relaciones académicas salen de
+los trabajos que ve quien pregunta, no de todos los de esa persona. No hay nada
+que ocultar ahí, pero el pie de la tarjeta lo dice en voz alta, porque una lista
+corta que parece completa es peor que una lista corta que se declara parcial.
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.

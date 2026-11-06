@@ -66,7 +66,7 @@ insert into work_roles (
   can_manage_plan, can_see_private_notes, can_validate_deliverables, can_manage_members,
   display_order
 ) values
-  ('PRIMARY_SUPERVISOR', 'Director principal', false, true,  true,  true,  true,  true,  1),
+  ('PRIMARY_SUPERVISOR', 'Director',          false, true,  true,  true,  true,  true,  1),
   ('CO_SUPERVISOR',      'Codirector',         false, true,  true,  true,  true,  false, 2),
   ('COLLABORATOR',       'Colaborador',        false, true,  false, false, false, false, 3),
   ('STUDENT',            'Estudiante',         true,  false, false, false, false, false, 4)
