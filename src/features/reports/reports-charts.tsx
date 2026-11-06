@@ -3,6 +3,7 @@ import {
   Bar, BarChart, CartesianGrid, LabelList, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { useTheme } from '@/hooks/use-theme'
+import { useIsPhone } from '@/hooks/use-media-query'
 import type { Bucket } from '@/domain/reports/aggregate'
 
 /**
@@ -46,6 +47,21 @@ function useColores() {
 
 const ALTO_FILA = 30
 
+/**
+ * Ancho reservado a las etiquetas del eje de categorías.
+ *
+ * En un teléfono la tarjeta mide unos 310 px útiles: con los 140-160 px de
+ * escritorio, a la barra le quedaban 150 px y todas parecían igual de largas,
+ * que es exactamente lo contrario de para qué sirve un gráfico de barras. Se
+ * recorta la etiqueta (sigue entera en el tooltip) y la barra recupera sitio.
+ *
+ * Es un número que Recharts recibe como propiedad, así que no se puede resolver
+ * con una clase de Tailwind: de ahí el hook.
+ */
+function useAnchoEje(escritorio: number): number {
+  return useIsPhone() ? 84 : escritorio
+}
+
 function Marco({ datos, children }: { datos: unknown[]; children: React.ReactNode }) {
   if (datos.length === 0) {
     return <p className="py-6 text-center text-sm text-muted-foreground">Sin datos que representar.</p>
@@ -58,7 +74,7 @@ function Marco({ datos, children }: { datos: unknown[]; children: React.ReactNod
 }
 
 /** Ejes recesivos: la rejilla y los números no deben competir con las barras. */
-function ejes(tinta: string, rejilla: string) {
+function ejes(tinta: string, rejilla: string, anchoEje: number) {
   return (
     <>
       <CartesianGrid horizontal={false} stroke={rejilla} />
@@ -67,7 +83,7 @@ function ejes(tinta: string, rejilla: string) {
         tick={{ fill: tinta, fontSize: 11 }} stroke={rejilla}
       />
       <YAxis
-        type="category" dataKey="label" width={140}
+        type="category" dataKey="label" width={anchoEje}
         tick={{ fill: tinta, fontSize: 11 }} stroke={rejilla}
       />
     </>
@@ -87,10 +103,11 @@ const ESTILO_TOOLTIP = {
 /** Una serie, un tono. El nombre de la categoría ya está en el eje. */
 export function BarrasSimples({ datos, nombre }: { datos: ChartBucket[]; nombre: string }) {
   const { tinta, rejilla } = useColores()
+  const anchoEje = useAnchoEje(140)
   return (
     <Marco datos={datos}>
       <BarChart data={datos} layout="vertical" margin={{ top: 4, right: 28, bottom: 4, left: 4 }}>
-        {ejes(tinta, rejilla)}
+        {ejes(tinta, rejilla, anchoEje)}
         <Tooltip {...ESTILO_TOOLTIP} />
         <Bar dataKey="total" name={nombre} fill={A_TIEMPO} radius={[0, 4, 4, 0]} barSize={14}>
           <LabelList dataKey="total" position="right" fill={tinta} fontSize={11} />
@@ -107,11 +124,12 @@ export function BarrasSimples({ datos, nombre }: { datos: ChartBucket[]; nombre:
  */
 export function BarrasPorRetraso({ datos }: { datos: ChartBucket[] }) {
   const { tinta, rejilla, hueco } = useColores()
+  const anchoEje = useAnchoEje(140)
   const filas = datos.map((d) => ({ ...d, aTiempo: d.total - d.late }))
   return (
     <Marco datos={filas}>
       <BarChart data={filas} layout="vertical" margin={{ top: 4, right: 28, bottom: 4, left: 4 }}>
-        {ejes(tinta, rejilla)}
+        {ejes(tinta, rejilla, anchoEje)}
         <Tooltip {...ESTILO_TOOLTIP} />
         <Legend wrapperStyle={{ fontSize: 12, color: tinta }} />
         {/* `stroke` del color de la tarjeta: es el hueco de 2 px entre los dos
@@ -132,12 +150,13 @@ export function BarrasDeProgreso({
   datos: { label: string; tareas: number | null; academico: number | null }[]
 }) {
   const { tinta, rejilla } = useColores()
+  const anchoEje = useAnchoEje(160)
   return (
     <Marco datos={datos}>
       <BarChart data={datos} layout="vertical" margin={{ top: 4, right: 36, bottom: 4, left: 4 }}>
         <CartesianGrid horizontal={false} stroke={rejilla} />
         <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fill: tinta, fontSize: 11 }} stroke={rejilla} />
-        <YAxis type="category" dataKey="label" width={160} tick={{ fill: tinta, fontSize: 11 }} stroke={rejilla} />
+        <YAxis type="category" dataKey="label" width={anchoEje} tick={{ fill: tinta, fontSize: 11 }} stroke={rejilla} />
         <Tooltip {...ESTILO_TOOLTIP} />
         <Legend wrapperStyle={{ fontSize: 12, color: tinta }} />
         {/* Dos barras y no una: el porcentaje de tareas y el progreso académico

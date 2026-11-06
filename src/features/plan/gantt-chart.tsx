@@ -3,6 +3,7 @@ import { CalendarRange, Flag } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
+import { useIsPhone } from '@/hooks/use-media-query'
 import { Button } from '@/components/ui/button'
 import {
   buildGantt, HEADER_HEIGHT, ROW_HEIGHT, type GanttInput,
@@ -38,7 +39,14 @@ const RELLENO: Record<string, string> = {
   COMPLETADA: 'fill-emerald-500',
 }
 
+/**
+ * Ancho de la columna de nombres. En un teléfono, 200 px de los ~360 útiles se
+ * los comían los títulos y al cronograma —que es lo que se viene a ver— le
+ * quedaban 160. El nombre se recorta (sigue completo en el `title`) y las
+ * barras recuperan la mitad del ancho.
+ */
 const NOMBRES = 200
+const NOMBRES_MOVIL = 104
 
 export function GanttChart({
   tasks, milestones, dependencies,
@@ -47,6 +55,7 @@ export function GanttChart({
   milestones: MilestoneRow[]
   dependencies: Dep[]
 }) {
+  const anchoNombres = useIsPhone() ? NOMBRES_MOVIL : NOMBRES
   const [escala, setEscala] = React.useState(1)
   const pxPerDay = ESCALAS[escala]!.pxPerDay
 
@@ -105,7 +114,7 @@ export function GanttChart({
 
       <div className="flex rounded-lg border">
         {/* Nombres */}
-        <div className="shrink-0 border-r" style={{ width: NOMBRES }}>
+        <div className="shrink-0 border-r" style={{ width: anchoNombres }}>
           <div className="border-b bg-muted/40" style={{ height: HEADER_HEIGHT }} />
           {layout.bars.map((b) => (
             <div

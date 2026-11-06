@@ -34,6 +34,7 @@ Estado a 6 de noviembre de 2026:
 | ✅ | Perfil propio editable y cambio de contraseña |
 | ✅ | Despliegue real en GitHub Pages verificado (HTTP 200, rutas profundas y `base` correctos) |
 | ✅ | Pantalla de configuración cuando faltan las variables de Supabase |
+| ✅ | **Uso desde el móvil**: los cuatro listados principales como tarjetas por debajo de 640 px, calendario que arranca en agenda, diálogos con `dvh` (iOS), cajón lateral con cuenta y salida, y campos de 16 px para que iOS no haga zoom al escribir |
 | ✅ | **Visibilidad de personas acotada a la relación académica** (`0016`): compartir organización ya no es ver a nadie. Quien no administra ve a su propio perfil y a quien participa en algún trabajo que puede ver; para añadir a alguien nuevo, búsqueda por **correo exacto**, sin lista que pasear (pruebas `[119]`–`[128]`) |
 
 Alcance original de la fase:

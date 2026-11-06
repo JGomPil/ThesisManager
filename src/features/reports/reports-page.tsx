@@ -228,7 +228,72 @@ export function ReportsPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">Trabajo por trabajo</CardTitle>
             </CardHeader>
-            <CardContent className="pt-0">
+            {/* MÓVIL: tarjetas. Esta tabla tiene ocho columnas y cuatro son
+                cifras; en un teléfono no es una tabla, es un carrusel en el
+                que nunca se ven a la vez el nombre del trabajo y el número que
+                se está leyendo, que es la única forma en que un número
+                significa algo. */}
+            <CardContent className="space-y-2 pt-0 sm:hidden">
+              {filas.map((f) => (
+                <div
+                  key={f.id}
+                  className="cursor-pointer rounded-lg border p-3 active:bg-accent"
+                  {...rowLink(`/informes/trabajo/${f.id}`)}
+                >
+                  <Link to={`/informes/trabajo/${f.id}`} className="font-medium hover:underline">
+                    <span className="line-clamp-2">{f.title}</span>
+                  </Link>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    <ToneBadge tone={f.statusColor}>{f.statusName}</ToneBadge>
+                    <span className="text-xs text-muted-foreground">{f.typeShort}</span>
+                  </div>
+                  <p className="mt-1.5 truncate text-sm text-muted-foreground">
+                    {f.students.map((s) => s.name).join(', ') || 'Sin estudiante asignado'}
+                  </p>
+
+                  {/* Las dos cifras, cada una con su nombre y sin fundirse. */}
+                  <dl className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <dt className="text-xs text-muted-foreground">% tareas</dt>
+                      <dd className="tabular-nums">
+                        {f.progress.taskCompletion === null ? '—' : `${f.progress.taskCompletion} %`}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-muted-foreground">Progreso académico</dt>
+                      <dd className="tabular-nums">
+                        {f.progress.academicProgress === null ? '—' : `${f.progress.academicProgress} %`}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-muted-foreground">Tareas</dt>
+                      <dd className="tabular-nums">
+                        {f.progress.completedTasks}/{f.progress.totalTasks}
+                        {f.progress.overdueTasks > 0 && (
+                          <span className="ml-1 text-destructive">(+{f.progress.overdueTasks})</span>
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-muted-foreground">Fin previsto</dt>
+                      <dd className={isLate(f) ? 'font-medium text-destructive' : undefined}>
+                        {f.expectedEndDate
+                          ? format(parseISO(f.expectedEndDate), 'd MMM yyyy', { locale: es })
+                          : '—'}
+                      </dd>
+                    </div>
+                  </dl>
+
+                  {f.overdueMilestones > 0 && (
+                    <p className="mt-1.5 text-sm font-medium text-destructive">
+                      {f.overdueMilestones} hito(s) vencido(s)
+                    </p>
+                  )}
+                </div>
+              ))}
+            </CardContent>
+
+            <CardContent className="hidden pt-0 sm:block">
               <Table>
                 <TableHeader>
                   <TableRow>

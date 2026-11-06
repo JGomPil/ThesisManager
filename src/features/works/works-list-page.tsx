@@ -78,6 +78,31 @@ export function WorksListPage() {
     return true
   })
 
+  /**
+   * Lo derivado de cada fila, UNA sola vez: lo consumen la tabla (escritorio) y
+   * las tarjetas (móvil). Calcularlo en cada vista era la forma segura de que
+   * un día dijeran cosas distintas.
+   */
+  const filas = rows.map((w) => {
+    const estudiantes = w.members
+      .filter((m) => m.status === 'ACTIVE' && m.role?.is_student)
+      .map((m) => m.profile?.full_name)
+      .filter(Boolean)
+      .join(', ')
+    const supervisores = w.members.filter((m) => m.status === 'ACTIVE' && m.role?.is_supervisory)
+    const dias = daysUntil(w.expected_end_date)
+    return {
+      w,
+      estudiantes: estudiantes || '—',
+      direccion:
+        supervisores.find((m) => m.is_primary)?.profile?.full_name ??
+        supervisores[0]?.profile?.full_name ??
+        '—',
+      dias,
+      vencido: dias !== null && dias < 0 && !w.status?.is_terminal,
+    }
+  })
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -154,7 +179,68 @@ export function WorksListPage() {
       )}
 
       {rows.length > 0 && (
-        <Card>
+        <>
+          {/* MÓVIL: tarjetas. Una tabla de siete columnas en una pantalla de
+              390 px se convierte en un carrusel horizontal donde la primera
+              columna —el título, lo único que identifica la fila— es lo
+              primero que se va. Aquí cada trabajo es una tarjeta pulsable
+              entera, con lo que de verdad se busca: título, tipo, estado,
+              quién y para cuándo.
+
+              Se renderiza DOS veces el mismo dato y una de las dos está
+              siempre oculta. Es deliberado: lo derivado (`filas`) se calcula
+              una sola vez arriba, así que las dos vistas no pueden discrepar,
+              y el coste es markup, no consultas. */}
+          <Card className="divide-y sm:hidden">
+            {filas.map(({ w, estudiantes, direccion, dias, vencido }) => (
+              <div key={w.id} className="cursor-pointer p-3 active:bg-accent" {...rowLink(`/trabajos/${w.id}`)}>
+                <div className="flex items-start justify-between gap-2">
+                  <Link to={`/trabajos/${w.id}`} className="min-w-0 font-medium hover:underline">
+                    <span className="line-clamp-2">{w.title}</span>
+                  </Link>
+                  {isOrgAdmin && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="-mr-1 -mt-1 shrink-0"
+                      aria-label={`Archivar ${w.title}`}
+                      loading={archive.isPending && archive.variables === w.id}
+                      onClick={() => setToArchive({ id: w.id, title: w.title })}
+                    >
+                      <Archive />
+                    </Button>
+                  )}
+                </div>
+
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  <ToneBadge tone={w.work_type?.color ?? null}>{w.work_type?.short_name}</ToneBadge>
+                  <ToneBadge tone={w.status?.color ?? null}>{w.status?.name}</ToneBadge>
+                </div>
+
+                <dl className="mt-2 space-y-0.5 text-sm text-muted-foreground">
+                  <div className="flex gap-1.5">
+                    <dt className="shrink-0">Estudiante:</dt>
+                    <dd className="min-w-0 truncate text-foreground">{estudiantes}</dd>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <dt className="shrink-0">Dirección:</dt>
+                    <dd className="min-w-0 truncate">{direccion}</dd>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <dt className="shrink-0">Fin previsto:</dt>
+                    <dd className={vencido ? 'font-medium text-destructive' : undefined}>
+                      {w.expected_end_date
+                        ? format(parseISO(w.expected_end_date), 'd MMM yyyy', { locale: es })
+                        : '—'}
+                      {vencido && dias !== null && ` · ${Math.abs(dias)} días de retraso`}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            ))}
+          </Card>
+
+          <Card className="hidden sm:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -168,10 +254,7 @@ export function WorksListPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((w) => {
-                const students = w.members.filter((m) => m.status === 'ACTIVE' && m.role?.is_student)
-                const supervisors = w.members.filter((m) => m.status === 'ACTIVE' && m.role?.is_supervisory)
-                const days = daysUntil(w.expected_end_date)
+              {filas.map(({ w, estudiantes, direccion, vencido }) => {
                 return (
                   <TableRow key={w.id} className="cursor-pointer" {...rowLink(`/trabajos/${w.id}`)}>
                     <TableCell className="max-w-[22rem]">
@@ -181,17 +264,11 @@ export function WorksListPage() {
                     </TableCell>
                     <TableCell><ToneBadge tone={w.work_type?.color ?? null}>{w.work_type?.short_name}</ToneBadge></TableCell>
                     <TableCell><ToneBadge tone={w.status?.color ?? null}>{w.status?.name}</ToneBadge></TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {students.map((s) => s.profile?.full_name).filter(Boolean).join(', ') || '—'}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {supervisors.find((s) => s.is_primary)?.profile?.full_name ??
-                        supervisors[0]?.profile?.full_name ??
-                        '—'}
-                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{estudiantes}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{direccion}</TableCell>
                     <TableCell className="text-sm">
                       {w.expected_end_date ? (
-                        <span className={days !== null && days < 0 && !w.status?.is_terminal ? 'font-medium text-destructive' : 'text-muted-foreground'}>
+                        <span className={vencido ? 'font-medium text-destructive' : 'text-muted-foreground'}>
                           {format(parseISO(w.expected_end_date), 'd MMM yyyy', { locale: es })}
                         </span>
                       ) : (
@@ -221,7 +298,8 @@ export function WorksListPage() {
               })}
             </TableBody>
           </Table>
-        </Card>
+          </Card>
+        </>
       )}
 
       <Dialog open={toArchive !== null} onOpenChange={(v) => { if (!v) setToArchive(null) }}>

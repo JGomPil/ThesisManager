@@ -36,6 +36,16 @@ export function PeoplePage() {
   const rows = people.data ?? []
   const allWorks = works.data ?? []
 
+  // Las relaciones de cada persona, una sola vez para las dos vistas.
+  const filas = rows.map((p) => ({
+    p,
+    relaciones: allWorks.flatMap((w) =>
+      w.members
+        .filter((m) => m.user_id === p.id && m.status === 'ACTIVE')
+        .map((m) => ({ work: w, role: m.role })),
+    ),
+  }))
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -57,7 +67,37 @@ export function PeoplePage() {
           description="Aparecerán aquí las personas con las que compartas algún trabajo."
         />
       ) : (
-        <Card>
+        <>
+          {/* MÓVIL: una ficha por persona. En la tabla, «Relaciones
+              académicas» es la columna más ancha y la última, o sea la que
+              nunca se ve en un teléfono sin arrastrar hasta el final; y es
+              justamente lo que se viene a consultar. */}
+          <Card className="divide-y sm:hidden">
+            {filas.map(({ p, relaciones }) => (
+              <div key={p.id} className="p-3">
+                <p className="font-medium">{p.full_name}</p>
+                <p className="truncate text-sm text-muted-foreground">
+                  <a href={`mailto:${p.email}`} className="hover:underline">{p.email}</a>
+                </p>
+                {p.department && <p className="text-sm text-muted-foreground">{p.department}</p>}
+                {relaciones.length === 0 ? (
+                  <p className="mt-1.5 text-sm text-muted-foreground">Sin relaciones académicas contigo.</p>
+                ) : (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {relaciones.map(({ work, role }, i) => (
+                      <Link key={`${work.id}-${i}`} to={`/trabajos/${work.id}`} title={work.title}>
+                        <ToneBadge tone={role?.is_student ? 'sky' : 'violet'}>
+                          {role?.name} · {work.work_type?.short_name}
+                        </ToneBadge>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </Card>
+
+          <Card className="hidden sm:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -68,23 +108,18 @@ export function PeoplePage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((p) => {
-                const relations = allWorks.flatMap((w) =>
-                  w.members
-                    .filter((m) => m.user_id === p.id && m.status === 'ACTIVE')
-                    .map((m) => ({ work: w, role: m.role })),
-                )
+              {filas.map(({ p, relaciones }) => {
                 return (
                   <TableRow key={p.id}>
                     <TableCell className="font-medium">{p.full_name}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{p.email}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{p.department ?? '—'}</TableCell>
                     <TableCell>
-                      {relations.length === 0 ? (
+                      {relaciones.length === 0 ? (
                         <span className="text-sm text-muted-foreground">—</span>
                       ) : (
                         <div className="flex flex-wrap gap-1">
-                          {relations.map(({ work, role }, i) => (
+                          {relaciones.map(({ work, role }, i) => (
                             <Link key={`${work.id}-${i}`} to={`/trabajos/${work.id}`} title={work.title}>
                               <ToneBadge tone={role?.is_student ? 'sky' : 'violet'}>
                                 {role?.name} · {work.work_type?.short_name}
@@ -99,7 +134,8 @@ export function PeoplePage() {
               })}
             </TableBody>
           </Table>
-        </Card>
+          </Card>
+        </>
       )}
     </div>
   )

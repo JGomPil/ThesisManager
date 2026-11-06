@@ -17,7 +17,11 @@ export const DialogContent = React.forwardRef<
       ref={ref}
       className={cn(
         'fixed left-1/2 top-1/2 z-50 grid w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4',
-        'max-h-[calc(100vh-2rem)] overflow-y-auto rounded-lg border bg-background p-6 shadow-lg',
+        // `dvh`, no `vh`: en iOS Safari `100vh` cuenta la barra de direcciones
+        // como si no estuviera, así que el diálogo se salía por abajo y su
+        // último botón quedaba debajo de la barra, inalcanzable. `dvh` es la
+        // altura que de verdad se ve en cada momento.
+        'max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg sm:p-6',
         'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
         className,
       )}

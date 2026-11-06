@@ -189,6 +189,19 @@ de tipos de trabajo extensibles: concentra `work_types`, `work_statuses`, `work_
   ordenada por `work_types.display_order`. Añadir «Academia de Alumnos Internos» hace aparecer su
   tarjeta sin tocar código.
 - **Modo claro/oscuro** con variables CSS de Tailwind y `prefers-color-scheme` + conmutador manual.
+- **Móvil: la tabla no se adapta, se sustituye.** Debajo de `sm:` (640 px) los cuatro listados que
+  se consultan de verdad desde el teléfono —trabajos, tareas, personas e informes— se renderizan
+  como tarjetas, y la tabla queda oculta. Es markup duplicado a propósito: lo derivado de cada
+  fila se calcula **una sola vez** y lo consumen las dos vistas, así que no pueden discrepar. La
+  alternativa —una tabla con `overflow-x`— no se descarta por fea: en un móvil, la primera columna
+  es la que identifica la fila y es la primera que desaparece al desplazar, de modo que se acaba
+  leyendo un número sin saber de qué trabajo es.
+- **Lo que sí decide JavaScript** está en `useMediaQuery` y es solo lo que una clase CSS no puede
+  hacer: *qué* se renderiza (el calendario arranca en agenda en un teléfono) y los números que
+  recibe una librería como propiedad (el ancho del eje de los gráficos, la columna de nombres del
+  Gantt). Esconder sigue siendo trabajo de las clases.
+- **16 px en los campos de formulario por debajo de `sm:`**: Safari en iOS hace zoom al enfocar un
+  campo con letra menor y no lo deshace al salir.
 
 ## 8. Limitaciones asumidas
 

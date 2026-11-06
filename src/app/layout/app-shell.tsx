@@ -2,7 +2,7 @@ import * as React from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   BarChart3, BookOpen, CalendarDays, ChevronDown, GraduationCap, LayoutDashboard, LogOut, Menu,
-  Moon, Settings, Sun, Users, X,
+  Moon, Settings, Sun, UserRound, Users, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -37,8 +37,19 @@ export function AppShell() {
       {/* Barra superior */}
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur print:hidden">
         <div className="flex h-14 items-center gap-3 px-4">
-          <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setOpen((v) => !v)} aria-label="Menú">
-            {open ? <Menu /> : <Menu />}
+          {/* El icono cambia al abrirse. Antes ponía <Menu /> en las dos ramas:
+              el botón que cierra el cajón tenía el mismo dibujo que el que lo
+              abre, y en un móvil el único indicio de que se puede cerrar es
+              justamente ese dibujo. */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden"
+            onClick={() => setOpen((v) => !v)}
+            aria-label={open ? 'Cerrar el menú' : 'Abrir el menú'}
+            aria-expanded={open}
+          >
+            {open ? <X /> : <Menu />}
           </Button>
 
           <Link to="/" className="flex items-center gap-2">
@@ -73,7 +84,8 @@ export function AppShell() {
         {/* Navegación lateral */}
         <aside
           className={cn(
-            'fixed inset-y-14 left-0 z-30 w-60 shrink-0 border-r bg-background p-3 transition-transform lg:static lg:translate-x-0 print:hidden',
+            'fixed inset-y-14 left-0 z-30 w-60 shrink-0 overflow-y-auto border-r bg-background p-3',
+            'transition-transform lg:static lg:translate-x-0 print:hidden',
             open ? 'translate-x-0' : '-translate-x-full',
           )}
         >
@@ -95,6 +107,28 @@ export function AppShell() {
               </NavLink>
             ))}
           </nav>
+
+          {/* En el móvil, la barra superior no tiene sitio para el nombre ni
+              para «Mi perfil» (están en `sm:block`), así que el cajón es el
+              único sitio donde pueden estar. En escritorio sobra: lo de arriba
+              ya se ve. */}
+          <div className="mt-3 border-t pt-3 sm:hidden">
+            <Link
+              to="/perfil"
+              className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <UserRound className="size-4 shrink-0" />
+              <span className="min-w-0 truncate">{profile?.full_name ?? 'Mi perfil'}</span>
+            </Link>
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <LogOut className="size-4 shrink-0" />
+              Salir
+            </button>
+          </div>
         </aside>
 
         {open && <div className="fixed inset-0 z-20 bg-black/40 lg:hidden" onClick={() => setOpen(false)} />}

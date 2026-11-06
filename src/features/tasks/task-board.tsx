@@ -137,7 +137,66 @@ export function TaskBoard({
           })}
         </div>
       ) : (
-        <Card>
+        <>
+          {/* MÓVIL: tarjetas. Esta lista es la que más se mira desde el
+              teléfono —un estudiante marcando el estado de lo suyo—, y en una
+              tabla de seis columnas el desplegable de estado quedaba fuera de
+              la pantalla. Aquí el estado es lo más ancho y está debajo del
+              título, que es el orden en que se usa. */}
+          <Card className="divide-y sm:hidden">
+            {rows.map((t) => {
+              const late = t.due_date !== null && t.status !== 'COMPLETADA' && (daysUntil(t.due_date) ?? 0) < 0
+              const priority = TASK_PRIORITIES.find((p) => p.value === t.priority)
+              const puntos = subtasksOf(t.id)
+              return (
+                <div key={t.id} className="space-y-2 p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setOpenTaskId(t.id)}
+                      className="min-w-0 text-left font-medium underline-offset-2 hover:underline"
+                    >
+                      {t.title}
+                    </button>
+                    {caps.canManagePlan && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="-mr-1 -mt-1 shrink-0"
+                        onClick={() => remove.mutate(t.id)}
+                        aria-label={`Eliminar ${t.title}`}
+                      >
+                        <Trash2 />
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+                    <ToneBadge tone={priority?.tone ?? null}>{priority?.label}</ToneBadge>
+                    <span className={cn(late && 'font-medium text-destructive')}>
+                      {t.due_date ? format(parseISO(t.due_date), 'd MMM yyyy', { locale: es }) : 'Sin fecha'}
+                    </span>
+                    <span className="min-w-0 truncate">· {t.assignee?.full_name ?? 'Sin responsable'}</span>
+                    {puntos.length > 0 && (
+                      <span className="flex items-center gap-1">
+                        <ListChecks className="size-3" />
+                        {puntos.filter((x) => x.status === 'COMPLETADA').length}/{puntos.length}
+                      </span>
+                    )}
+                  </div>
+
+                  <StatusSelect
+                    task={t}
+                    caps={caps}
+                    userId={userId}
+                    onChange={(status) => setStatus.mutate({ id: t.id, status })}
+                  />
+                </div>
+              )
+            })}
+          </Card>
+
+          <Card className="hidden sm:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -196,7 +255,8 @@ export function TaskBoard({
               })}
             </TableBody>
           </Table>
-        </Card>
+          </Card>
+        </>
       )}
       <TaskDetailDialog
         task={openTask}

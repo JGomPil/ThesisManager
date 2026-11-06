@@ -13,6 +13,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { ToneBadge } from '@/components/ui/badge'
 import { EmptyState, ErrorPanel, LoadingPanel } from '@/components/common/states'
 import { cn } from '@/lib/utils'
+import { useIsPhone } from '@/hooks/use-media-query'
 import { qk } from '@/lib/query-keys'
 import {
   groupByDay, KIND_LABELS, KIND_TONES, monthGrid, weekDays,
@@ -44,7 +45,19 @@ const VISTAS: { value: Vista; label: string }[] = [
 const TIPOS: EventKind[] = ['MEETING', 'MILESTONE', 'TASK_DUE', 'TASK_START']
 
 export function CalendarPage() {
-  const [vista, setVista] = React.useState<Vista>('mes')
+  /**
+   * En un teléfono arranca en AGENDA, no en mes.
+   *
+   * La vista de mes es una rejilla de siete columnas con un ancho mínimo de
+   * 44 rem: en una pantalla de 390 px existe, se desplaza y es inútil —cada
+   * día son 55 px y no cabe ni el título de un evento—. La agenda es una
+   * lista, que es la forma correcta de leer fechas en vertical.
+   *
+   * Es el valor INICIAL, no una imposición: los tres botones siguen ahí y
+   * girar el móvil no te cambia la vista que hayas elegido a mano.
+   */
+  const esMovil = useIsPhone()
+  const [vista, setVista] = React.useState<Vista>(esMovil ? 'agenda' : 'mes')
   const [ancla, setAncla] = React.useState(new Date())
   const [ocultos, setOcultos] = React.useState<EventKind[]>([])
   const [trabajo, setTrabajo] = React.useState<string>('')
