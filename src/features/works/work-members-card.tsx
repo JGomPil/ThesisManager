@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, UserMinus, UserPlus } from 'lucide-react'
+import { Plus, Search, UserMinus, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -18,7 +19,7 @@ import { qk } from '@/lib/query-keys'
 import { errorMessage } from '@/lib/supabase'
 import { worksRepo, type WorkWithRelations } from '@/data/repositories/works.repo'
 import { useAuth } from '@/features/auth/auth-context'
-import { peopleRepo } from '@/data/repositories/people.repo'
+import { peopleRepo, type PersonFound } from '@/data/repositories/people.repo'
 import { useWorkRoles } from '@/hooks/use-catalogs'
 import { memberFormSchema, type MemberFormValues } from '@/schemas/work'
 import type { WorkCapabilities } from '@/domain/permissions/work-capabilities'
@@ -159,9 +160,37 @@ function AddMemberDialog({
   const roles = useWorkRoles()
   const people = useQuery({ queryKey: qk.people.directory, queryFn: peopleRepo.directory })
 
+  /**
+   * El desplegable ya NO es el grupo entero (migración 0016): son las personas
+   * con las que quien mira comparte algún trabajo. Para los demás hay búsqueda
+   * por correo exacto, y lo que se encuentra se añade a la lista de esta
+   * ventana —no al directorio— hasta cerrarla.
+   */
+  const [correo, setCorreo] = React.useState('')
+  const [encontradas, setEncontradas] = React.useState<PersonFound[]>([])
+
   const form = useForm<MemberFormValues>({
     resolver: zodResolver(memberFormSchema),
     defaultValues: { user_id: '', work_role_id: '', is_primary: false },
+  })
+
+  const buscar = useMutation({
+    mutationFn: () => peopleRepo.findByEmail(correo),
+    onSuccess: (persona) => {
+      if (!persona) {
+        toast.push(
+          'error',
+          'Ninguna cuenta con ese correo. Comprueba la dirección o invítala desde Administración → Invitaciones.',
+        )
+        return
+      }
+      setEncontradas((previas) =>
+        previas.some((p) => p.id === persona.id) ? previas : [...previas, persona])
+      form.setValue('user_id', persona.id, { shouldValidate: true })
+      setCorreo('')
+      toast.push('success', `${persona.full_name} seleccionada.`)
+    },
+    onError: (e) => toast.push('error', errorMessage(e)),
   })
 
   const add = useMutation({
@@ -194,6 +223,13 @@ function AddMemberDialog({
 
   const selectedRole = (roles.data ?? []).find((r) => r.id === form.watch('work_role_id'))
 
+  // Directorio visible + lo que se haya localizado por correo, sin repetir.
+  const directorio = people.data ?? []
+  const opciones = [
+    ...directorio,
+    ...encontradas.filter((e) => !directorio.some((p) => p.id === e.id)),
+  ]
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -210,26 +246,55 @@ function AddMemberDialog({
             <Label htmlFor="member-user">Persona</Label>
             <Select id="member-user" className="mt-1.5" {...form.register('user_id')}>
               <option value="">Elige una persona…</option>
-              {(people.data ?? []).map((p) => (
+              {opciones.map((p) => (
                 <option key={p.id} value={p.id}>{p.full_name} · {p.email}</option>
               ))}
             </Select>
             <FieldError>{form.formState.errors.user_id?.message}</FieldError>
+
+            {/* Buscar por correo: la única forma de llegar a alguien con quien
+                todavía no se comparte ningún trabajo. Exige la dirección
+                completa a propósito —no hay búsqueda por nombre— para que la
+                lista de personas del grupo no se pueda reconstruir desde aquí. */}
+            <div className="mt-2 flex gap-2">
+              <Input
+                value={correo}
+                onChange={(e) => setCorreo(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter') return
+                  e.preventDefault()
+                  if (correo.includes('@')) buscar.mutate()
+                }}
+                type="email"
+                placeholder="¿No está en la lista? Busca su correo…"
+                aria-label="Buscar una persona por su correo"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                loading={buscar.isPending}
+                disabled={!correo.includes('@')}
+                onClick={() => buscar.mutate()}
+              >
+                <Search /> Buscar
+              </Button>
+            </div>
+
             {/* Solo se puede asignar a personas que ya tienen cuenta, porque
                 `profiles.id` referencia a `auth.users`. Si la lista está casi
                 vacía no es un error de la pantalla: es que todavía no hay a
                 quién asignar, y conviene decirlo en lugar de dejar un
                 desplegable mudo. */}
-            {(people.data ?? []).length <= 1 && (
-              <p className="mt-1.5 text-xs text-muted-foreground">
-                Aquí solo aparecen personas que ya tienen cuenta. Para dar de alta a un estudiante
-                o a un codirector, pasa por{' '}
-                <Link to="/admin/invitaciones" className="font-medium underline underline-offset-2">
-                  Administración → Invitaciones
-                </Link>
-                .
-              </p>
-            )}
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              En la lista aparecen las personas con las que ya compartes algún trabajo. Para
+              cualquier otra, escribe su correo completo. Si todavía no tiene cuenta, dale de alta
+              en{' '}
+              <Link to="/admin/invitaciones" className="font-medium underline underline-offset-2">
+                Administración → Invitaciones
+              </Link>
+              .
+            </p>
           </div>
 
           <div>

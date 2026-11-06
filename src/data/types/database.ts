@@ -547,6 +547,19 @@ export type Database = {
         Args: { p_work: string; p_template: string; p_start?: string | null }
         Returns: number
       }
+      /**
+       * Localiza a UNA persona por su correo exacto (migración 0016).
+       *
+       * `profiles_select` ya no deja ver a toda la organización, así que para
+       * poder añadir a un codirector con el que no se ha coincidido nunca hace
+       * falta esto. Exige igualdad de correo —sin comodines— y solo contesta a
+       * quien puede añadir participantes en algún trabajo; al resto, lista
+       * vacía. Devuelve 0 o 1 filas.
+       */
+      find_person_by_email: {
+        Args: { p_email: string }
+        Returns: { id: string; full_name: string; email: string; department: string | null }[]
+      }
     }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>

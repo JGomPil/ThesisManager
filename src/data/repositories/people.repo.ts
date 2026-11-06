@@ -8,6 +8,14 @@ export type PendingAccount = {
   created_at: string
 }
 
+/** Lo que devuelve la búsqueda por correo: lo justo para poder elegir a alguien. */
+export type PersonFound = {
+  id: string
+  full_name: string
+  email: string
+  department: string | null
+}
+
 export type Membership = OrganizationMemberRow & {
   organization: { id: string; name: string; slug: string } | null
 }
@@ -70,7 +78,18 @@ export const peopleRepo = {
     if (error) throw error
   },
 
-  /** Directorio de personas visibles (misma organización, por RLS). */
+  /**
+   * Directorio de personas visibles.
+   *
+   * «Visibles» ya no quiere decir «de mi organización» (migración 0016): son
+   * las personas que participan en algún trabajo que yo puedo ver, más mi
+   * propio perfil, más —si administro— los miembros de mi organización. Un
+   * estudiante ve a su dirección y a sus compañeros de trabajo, y a nadie más.
+   *
+   * No hay NINGÚN filtro aquí que haga eso: lo hace `profiles_select`. Esta
+   * función pide `*` de `profiles` y recibe lo que RLS le deja recibir, que es
+   * la única forma de que el límite no dependa de que la pantalla acierte.
+   */
   directory: async (): Promise<ProfileRow[]> => {
     const { data, error } = await supabase
       .from('profiles')
@@ -79,5 +98,25 @@ export const peopleRepo = {
       .order('full_name')
     if (error) throw error
     return data ?? []
+  },
+
+  /**
+   * Localiza a UNA persona por su correo exacto.
+   *
+   * Existe porque el directorio ya no es el grupo entero: para añadir a un
+   * codirector con el que nunca se ha coincidido hay que poder encontrarlo.
+   *
+   * `public.find_person_by_email` (0016) exige correo exacto —no acepta
+   * comodines ni cadenas vacías— y solo contesta a quien puede añadir
+   * participantes en algún trabajo. A quien no, le devuelve vacío: la lista
+   * entera no se puede reconstruir dirección a dirección sin conocerlas.
+   *
+   * Devuelve `null` cuando no hay nadie, que es información que el usuario
+   * necesita («esa persona todavía no tiene cuenta, invítala») y no un error.
+   */
+  findByEmail: async (email: string): Promise<PersonFound | null> => {
+    const { data, error } = await supabase.rpc('find_person_by_email', { p_email: email })
+    if (error) throw error
+    return (data ?? [])[0] ?? null
   },
 }

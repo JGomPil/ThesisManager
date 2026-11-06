@@ -115,6 +115,16 @@ usuarios). **Es solo para pruebas**: nunca se aplica a un proyecto real.
 116 | Solo el autor retira su comentario: el estudiante no borra el de la dirección |
 117 | **El hilo avisa en los dos sentidos** —a quien subió la versión, a quien ya había comentado y a quien valida— y nadie se avisa a sí mismo |
 118 | `anon` no llega a los comentarios |
+119 | Un estudiante **no ve** a quien no comparte ningún trabajo con él, aunque compartan grupo |
+120 | ...pero sí se ve a sí mismo y a la dirección de su trabajo |
+121 | La relación es **simétrica**: el director ve a su estudiante y no al ajeno. Dirigir da acceso a los participantes, no al grupo |
+122 | La administración **sí** ve a todos los miembros de su organización |
+123 | `work_members` y `profiles` hablan del mismo conjunto: **ningún participante legible sin nombre legible**. Si fallara, las pantallas mostrarían huecos en lugar de mostrar menos |
+124 | La dirección **localiza por correo exacto** a alguien que no ve en el directorio: es lo que permite añadir un codirector nuevo |
+125 | Esa búsqueda **no sirve para enumerar**: `%`, cadena vacía, `null` y un dominio suelto devuelven 0 filas |
+126 | Un estudiante **no puede** buscar personas por correo: lista vacía, no error |
+127 | `anon` no ve ningún perfil y no puede ejecutar la búsqueda |
+128 | Dar de baja a alguien de un trabajo **no borra su nombre del historial**: sus actas y comentarios siguen resolviéndose |
 
 La prueba 33 ha vuelto a ganarse el sueldo en la Fase 3. Recorre todas las funciones del
 esquema `app` y exige que `anon` no pueda ejecutar ninguna; al añadir la migración `0012` falló,
@@ -147,6 +157,13 @@ La prueba 113 se cayó dos veces antes de existir de verdad: usaba al usuario `4
 y la prueba 35 lo había hecho colaborador de TFG-01 cuarenta pruebas antes. Una prueba montada
 sobre un dato que otra modifica no comprueba lo que dice comprobar, y además da verde. Ahora crea
 su propio ajeno (`5555`, miembro de la organización y de ningún trabajo) en el mismo fichero.
+
+La prueba 124 falló al escribirla, y por una razón que merece quedar escrita: construía su dato de
+entrada —el correo del ajeno— **ya suplantando al director**, y RLS le oculta ese perfil, que es
+justo lo que la prueba comprueba. El `select` devolvía `NULL` y la búsqueda, 0 filas: la prueba
+fallaba por su propio montaje, no por la función. Los datos de entrada se preparan antes de
+`set role`, como `postgres`; si se preparan con los permisos que se quieren medir, la prueba mide
+el montaje.
 
 Todos los datos son ficticios y los dominios de correo son `.invalid`, reservado por el RFC 2606
 precisamente para ejemplos.

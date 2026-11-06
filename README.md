@@ -12,7 +12,7 @@ código.
 > - Aplicación publicada en **https://jgompil.github.io/ThesisManager/**, conectada a un proyecto
 >   de Supabase real. Sin las variables de entorno, la web explica cuáles faltan en lugar de
 >   quedarse en blanco.
-> - Migraciones `0001…0015` aplicadas; 118 pruebas de seguridad contra PostgreSQL 16 y 72
+> - Migraciones `0001…0016` aplicadas; 128 pruebas de seguridad contra PostgreSQL 16 y 72
 >   pruebas unitarias del dominio.
 > - Progreso detallado en [`ROADMAP.md`](ROADMAP.md); decisiones técnicas en
 >   [`docs/FASE_0.md`](docs/FASE_0.md).
@@ -77,13 +77,13 @@ npm run check:export     # ejecuta las consultas de docs/EXPORTACION.md contra e
 npm run drill            # ensaya la restauración de una copia (sin argumento: autoprueba)
 ```
 
-Base de datos: aplicar `supabase/migrations/0001…0015` y después
+Base de datos: aplicar `supabase/migrations/0001…0016` y después
 `supabase/seed/0001_catalogs.sql`. Detalle en [`DEPLOYMENT.md`](DEPLOYMENT.md) §5.
 
 Pruebas de seguridad del modelo de datos, sin necesidad de proyecto en Supabase (requiere Docker):
 
 ```bash
-./scripts/test-rls.sh                      # 118 pruebas de RLS, catálogos, storage y keepalive
+./scripts/test-rls.sh                      # 128 pruebas de RLS, catálogos, storage y keepalive
 ./scripts/restore-drill.sh copia.sql       # ¿esta copia se puede restaurar de verdad?
 ./scripts/check-export-queries.sh          # ¿siguen siendo válidas las consultas documentadas?
 ```

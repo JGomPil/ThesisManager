@@ -34,6 +34,7 @@ Estado a 6 de noviembre de 2026:
 | ✅ | Perfil propio editable y cambio de contraseña |
 | ✅ | Despliegue real en GitHub Pages verificado (HTTP 200, rutas profundas y `base` correctos) |
 | ✅ | Pantalla de configuración cuando faltan las variables de Supabase |
+| ✅ | **Visibilidad de personas acotada a la relación académica** (`0016`): compartir organización ya no es ver a nadie. Quien no administra ve a su propio perfil y a quien participa en algún trabajo que puede ver; para añadir a alguien nuevo, búsqueda por **correo exacto**, sin lista que pasear (pruebas `[119]`–`[128]`) |
 
 Alcance original de la fase:
 
@@ -76,6 +77,7 @@ Estado a 6 de noviembre de 2026:
 | ✅ | Notificaciones internas creadas por disparadores, buzón con recuento de no leídas en la barra superior |
 | ✅ | Gestión documental con versiones y estados de revisión (adelantada a la Fase 1) |
 | ⏳ | **La migración `0011` todavía no está aplicada al proyecto real de Supabase**: hasta entonces, reuniones y comentarios funcionan pero no se genera ninguna notificación |
+| ⏳ | **Las migraciones `0015` y `0016` están escritas y probadas, pero pendientes de aplicar al proyecto real**: hasta entonces, comentar un documento falla y la visibilidad de personas sigue siendo la antigua (todo el grupo se ve) |
 | ✅ | **Comentarios a nivel de documento** (`0015`): anclados a una **versión** concreta —que es donde significan algo para una revisión— sobre `document_comments`, no sobre `comments`. Ficha del documento con su historia de versiones y el hilo de cada una, y aviso a quien subió la versión, a quien ya había comentado y a quien valida |
 
 > **La gestión documental se adelantó a la Fase 1** el 6 de noviembre de 2026, a
@@ -97,7 +99,7 @@ compartida, una mención solo alcanza a quien ya es miembro activo del trabajo, 
 escribir en el buzón de otra persona porque `notifications` no tiene política de `INSERT`
 (`SECURITY.md` §5.2.nonies).
 
-## Fase 3 — Planificación avanzada · **implementada, pendiente de aplicar la migración `0014`**
+## Fase 3 — Planificación avanzada · **implementada**
 
 Estado a 6 de noviembre de 2026:
 
@@ -110,7 +112,6 @@ Estado a 6 de noviembre de 2026:
 | ✅ | **Hitos** con fecha de cumplimiento escrita por la base de datos |
 | ✅ | Alertas de retraso: hitos vencidos y tareas que esperan a otra sin terminar, marcadas en el cronograma |
 | ✅ | **Plantillas completas** (`0014`): la tarea de plantilla guarda en qué consiste, quién la hace —por función académica, resuelta al aplicarla— y su **material adjunto** (guiones, rúbricas, formatos), que la tarea real muestra sin copiar ningún fichero |
-| ⏳ | **La migración `0014` no está aplicada al proyecto real**: hasta entonces, la pantalla de plantillas fallará al guardar el responsable o el material |
 
 El **material de plantilla** se enlaza, no se copia: la tarea creada guarda `template_task_id` y
 lee el material de la plantilla, de modo que corregir una rúbrica la corrige en todos los

@@ -8,14 +8,24 @@ import { EmptyState, ErrorPanel, LoadingPanel } from '@/components/common/states
 import { qk } from '@/lib/query-keys'
 import { peopleRepo } from '@/data/repositories/people.repo'
 import { worksRepo } from '@/data/repositories/works.repo'
+import { useAuth } from '@/features/auth/auth-context'
 
 /**
  * Directorio de personas con sus relaciones académicas.
  *
  * Una sola fila por persona, aunque tenga cinco funciones distintas en cinco
  * trabajos: no se duplican cuentas para representar papeles.
+ *
+ * QUIÉN SALE AQUÍ no lo decide esta pantalla: lo decide `profiles_select`
+ * (migración 0016). Antes bastaba compartir organización, y como el despliegue
+ * es UNA organización, cualquiera con cuenta tenía aquí el nombre y el correo
+ * de todo el grupo. Ahora se ve a quien participa en algún trabajo visible, y
+ * la administración ve a todos. La pantalla no filtra nada: si filtrara, el
+ * límite dependería de que ella acertara, y la lista completa seguiría estando
+ * a una petición de distancia.
  */
 export function PeoplePage() {
+  const { isOrgAdmin } = useAuth()
   const people = useQuery({ queryKey: qk.people.directory, queryFn: peopleRepo.directory })
   const works = useQuery({ queryKey: qk.works.list({}), queryFn: () => worksRepo.list({}) })
 
@@ -33,8 +43,19 @@ export function PeoplePage() {
         description="Cada persona tiene una única cuenta. Sus funciones se definen trabajo a trabajo."
       />
 
+      {/* Decirlo evita la lectura equivocada: una lista corta no es un error
+          de datos ni «falta gente», es el alcance de quien mira. */}
+      <p className="text-sm text-muted-foreground">
+        {isOrgAdmin
+          ? 'Como administración, ves a todas las personas del grupo.'
+          : 'Ves a las personas con las que compartes algún trabajo. Quien no tiene relación contigo no aparece aquí.'}
+      </p>
+
       {rows.length === 0 ? (
-        <EmptyState title="Sin personas visibles" description="Solo ves a quienes comparten organización contigo." />
+        <EmptyState
+          title="Sin personas visibles"
+          description="Aparecerán aquí las personas con las que compartas algún trabajo."
+        />
       ) : (
         <Card>
           <Table>

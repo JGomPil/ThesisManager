@@ -107,7 +107,7 @@ Se definen en el esquema `app`, con `search_path` fijado explícitamente
 `documents`, `document_versions` | miembro del trabajo | miembro; `review_status` solo supervisores |
 `comments` | miembro del trabajo | INSERT: miembro; UPDATE/DELETE: solo autor |
 `notifications` | `user_id = app.uid()` | UPDATE solo del propio `read_at` |
-`profiles` | miembros de la misma organización | UPDATE: solo el propio perfil (o admin) |
+`profiles` | uno mismo + quien participa en un trabajo visible + lo que administre un admin (0016) | UPDATE: solo el propio perfil (o admin) |
 Catálogos (`work_types`…) | cualquier autenticado de la organización | **solo `ADMIN`/`OWNER`** |
 `keepalive` | **`anon` y `authenticated`: `USING (true)`** | nadie |
 
@@ -675,6 +675,61 @@ Lo mismo valía para `documents.task_id` (0010) y para `template_files`
 (0014), pero allí la columna cruzada no decidía la visibilidad —el `work_id` o
 el `template_id` venían del propio objeto— y bastó con comprobar y fallar.
 
+### 5.2.duodevicies · Compartir organización no es tener relación
+
+`profiles_select` decía, desde la `0003`: «veo mi perfil y el de cualquiera que
+comparta organización conmigo». Leída sobre el papel parece estrecha. En este
+despliegue no lo era en absoluto: **la organización es el grupo entero**, así que
+la política autorizaba a cualquiera con cuenta a leer el nombre, el correo, el
+departamento y el puesto de las cuarenta personas del grupo. Un estudiante de
+TFG cuya única relación real es su director tenía el padrón completo a una
+petición de distancia, y no hacía falta ninguna pantalla para pedirlo: basta la
+clave `anon` pública y una sesión válida.
+
+El error de razonamiento es identificable y se repetirá en otros sitios:
+**«pertenece a mi organización» se usó como sinónimo de «tiene relación
+conmigo»**, y solo lo es en un despliegue con muchas organizaciones pequeñas.
+Con una sola, ese predicado es `true` para todos.
+
+La regla nueva (migración `0016`) tiene tres ramas y ninguna menciona la
+organización salvo para administrarla:
+
+1. mi propio perfil;
+2. quien participa en alguno de los trabajos de `app.accessible_work_ids()`
+   —los míos, y todos los de la organización si la administro—;
+3. quien pertenece a una organización de la que soy `OWNER`/`ADMIN`.
+
+**Por qué la rama 2 se define sobre los trabajos accesibles y no sobre «trabajos
+donde soy miembro»:** `wm_select` ya permite leer las filas de `work_members` de
+esos trabajos. Si `profiles` fuera más estrecho que `work_members`, las
+pantallas no mostrarían menos información: mostrarían participantes **sin
+nombre**, huecos que parecen un error de datos. Dos políticas que hablan del
+mismo conjunto deben compartir la expresión que lo define, y ahora las dos dicen
+`accessible_work_ids()`. La prueba `[123]` comprueba exactamente eso: ningún
+participante legible sin perfil legible.
+
+**Lo que NO se filtra, a propósito:** el `status` de la membresía de la otra
+persona. Un director que dejó el trabajo el año pasado sigue siendo alguien con
+quien se ha trabajado, y su nombre tiene que seguir resolviéndose en las actas,
+los comentarios y las versiones que firmó (prueba `[128]`). Quien sí se filtra
+por actividad es quien mira, dentro de `accessible_work_ids()`: a quien le dan
+de baja de un trabajo, ese trabajo deja de darle acceso a nadie.
+
+**Lo que esto rompía, y por qué la salida no es ensanchar la política.** Añadir
+un participante exige elegir de una lista, y la lista salía de `profiles`: un
+director que no administra el grupo dejaba de ver a los codirectores con los que
+nunca ha coincidido. La tentación era devolverle el directorio completo a quien
+tiene `can_manage_members`. En su lugar hay `public.find_person_by_email`, que
+resuelve **un correo exacto**: igualdad, nunca `like`, con la cadena vacía y
+`null` descartados, y solo contesta a quien puede añadir participantes en algún
+trabajo (pruebas `[124]`–`[126]`). Hay que saber a quién se busca; no se puede
+pasear la lista. Fuga conocida y asumida: quien puede añadir participantes puede
+confirmar si una dirección concreta tiene cuenta. Es inevitable para poder
+buscar, y es muchísimo menos que el padrón.
+
+`app.shares_organization` sigue existiendo, pero ya **no** es la regla de
+visibilidad de nadie: solo acota esa búsqueda al propio grupo.
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.
@@ -729,8 +784,13 @@ Dos detalles que un simple `grep` no resuelve, y que están documentados en el p
 
 ## 8. RGPD y datos personales
 
-- **Minimización**: nombre, apellidos, correo institucional, departamento y grupo. Nada más.
-  Sin DNI, sin teléfono, sin dirección, sin fecha de nacimiento, sin expediente académico oficial.
+- **Minimización de lo almacenado**: nombre, apellidos, correo institucional, departamento y
+  grupo. Nada más. Sin DNI, sin teléfono, sin dirección, sin fecha de nacimiento, sin expediente
+  académico oficial.
+- **Minimización de lo accesible**, que es distinto y se olvidó al principio: guardar poco no
+  sirve de nada si todo el mundo lo ve todo. Desde la `0016` (§5.2.duodevicies) nadie accede a los
+  datos de contacto de quien no tiene relación académica con él; la lista completa de correos del
+  grupo solo la obtiene la administración.
 - **Prohibido** cualquier dato clínico o identificativo de pacientes, incluso en descripciones de
   trabajos, objetivos o actas. Advertencia visible en los formularios de texto libre.
 - Datos alojados en la infraestructura de Supabase: **elegir región UE** al crear el proyecto
@@ -749,7 +809,7 @@ Cada una debe ejecutarse **contra la base de datos** con el JWT del usuario corr
 desde la interfaz.
 
 > **Ya verificadas.** Las migraciones de `supabase/migrations/` se han aplicado a un
-> PostgreSQL 16 real y se ejecutan **118 pruebas** de seguridad, todas correctas:
+> PostgreSQL 16 real y se ejecutan **128 pruebas** de seguridad, todas correctas:
 > `./scripts/test-rls.sh` (detalle en `supabase/tests/README.md`). Cubren los puntos 1–6, 12 y 13
 > de la lista siguiente. Los puntos 7, 10 y 11 dependen del frontend y del despliegue, y los 8 y 9
 > del proyecto real de Supabase; se validan en la Fase 1.
@@ -762,7 +822,7 @@ desde la interfaz.
 >
 > El segundo apareció ya en producción y la suite **no** lo detectó: el `EXECUTE` que faltaba en
 > `app.has_work_capability` (§5.2.ter). Las cuatro razones por las que se escapó, y lo que se ha
-> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 118
+> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 128
 > pruebas y el runner ahora falla de verdad cuando algo va mal, que antes no lo hacía.
 
 
