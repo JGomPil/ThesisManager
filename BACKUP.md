@@ -97,11 +97,24 @@ Tarda menos de un minuto, no toca nada de producción y responde a la única pre
 
 ## 4. Supabase Storage
 
+**Un volcado SQL trae los metadatos de los ficheros, nunca los ficheros.** La tabla
+`storage.objects` viaja en la copia; los bytes, no. Y esa asimetría es más peligrosa
+que no tener nada: al restaurar, la plataforma apunta a ficheros que no existen, y
+el síntoma no es un error sino una foto en blanco o una descarga vacía.
+
+Los tres cubos, y hay que copiarlos los tres:
+
 ```bash
-supabase storage cp -r ss://<bucket> ./storage-backup --experimental
+supabase storage cp -r ss://avatars         ./storage-backup/avatars         --experimental
+supabase storage cp -r ss://work-documents  ./storage-backup/work-documents  --experimental
+supabase storage cp -r ss://template-files  ./storage-backup/template-files  --experimental
 ```
 
-Solo si se llegan a usar adjuntos. Por diseño, aquí hay poco que perder.
+El ensayo (§5.0) cuenta cuántos ficheros hay en los metadatos y lo recuerda si hay
+alguno. **No lo cuenta como problema**, y es deliberado: el volcado está haciendo lo
+correcto y el hueco está en el procedimiento, así que un ensayo en rojo cada vez por
+una foto de perfil enseñaría a no mirar el rojo. El 2026-11-06 había 1 fichero
+(una foto de perfil) y 3 cubos.
 
 ## 5. Restauración
 
@@ -121,13 +134,19 @@ Las 18 tablas del núcleo académico | Una copia sin `work_members` restaura tra
 **RLS activada en todas las tablas de `public`** | Una copia restaurada sin RLS lo deja todo a la vista en cuanto se pone en servicio, y no avisa |
 Que `anon` no ejecute ninguna función de `app` | Es la comprobación de la prueba `[33]`, aplicada a la copia |
 **Que haya filas en `auth.users`** | Lo que ningún documento decía: un volcado sin el esquema `auth` devuelve todos los datos y deja la plataforma sin nadie que pueda entrar |
+**Que el esquema `app` traiga funciones** | Si viene creado y vacío, «ninguna función es ejecutable por `anon`» es cierto porque no hay ninguna, y las políticas de RLS que las llaman quedan rotas |
+Cuántos ficheros hay en `storage.objects` | Un volcado SQL trae los metadatos y nunca los bytes: al restaurar, la plataforma apunta a ficheros que no existen y el síntoma es una foto en blanco, no un error (§4). Avisa, pero no lo cuenta como problema |
 
 Termina con un recuento de lo restaurado (trabajos, participantes, tareas, documentos…) y **sale
 con código distinto de cero** si algo falla, así que vale para un *cron* local. No se conecta a
 Supabase y no necesita contraseñas: la copia se monta como solo lectura.
 
+Comprueba además que el esquema `app` **traiga funciones**: puede venir creado y vacío, y
+entonces «ninguna función es ejecutable por `anon`» es cierto por la peor de las razones —porque
+no hay ninguna— y las políticas de RLS que las llaman quedarían rotas al restaurar.
+
 Si avisa de que falta `auth.users`, el volcado necesita además el esquema de autenticación:
-`supabase db dump` con `-s auth`, guardado junto al principal.
+`supabase db dump` con `-s auth`, guardado junto al principal. Con `backup-dump.sh` ya va dentro.
 
 ### En Supabase local (prueba manual de la copia)
 

@@ -172,6 +172,8 @@ declare
   sin_rls text;
   abiertas text;
   n_auth int := -1;
+  n_app int := -1;
+  n_files int := -1;
   problemas int := 0;
 begin
   -- a) El núcleo académico. Si falta una de estas, la copia no sirve.
@@ -208,6 +210,18 @@ begin
     raise warning 'NO HAY ESQUEMA app: la copia no trae las funciones de las politicas';
     problemas := problemas + 1;
   else
+    -- Antes de mirar los privilegios, que HAYA funciones. El esquema `app` puede
+    -- venir creado y vacio, y entonces «ninguna funcion es ejecutable por anon»
+    -- es cierto por la peor de las razones: porque no hay ninguna funcion, y las
+    -- politicas de RLS que las llaman quedarian rotas al restaurar.
+    select count(*) into n_app
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'app';
+    if n_app = 0 then
+      raise warning 'EL ESQUEMA app ESTA VACIO: la copia no trae las funciones de las politicas';
+      problemas := problemas + 1;
+    end if;
+
     select string_agg(p.proname, ', ') into abiertas
       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'app' and has_function_privilege('anon', p.oid, 'execute');
@@ -231,6 +245,25 @@ begin
   else
     raise warning 'LA COPIA NO INCLUYE auth.users: habria que volcar el esquema auth aparte';
     problemas := problemas + 1;
+  end if;
+
+  -- e) Los ficheros de Storage NO estan aqui, y no es un fallo del volcado: un
+  --    volcado SQL trae los METADATOS (storage.objects) y nunca los bytes. El
+  --    peligro es justo esa asimetria: al restaurar, la plataforma apunta a
+  --    ficheros que no existen, y el aviso aparece como una foto en blanco, no
+  --    como un error. Asi que si hay metadatos, hay que decir que falta algo.
+  if to_regclass('storage.objects') is not null then
+    execute 'select count(*) from storage.objects' into n_files;
+    if n_files > 0 then
+      -- No cuenta como PROBLEMA, y es una decision deliberada: el volcado esta
+      -- haciendo lo correcto, el hueco esta en el procedimiento. Un ensayo que
+      -- saliera en rojo cada vez por una foto de perfil ensenaria a no mirar el
+      -- rojo, y entonces el dia que falle de verdad tampoco se mirara.
+      raise notice 'AVISO  % fichero(s) en Storage: sus BYTES no estan aqui (un volcado SQL trae metadatos, no ficheros)', n_files;
+      raise notice '       copialos aparte:  supabase storage cp -r ss://avatars ./storage-backup --experimental';
+    else
+      raise notice 'OK  Storage sin ficheros: no hay bytes que copiar aparte';
+    end if;
   end if;
 
   if problemas = 0 then
