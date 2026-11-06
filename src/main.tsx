@@ -16,6 +16,33 @@ createRoot(root).render(
 )
 
 /**
+ * UN TROZO QUE YA NO EXISTE: recargar una vez, en lugar de dejar la pantalla
+ * en blanco.
+ *
+ * Desde que las pantallas se cargan al entrar en ellas, aparece un caso que
+ * antes no existía. Alguien tiene la pestaña abierta, se despliega una versión
+ * nueva —GitHub Pages reemplaza la carpeta `assets/` entera, con nombres
+ * nuevos por el hash— y esa persona pulsa «Informes». El navegador pide el
+ * trozo con el nombre viejo, que ya no está, y el `import()` se rompe. Sin
+ * nadie que lo recoja, React desmonta el árbol y lo que queda es una ventana
+ * blanca sin explicación: el peor fallo posible, porque no se puede ni contar.
+ *
+ * `vite:preloadError` es el aviso que Vite emite justo en ese momento.
+ * Recargar resuelve el problema de verdad —el HTML viene de la red, trae los
+ * nombres nuevos y la navegación continúa—, y se hace una sola vez: si tras
+ * recargar vuelve a fallar, el problema es otro (sin conexión, por ejemplo) y
+ * una recarga en bucle lo único que haría es impedir leer el error.
+ */
+window.addEventListener('vite:preloadError', (evento) => {
+  const CLAVE = 'tm:recarga-por-trozo-perdido'
+  const ultima = Number(sessionStorage.getItem(CLAVE) ?? 0)
+  if (Date.now() - ultima < 30_000) return   // ya se intentó: que el error se vea
+  evento.preventDefault()
+  sessionStorage.setItem(CLAVE, String(Date.now()))
+  window.location.reload()
+})
+
+/**
  * Registro del service worker: solo en producción.
  *
  * En desarrollo estorba —interceptaría las peticiones del servidor de Vite y
