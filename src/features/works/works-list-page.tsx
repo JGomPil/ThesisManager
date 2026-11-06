@@ -1,6 +1,7 @@
+import * as React from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { BookOpen, Plus, Search } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Archive, BookOpen, Plus, Search } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { PageHeader } from '@/app/layout/app-shell'
@@ -9,10 +10,15 @@ import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { ToneBadge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
+import { useToast } from '@/components/ui/toast'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EmptyState, ErrorPanel, LoadingPanel } from '@/components/common/states'
 import { qk } from '@/lib/query-keys'
 import { worksRepo } from '@/data/repositories/works.repo'
+import { errorMessage } from '@/lib/supabase'
 import { useAcademicYears, useWorkStatuses, useWorkTypes } from '@/hooks/use-catalogs'
 import { useAuth } from '@/features/auth/auth-context'
 import { resolveWorkCapabilities } from '@/domain/permissions/work-capabilities'
@@ -21,6 +27,20 @@ import { daysUntil } from '@/domain/works/progress'
 export function WorksListPage() {
   const [params, setParams] = useSearchParams()
   const { userId, isOrgAdmin } = useAuth()
+  const qc = useQueryClient()
+  const toast = useToast()
+  const [toArchive, setToArchive] = React.useState<{ id: string; title: string } | null>(null)
+
+  const archive = useMutation({
+    mutationFn: (id: string) => worksRepo.archive(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: qk.works.all })
+      void qc.invalidateQueries({ queryKey: qk.works.archived })
+      toast.push('success', 'Trabajo archivado. Está en Administración → Trabajos archivados.')
+      setToArchive(null)
+    },
+    onError: (e) => { toast.push('error', errorMessage(e)); setToArchive(null) },
+  })
 
   const tipo = params.get('tipo') ?? ''
   const estado = params.get('estado') ?? ''
@@ -141,6 +161,7 @@ export function WorksListPage() {
                 <TableHead>Estudiante</TableHead>
                 <TableHead>Dirección</TableHead>
                 <TableHead>Fin previsto</TableHead>
+                {isOrgAdmin && <TableHead className="w-10" />}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -174,6 +195,24 @@ export function WorksListPage() {
                         <span className="text-muted-foreground">—</span>
                       )}
                     </TableCell>
+                    {/* Archivar también desde el listado: es donde se busca,
+                        no dentro de la ficha. Lo que de verdad lo impide a
+                        quien no es administrador es el disparador
+                        app.enforce_soft_delete_scope() (migración 0008). */}
+                    {isOrgAdmin && (
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Archivar ${w.title}`}
+                          title="Archivar"
+                          loading={archive.isPending && archive.variables === w.id}
+                          onClick={() => setToArchive({ id: w.id, title: w.title })}
+                        >
+                          <Archive />
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 )
               })}
@@ -181,6 +220,29 @@ export function WorksListPage() {
           </Table>
         </Card>
       )}
+
+      <Dialog open={toArchive !== null} onOpenChange={(v) => { if (!v) setToArchive(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¿Archivar «{toArchive?.title}»?</DialogTitle>
+            <DialogDescription>
+              Desaparece de los listados y de la vista de sus participantes, pero{' '}
+              <strong>no se borra</strong>. Podrás restaurarlo desde{' '}
+              <strong>Administración → Trabajos archivados</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setToArchive(null)}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              loading={archive.isPending}
+              onClick={() => { if (toArchive) archive.mutate(toArchive.id) }}
+            >
+              <Archive /> Archivar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

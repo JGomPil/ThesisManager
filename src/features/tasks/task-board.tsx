@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { KanbanSquare, List, Plus, Trash2 } from 'lucide-react'
+import { KanbanSquare, List, ListChecks, Plus, Trash2 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
@@ -26,6 +26,7 @@ import { taskFormSchema, type TaskFormValues } from '@/schemas/work'
 import { canUpdateTaskStatus, type WorkCapabilities } from '@/domain/permissions/work-capabilities'
 import { daysUntil } from '@/domain/works/progress'
 import { cn } from '@/lib/utils'
+import { TaskDetailDialog } from '@/features/tasks/task-detail-dialog'
 
 export function TaskBoard({
   work,
@@ -38,6 +39,7 @@ export function TaskBoard({
 }) {
   const [view, setView] = React.useState<'kanban' | 'list'>('kanban')
   const [dialogOpen, setDialogOpen] = React.useState(false)
+  const [openTaskId, setOpenTaskId] = React.useState<string | null>(null)
   const qc = useQueryClient()
   const toast = useToast()
 
@@ -63,7 +65,17 @@ export function TaskBoard({
   if (tasks.isLoading) return <LoadingPanel label="Cargando tareas…" />
   if (tasks.isError) return <ErrorPanel error={tasks.error} />
 
-  const rows = tasks.data ?? []
+  const all = tasks.data ?? []
+
+  // `byWork` devuelve también las subtareas (los puntos de las listas de
+  // comprobación). El tablero muestra solo las tareas de primer nivel; si no se
+  // filtrasen, cada punto aparecería además como una tarjeta suelta. Se agrupan
+  // aquí, en memoria, en lugar de pedirlas en una segunda consulta: ya están
+  // todas descargadas y así el recuento del progreso es siempre coherente con
+  // lo que se ve.
+  const rows = all.filter((t) => t.parent_task_id === null)
+  const subtasksOf = (id: string) => all.filter((t) => t.parent_task_id === id)
+  const openTask = rows.find((t) => t.id === openTaskId) ?? null
 
   return (
     <div className="space-y-3">
@@ -111,8 +123,10 @@ export function TaskBoard({
                     <TaskCard
                       key={t.id}
                       task={t}
+                      subtasks={subtasksOf(t.id)}
                       caps={caps}
                       userId={userId}
+                      onOpen={() => setOpenTaskId(t.id)}
                       onStatus={(status) => setStatus.mutate({ id: t.id, status })}
                       onRemove={() => remove.mutate(t.id)}
                     />
@@ -142,8 +156,20 @@ export function TaskBoard({
                 return (
                   <TableRow key={t.id}>
                     <TableCell className="max-w-[20rem]">
-                      <span className="font-medium">{t.title}</span>
+                      <button
+                        type="button"
+                        onClick={() => setOpenTaskId(t.id)}
+                        className="text-left font-medium underline-offset-2 hover:underline"
+                      >
+                        {t.title}
+                      </button>
                       {t.description && <span className="mt-0.5 line-clamp-1 block text-xs text-muted-foreground">{t.description}</span>}
+                      {subtasksOf(t.id).length > 0 && (
+                        <span className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                          <ListChecks className="size-3" />
+                          {subtasksOf(t.id).filter((x) => x.status === 'COMPLETADA').length}/{subtasksOf(t.id).length}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{t.assignee?.full_name ?? '—'}</TableCell>
                     <TableCell><ToneBadge tone={priority?.tone ?? null}>{priority?.label}</ToneBadge></TableCell>
@@ -172,6 +198,16 @@ export function TaskBoard({
           </Table>
         </Card>
       )}
+      <TaskDetailDialog
+        task={openTask}
+        subtasks={openTask ? subtasksOf(openTask.id) : []}
+        open={openTaskId !== null}
+        onOpenChange={(v) => { if (!v) setOpenTaskId(null) }}
+        caps={caps}
+        userId={userId}
+        workId={work.id}
+      />
+
 
       <TaskDialog
         open={dialogOpen}
@@ -211,11 +247,13 @@ function StatusSelect({
 }
 
 function TaskCard({
-  task, caps, userId, onStatus, onRemove,
+  task, subtasks, caps, userId, onOpen, onStatus, onRemove,
 }: {
   task: TaskWithAssignee
+  subtasks: TaskWithAssignee[]
   caps: WorkCapabilities
   userId: string | null
+  onOpen: () => void
   onStatus: (status: TaskStatus) => void
   onRemove: () => void
 }) {
@@ -225,7 +263,31 @@ function TaskCard({
   return (
     <Card>
       <CardContent className="space-y-2 p-3">
-        <p className="text-sm font-medium leading-snug">{task.title}</p>
+        {/* El título abre la ficha: es el único sitio donde se puede leer la
+            descripción y la lista de comprobación. Es un <button> y no un div
+            con onClick para que funcione con teclado y con lector de pantalla. */}
+        <button
+          type="button"
+          onClick={onOpen}
+          className="block w-full text-left text-sm font-medium leading-snug underline-offset-2 hover:underline"
+        >
+          {task.title}
+        </button>
+        {subtasks.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary"
+                style={{
+                  width: `${Math.round((subtasks.filter((x) => x.status === 'COMPLETADA').length / subtasks.length) * 100)}%`,
+                }}
+              />
+            </div>
+            <span className="text-xs tabular-nums text-muted-foreground">
+              {subtasks.filter((x) => x.status === 'COMPLETADA').length}/{subtasks.length}
+            </span>
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-1.5">
           <ToneBadge tone={priority?.tone ?? null}>{priority?.label}</ToneBadge>
           {task.due_date && (

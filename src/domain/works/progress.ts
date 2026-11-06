@@ -21,11 +21,25 @@ export type WorkProgress = {
   blockedTasks: number
 }
 
+/**
+ * Progreso del trabajo a partir de sus tareas.
+ *
+ * SOLO CUENTA LAS TAREAS DE PRIMER NIVEL. Las subtareas son los puntos de las
+ * listas de comprobación, y contarlas falsearía la cifra en los dos sentidos:
+ * una tarea grande con diez puntos pesaría diez veces más que una sin lista, y
+ * marcar puntos sueltos subiría el progreso del trabajo sin haber terminado
+ * nada. El avance de una lista se ve dentro de su tarea, que es donde
+ * significa algo.
+ *
+ * Acepta tareas con `parent_task_id` opcional para que quien llame pueda
+ * pasarle la lista completa sin filtrar: el filtro vive aquí, con la regla.
+ */
 export function computeWorkProgress(
-  tasks: { status: TaskStatus; due_date: string | null }[],
+  allTasks: { status: TaskStatus; due_date: string | null; parent_task_id?: string | null }[],
   progressOverride: number | null,
   today = new Date(),
 ): WorkProgress {
+  const tasks = allTasks.filter((t) => (t.parent_task_id ?? null) === null)
   const total = tasks.length
   const completed = tasks.filter((t) => t.status === 'COMPLETADA').length
   const overdue = tasks.filter(

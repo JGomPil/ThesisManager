@@ -27,7 +27,7 @@ Estado a 6 de noviembre de 2026:
 | ✅ | Dashboard con tarjetas por tipo generadas desde el catálogo |
 | ✅ | Aviso de mantenimiento (`last_ping_at`) en el panel de administración |
 | ✅ | Comprobación de secretos en el despliegue, con pruebas de detección |
-| ✅ | Proyecto de Supabase creado, migraciones `0001`–`0008` aplicadas y privilegios de `anon` y `authenticated` verificados contra el proyecto real |
+| ✅ | Proyecto de Supabase creado, migraciones `0001`–`0009` aplicadas y privilegios de `anon` y `authenticated` verificados contra el proyecto real |
 | ✅ | Datos de demostración ficticios, validados (el usuario con tres papeles incluido) |
 | ✅ | Cola de invitaciones con alta automática al aceptar (decisión D3) |
 | ✅ | Perfil propio editable y cambio de contraseña |
@@ -73,8 +73,10 @@ las notificaciones llegan a quien debe y solo a quien debe.
 ## Fase 3 — Planificación avanzada
 
 Calendario (mes/semana/agenda) con filtros · Gantt en SVG propio · dependencias entre tareas con
-detección de ciclos · plantillas de tareas **por tipo de trabajo** · hitos · alertas de retraso ·
-subtareas.
+detección de ciclos · plantillas de tareas **por tipo de trabajo** · hitos · alertas de retraso.
+
+Las **subtareas** se adelantaron a la Fase 1 al implementar las listas de comprobación
+de cada tarea (`tasks.parent_task_id`), a petición del usuario el 6 de noviembre de 2026.
 
 **Criterios**: aplicar una plantilla a un trabajo genera el plan completo con fechas relativas
 correctas; cada usuario ve en el calendario solo los eventos de sus trabajos.

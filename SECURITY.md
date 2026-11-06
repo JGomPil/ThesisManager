@@ -244,6 +244,42 @@ dejar ver lo archivado a la administración y solo a ella (prueba `[41]`: ni los
 propios directores del trabajo lo ven), y hay una pantalla
 `/admin/archivados` para restaurar.
 
+### 5.2.quinquies · La casilla que no hacía nada
+
+Las listas de comprobación se implementaron como subtareas reales
+(`tasks.parent_task_id`) y no como un campo de texto o un `jsonb`, para que
+heredaran la seguridad de `tasks` sin añadir ni una política. La herencia
+funcionó, pero con un efecto que no estaba previsto: `tasks_update` exige
+`assignee_id = app.uid()`, y **los puntos de una lista no llevan
+responsable** — el responsable es el de la tarea que los contiene.
+
+El estudiante veía su lista, pulsaba una casilla y la sentencia no afectaba a
+ninguna fila. **Sin error de permisos y sin mensaje**: RLS no lanza excepción
+cuando simplemente no hay filas que tocar. Una casilla que parecía funcionar
+sin hacer nada es peor que un botón deshabilitado, porque el estudiante creería
+haber informado de su avance. Lo detectó la prueba `[43]` antes de llegar a la
+aplicación.
+
+Lo corrige la migración `0009` con `app.is_parent_task_assignee()`. No se
+resuelve copiando el responsable al crear el punto, que sería más simple:
+quedaría desincronizado en cuanto se reasignara la tarea, y volvería el mismo
+fallo silencioso. La pertenencia de un punto es la de su tarea, así que la
+política mira ahí y no un dato duplicado.
+
+El reparto resultante queda fijado por las pruebas `[43]`–`[45]`: la dirección
+**define** los puntos (INSERT y DELETE sobre `tasks`), y quien tiene la tarea
+solo **informa** de su avance (UPDATE de `status`, lo único que le permite el
+disparador `app.enforce_task_update_scope`). Si alguna vez se relajara la
+política de `tasks`, esas tres pruebas fallarían.
+
+#### Nota sobre cómo se escriben estas pruebas
+
+La primera versión de `[45]` daba por bueno que no saltara una excepción. Era
+un falso positivo: la sentencia no afectaba a ninguna fila y por eso no había
+error. Una prueba de RLS **no puede conformarse con la ausencia de excepción**;
+tiene que comprobar el estado resultante. Es el mismo descuido, en pequeño, que
+hacía que el runner devolviera 0 con tres `permission denied` en la salida.
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.
@@ -318,7 +354,7 @@ Cada una debe ejecutarse **contra la base de datos** con el JWT del usuario corr
 desde la interfaz.
 
 > **Ya verificadas.** Las migraciones de `supabase/migrations/` se han aplicado a un
-> PostgreSQL 16 real y se ejecutan **42 pruebas** de seguridad, todas correctas:
+> PostgreSQL 16 real y se ejecutan **46 pruebas** de seguridad, todas correctas:
 > `./scripts/test-rls.sh` (detalle en `supabase/tests/README.md`). Cubren los puntos 1–6, 12 y 13
 > de la lista siguiente. Los puntos 7, 10 y 11 dependen del frontend y del despliegue, y los 8 y 9
 > del proyecto real de Supabase; se validan en la Fase 1.
@@ -331,7 +367,7 @@ desde la interfaz.
 >
 > El segundo apareció ya en producción y la suite **no** lo detectó: el `EXECUTE` que faltaba en
 > `app.has_work_capability` (§5.2.ter). Las cuatro razones por las que se escapó, y lo que se ha
-> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 42
+> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 46
 > pruebas y el runner ahora falla de verdad cuando algo va mal, que antes no lo hacía.
 
 

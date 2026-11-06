@@ -96,3 +96,52 @@ describe('statusesForWorkType', () => {
     expect(codes).not.toContain('DEFENDIDO')
   })
 })
+
+describe('computeWorkProgress con subtareas', () => {
+  it('no cuenta las subtareas: son puntos de una lista, no tareas del trabajo', () => {
+    const conSubtareas = computeWorkProgress(
+      [
+        { status: 'COMPLETADA', due_date: null, parent_task_id: null },
+        { status: 'PENDIENTE', due_date: null, parent_task_id: null },
+        // Ocho puntos de la lista de la primera tarea: no deben pesar.
+        ...Array.from({ length: 8 }, () => ({
+          status: 'COMPLETADA' as const,
+          due_date: null,
+          parent_task_id: 'padre-1',
+        })),
+      ],
+      null,
+    )
+    const sinSubtareas = computeWorkProgress(
+      [
+        { status: 'COMPLETADA', due_date: null, parent_task_id: null },
+        { status: 'PENDIENTE', due_date: null, parent_task_id: null },
+      ],
+      null,
+    )
+    expect(conSubtareas.totalTasks).toBe(2)
+    expect(conSubtareas.taskCompletion).toBe(50)
+    expect(conSubtareas.taskCompletion).toBe(sinSubtareas.taskCompletion)
+  })
+
+  it('una subtarea vencida no cuenta como tarea atrasada del trabajo', () => {
+    const r = computeWorkProgress(
+      [
+        { status: 'PENDIENTE', due_date: null, parent_task_id: null },
+        { status: 'PENDIENTE', due_date: '2020-01-01', parent_task_id: 'padre-1' },
+      ],
+      null,
+      new Date('2026-11-06'),
+    )
+    expect(r.overdueTasks).toBe(0)
+  })
+
+  it('sigue funcionando si no se informa parent_task_id (retrocompatible)', () => {
+    const r = computeWorkProgress(
+      [{ status: 'COMPLETADA', due_date: null }, { status: 'PENDIENTE', due_date: null }],
+      null,
+    )
+    expect(r.totalTasks).toBe(2)
+    expect(r.taskCompletion).toBe(50)
+  })
+})

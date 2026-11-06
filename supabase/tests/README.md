@@ -45,6 +45,10 @@ usuarios). **Es solo para pruebas**: nunca se aplica a un proyecto real.
 40 | Y puede restaurar: el archivado es reversible |
 41 | **Un trabajo archivado lo ve la administración y nadie más**, ni sus propios directores |
 42 | **El alta en un solo paso**: crear el trabajo y asignar dirección y estudiante acto seguido, y el estudiante lo ve de inmediato |
+43 | **El estudiante marca un punto de su lista de comprobación** (subtarea sin responsable propio) |
+44 | El estudiante **no** puede añadir puntos: la dirección define el plan, él informa del avance |
+45 | El estudiante **no** puede renombrar un punto, solo cambiar su estado |
+46 | Recuento de la lista (hechos / total) |
 
 Las pruebas 32 y 33 son estructurales y son las importantes: en lugar de comprobar casos sueltos,
 leen las políticas reales de `pg_policy`, extraen cada función del esquema `app` que invocan y
