@@ -71,7 +71,7 @@ npm run test:rls         # pruebas de seguridad en PostgreSQL desechable (requie
 npm run check:secrets    # verifica que dist/ no publica credenciales privilegiadas
 ```
 
-Base de datos: aplicar `supabase/migrations/0001…0011` y después
+Base de datos: aplicar `supabase/migrations/0001…0012` y después
 `supabase/seed/0001_catalogs.sql`. Detalle en [`DEPLOYMENT.md`](DEPLOYMENT.md) §5.
 
 Pruebas de seguridad del modelo de datos, sin necesidad de proyecto en Supabase (requiere Docker):

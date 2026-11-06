@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
-  BookOpen, ChevronDown, GraduationCap, LayoutDashboard, LogOut, Menu,
+  BookOpen, CalendarDays, ChevronDown, GraduationCap, LayoutDashboard, LogOut, Menu,
   Moon, Settings, Sun, Users, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -14,6 +14,7 @@ import { NotificationsMenu } from '@/features/notifications/notifications-menu'
 const NAV = [
   { to: '/', label: 'Resumen', icon: LayoutDashboard, end: true },
   { to: '/trabajos', label: 'Trabajos', icon: BookOpen, end: false },
+  { to: '/calendario', label: 'Calendario', icon: CalendarDays, end: false },
   { to: '/personas', label: 'Personas', icon: Users, end: false },
 ]
 

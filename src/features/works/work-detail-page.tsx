@@ -26,6 +26,8 @@ import { statusesForWorkType } from '@/domain/works/statuses'
 import { WorkMembersCard } from '@/features/works/work-members-card'
 import { DocumentsCard } from '@/features/documents/documents-card'
 import { MeetingsCard } from '@/features/meetings/meetings-card'
+import { ScheduleCard } from '@/features/plan/schedule-card'
+import { MilestonesCard } from '@/features/plan/milestones-card'
 import { CommentsThread } from '@/features/comments/comments-thread'
 import { TaskBoard } from '@/features/tasks/task-board'
 
@@ -130,6 +132,14 @@ export function WorkDetailPage() {
             </CardContent>
           </Card>
 
+          <ScheduleCard
+            workId={w.id}
+            workTypeId={w.work_type_id}
+            workStartDate={w.start_date}
+            tasks={tasks.data ?? []}
+            caps={caps}
+          />
+
           <MeetingsCard work={w} caps={caps} userId={userId} />
 
           {(w.description || w.objectives || w.methodology) && (
@@ -211,6 +221,7 @@ export function WorkDetailPage() {
             </CardContent>
           </Card>
 
+          <MilestonesCard workId={w.id} caps={caps} />
           <WorkMembersCard work={w} caps={caps} />
           <DocumentsCard workId={w.id} caps={caps} userId={userId} />
 

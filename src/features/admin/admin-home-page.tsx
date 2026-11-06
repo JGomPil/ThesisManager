@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Archive, Layers, Mail, ShieldCheck, Users } from 'lucide-react'
+import { Archive, Layers, ListChecks, Mail, ShieldCheck, Users } from 'lucide-react'
 import { formatDistanceToNow, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { PageHeader } from '@/app/layout/app-shell'
@@ -29,6 +29,13 @@ const SECTIONS = [
     icon: Users,
     title: 'Personas',
     description: 'Perfiles del grupo y sus relaciones académicas con cada trabajo.',
+  },
+  {
+    to: '/admin/plantillas',
+    icon: ListChecks,
+    title: 'Plantillas de plan',
+    description:
+      'Planes de tareas reutilizables con fechas relativas. Aplicar una a un trabajo nuevo crea el plan completo de una vez.',
   },
   {
     to: '/admin/archivados',

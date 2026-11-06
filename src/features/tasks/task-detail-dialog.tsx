@@ -19,6 +19,7 @@ import {
 import { daysUntil } from '@/domain/works/progress'
 import { DocumentsCard } from '@/features/documents/documents-card'
 import { CommentsThread } from '@/features/comments/comments-thread'
+import { TaskDependencies } from '@/features/tasks/task-dependencies'
 import type { WorkMemberWithRole } from '@/data/repositories/works.repo'
 import { canUpdateTaskStatus } from '@/domain/permissions/work-capabilities'
 import type { WorkCapabilities } from '@/domain/permissions/work-capabilities'
@@ -45,10 +46,12 @@ import type { WorkCapabilities } from '@/domain/permissions/work-capabilities'
  *    ningún campo que pueda quedar desincronizado.
  */
 export function TaskDetailDialog({
-  task, subtasks, open, onOpenChange, caps, userId, workId, members,
+  task, subtasks, siblings, open, onOpenChange, caps, userId, workId, members,
 }: {
   task: TaskWithAssignee | null
   subtasks: TaskWithAssignee[]
+  /** Tareas de primer nivel del trabajo: candidatas a dependencia. */
+  siblings: TaskWithAssignee[]
   open: boolean
   onOpenChange: (v: boolean) => void
   caps: WorkCapabilities
@@ -228,6 +231,15 @@ export function TaskDetailDialog({
               </p>
             )}
           </section>
+
+          {task.parent_task_id === null && (
+            <TaskDependencies
+              task={task}
+              siblings={siblings}
+              workId={workId}
+              canManage={caps.canManagePlan}
+            />
+          )}
 
           <section className="border-t pt-3">
             <h3 className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">

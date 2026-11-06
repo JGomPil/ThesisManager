@@ -241,6 +241,55 @@ export type MilestoneRow = {
   created_at: string
 }
 
+export type WorkPhaseRow = {
+  id: string
+  work_id: string
+  name: string
+  start_date: string | null
+  end_date: string | null
+  order_index: number
+}
+
+/**
+ * Dependencia entre tareas. La clave primaria es el par, así que no hay `id`:
+ * una dependencia no es una entidad con vida propia, es una arista.
+ */
+export type TaskDependencyRow = {
+  task_id: string
+  depends_on_task_id: string
+}
+
+export type TemplateRow = {
+  id: string
+  organization_id: string
+  work_type_id: string | null
+  name: string
+  description: string | null
+  is_active: boolean
+  created_by: string | null
+  created_at: string
+}
+
+/**
+ * Tarea de una plantilla. Las fechas son RELATIVAS: `offset_days` desde el
+ * inicio del trabajo y `duration_days` de duración, de modo que la misma
+ * plantilla sirva para un trabajo que empieza en octubre y para otro que
+ * empieza en febrero. `parent_index` apunta al `order_index` del padre dentro
+ * de la misma plantilla, no a un uuid: cuando se escribe la plantilla las
+ * tareas reales todavía no existen. Lo resuelve `app.apply_template`.
+ */
+export type TemplateTaskRow = {
+  id: string
+  template_id: string
+  title: string
+  description: string | null
+  offset_days: number
+  duration_days: number
+  priority: TaskPriority
+  order_index: number
+  parent_index: number | null
+}
+
 export type NotificationRow = {
   id: string
   user_id: string
@@ -413,11 +462,25 @@ export type Database = {
       invitations: Table<InvitationRow, Auto<InvitationRow, 'id' | 'full_name' | 'intended_role' | 'status' | 'notes' | 'sent_at' | 'accepted_at' | 'accepted_user_id' | 'created_by' | 'created_at' | 'updated_at'>>
       documents: Table<DocumentRow, Auto<DocumentRow, 'id' | 'task_id' | 'document_type_id' | 'description' | 'created_by' | 'created_at' | 'updated_at' | 'deleted_at'>>
       document_versions: Table<DocumentVersionRow, Auto<DocumentVersionRow, 'id' | 'external_url' | 'storage_path' | 'author_id' | 'review_status' | 'submitted_at' | 'reviewed_at' | 'reviewer_id' | 'notes'>>
+      work_phases: Table<WorkPhaseRow, Auto<WorkPhaseRow, 'id' | 'start_date' | 'end_date' | 'order_index'>>
+      task_dependencies: Table<TaskDependencyRow, TaskDependencyRow>
+      templates: Table<TemplateRow, Auto<TemplateRow, 'id' | 'work_type_id' | 'description' | 'is_active' | 'created_by' | 'created_at'>>
+      template_tasks: Table<TemplateTaskRow, Auto<TemplateTaskRow, 'id' | 'description' | 'offset_days' | 'duration_days' | 'priority' | 'order_index' | 'parent_index'>>
       keepalive: Table<KeepaliveRow, Auto<KeepaliveRow, 'id' | 'label' | 'last_ping_at' | 'note' | 'created_at'>>
     }
     Views: Record<string, never>
     Functions: {
       keepalive_ping: { Args: Record<string, never>; Returns: string }
+      /**
+       * Envoltura en `public` de `app.apply_template` (migración 0012):
+       * PostgREST no expone el esquema `app`. Devuelve el número de tareas
+       * creadas. No lleva `security definer`, así que las políticas de `tasks`
+       * siguen decidiendo quién puede planificar.
+       */
+      apply_template: {
+        Args: { p_work: string; p_template: string; p_start?: string | null }
+        Returns: number
+      }
     }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>

@@ -50,6 +50,21 @@ export const qk = {
     unread: ['notifications', 'unread'] as const,
   },
 
+  milestones: {
+    byWork: (workId: string) => ['milestones', 'work', workId] as const,
+  },
+
+  dependencies: {
+    byTasks: (workId: string) => ['dependencies', 'work', workId] as const,
+  },
+
+  templates: {
+    all: ['templates'] as const,
+    forWorkType: (workTypeId: string) => ['templates', 'work-type', workTypeId] as const,
+  },
+
+  calendar: (from: string, to: string) => ['calendar', from, to] as const,
+
   invitations: ['invitations'] as const,
 
   maintenance: ['maintenance', 'keepalive'] as const,

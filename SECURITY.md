@@ -405,6 +405,103 @@ Una suscripción por websocket y pestaña sería el primer límite del plan grat
 en tocarse (`FREE_TIER.md`), a cambio de ganar segundos en un aviso que no es
 urgente.
 
+### 5.2.decies · El `alter default privileges` que no protegía nada
+
+La migración `0007` termina así:
+
+    alter default privileges in schema app revoke all on functions from public;
+    alter default privileges in schema app revoke all on functions from anon;
+
+Se lee como «y las funciones que se creen a partir de ahora, también quedan
+cerradas». **No hace eso.** Comprobado contra PostgreSQL 16 en un contenedor
+limpio: tras ejecutar esa sentencia, `pg_default_acl` no tiene ni una fila para
+el esquema `app`, y una función creada después sigue siendo ejecutable por
+`anon`, que es miembro de `PUBLIC`. La sentencia no da error ni aviso; no hace
+nada.
+
+Las tres funciones de disparador de la migración `0012`
+(`assert_no_dependency_cycle`, `enforce_dependency_same_work`,
+`set_milestone_met_at`) nacieron por tanto abiertas a `anon`.
+
+**Lo encontró la prueba `[33]`**, que recorre `pg_proc` y exige que `anon` no
+pueda ejecutar ninguna función del esquema. Es el segundo agujero de privilegios
+que encuentra una prueba estructural y que la lectura del SQL no veía; el
+primero fue §5.2.ter. El patrón se repite: los permisos son un estado
+acumulado, no una línea de código, así que la única forma fiable de comprobarlos
+es preguntarle a la base de datos cómo ha quedado, no leer lo que se le pidió.
+
+La regla para las migraciones siguientes, escrita también en la cabecera de la
+`0012`:
+
+> Toda migración que cree funciones en `app` termina con
+> `revoke all on all functions in schema app from public;` (y de `anon`), y
+> concede después, una por una, solo las que hagan falta.
+
+El `revoke` en bloque es inmediato y no toca lo concedido a `authenticated`, así
+que no deshace nada de la `0007`. La `0012` añade además una aserción propia que
+recorre el esquema entero y falla si quedara alguna función abierta: si la
+próxima migración olvida el `revoke`, salta al aplicarla y no a las semanas.
+
+### 5.2.undecies · `apply_template`: una comodidad que no podía ser un atajo
+
+Aplicar una plantilla crea N tareas. Hacerlo con N inserciones desde el
+navegador deja medio plan creado si la quinta falla, y obliga al cliente a
+resolver la jerarquía interna de la plantilla descubriendo identificadores a
+mitad de la secuencia (`template_tasks.parent_index` apunta al `order_index` del
+padre **dentro de la plantilla**, no a un uuid que todavía no existe). De ahí
+`app.apply_template(...)`: una llamada, una transacción, o el plan entero o
+nada (prueba `[87]`).
+
+Lo que importa aquí es lo que esa función **no** lleva: `security definer`. Es
+la tentación obvia —«que la función se encargue»— y habría convertido una
+comodidad en un agujero: cualquiera habría podido llenar de tareas el trabajo de
+cualquiera. Sin `definer`, la función se ejecuta con los privilegios de quien
+llama y las políticas de `tasks` siguen decidiendo; un estudiante que la invoque
+sobre su propio trabajo es rechazado exactamente igual que si insertara a mano
+(prueba `[85]`). Que no sea `definer` se comprueba en la aserción de la propia
+migración, para que nadie se lo añada «para que funcione» sin que salte nada.
+
+Hay una segunda función, `public.apply_template`, que solo reenvía a la
+anterior. Existe porque PostgREST expone únicamente los esquemas configurados
+—en Supabase, `public`, `graphql_public` y `storage`—, de modo que `app` no es
+invocable desde el navegador, y eso es deliberado: ahí viven los ayudantes de
+las políticas. La envoltura tampoco es `definer`, y la prueba `[89]` comprueba
+las dos cosas que importan: que funciona y que el estudiante sigue sin poder
+usarla. Todo lo que vive en `public` lo ve PostgREST, y por tanto también el rol
+`anon`; de ahí que la migración revoque explícitamente y conceda solo a
+`authenticated` (prueba `[88]`).
+
+### 5.2.duodecies · Los ciclos «se validan en aplicación»
+
+La migración `0002` creó `task_dependencies` con este comentario:
+
+    check (task_id <> depends_on_task_id)   -- los ciclos se validan en aplicación
+
+Impide que A dependa de A, y nada más. A→B→A pasaba sin problema. Y un ciclo en
+este grafo no es un dato feo: es un dato que **cuelga a quien lo lea**. El
+recorrido para ordenar el cronograma, para calcular qué tarea está esperando a
+otra o para propagar una fecha entra en bucle infinito. Validarlo «en
+aplicación» no vale, por la razón de siempre en este proyecto: la aplicación no
+es el único cliente, y dos peticiones REST seguidas —o dos personas
+planificando a la vez— crean el ciclo igual.
+
+La `0012` lo valida con un CTE recursivo en un disparador, usando la cláusula
+`CYCLE` del estándar, que deja de expandir un nodo en cuanto se repite. Esa
+cláusula no es un adorno: sin ella, la comprobación de si existe un ciclo se
+colgaría justo en el caso en que ya hubiera uno.
+
+El mismo repaso descubrió un segundo hueco en la política: `taskdeps_write`
+comprobaba el permiso sobre el trabajo de `task_id` y no miraba
+`depends_on_task_id`, así que con dirigir un trabajo bastaba para colgar una
+dependencia de una tarea de **otro** trabajo, posiblemente invisible para quien
+la creaba. El cronograma mostraría un vínculo hacia una fila que RLS no deja
+ver, y el estado «esperando» de una tarea dependería de algo que su equipo no
+puede resolver. Se cierra por los dos lados, y son dos cosas distintas: la
+política dice **quién** puede escribir (ahora exige permiso en ambos extremos) y
+un disparador dice **qué es un dato válido** (los dos extremos, el mismo
+trabajo). Por eso la administración, que pasa la política para dos trabajos
+suyos, sigue sin poder cruzarlos (prueba `[79]`).
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.
@@ -479,7 +576,7 @@ Cada una debe ejecutarse **contra la base de datos** con el JWT del usuario corr
 desde la interfaz.
 
 > **Ya verificadas.** Las migraciones de `supabase/migrations/` se han aplicado a un
-> PostgreSQL 16 real y se ejecutan **75 pruebas** de seguridad, todas correctas:
+> PostgreSQL 16 real y se ejecutan **89 pruebas** de seguridad, todas correctas:
 > `./scripts/test-rls.sh` (detalle en `supabase/tests/README.md`). Cubren los puntos 1–6, 12 y 13
 > de la lista siguiente. Los puntos 7, 10 y 11 dependen del frontend y del despliegue, y los 8 y 9
 > del proyecto real de Supabase; se validan en la Fase 1.
@@ -492,7 +589,7 @@ desde la interfaz.
 >
 > El segundo apareció ya en producción y la suite **no** lo detectó: el `EXECUTE` que faltaba en
 > `app.has_work_capability` (§5.2.ter). Las cuatro razones por las que se escapó, y lo que se ha
-> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 75
+> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 89
 > pruebas y el runner ahora falla de verdad cuando algo va mal, que antes no lo hacía.
 
 

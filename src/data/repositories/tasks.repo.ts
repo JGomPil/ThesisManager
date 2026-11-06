@@ -1,5 +1,7 @@
 import { supabase } from '@/lib/supabase'
-import type { Database, TaskPriority, TaskRow, TaskStatus } from '@/data/types/database'
+import type {
+  Database, TaskDependencyRow, TaskPriority, TaskRow, TaskStatus,
+} from '@/data/types/database'
 
 type TaskInsert = Database['public']['Tables']['tasks']['Insert']
 type TaskUpdate = Database['public']['Tables']['tasks']['Update']
@@ -71,6 +73,45 @@ export const tasksRepo = {
 
   remove: async (id: string): Promise<void> => {
     const { error } = await supabase.from('tasks').delete().eq('id', id)
+    if (error) throw error
+  },
+
+  /**
+   * Dependencias de un conjunto de tareas.
+   *
+   * Recibe los identificadores en lugar del trabajo, y no es por comodidad:
+   * `task_dependencies` apunta DOS veces a `tasks`, así que cualquier embed
+   * suyo necesitaría una pista explícita y devolvería filas anidadas que no
+   * hacen falta. Como la pantalla ya tiene cargadas las tareas, filtrar por
+   * `task_id` es una consulta plana y una ida y vuelta menos.
+   *
+   * Basta mirar `task_id`: la migración 0012 garantiza que las dos tareas de
+   * una dependencia son del mismo trabajo (prueba `[79]`), así que no hay
+   * aristas que se escapen por el otro extremo.
+   */
+  dependencies: async (taskIds: string[]): Promise<TaskDependencyRow[]> => {
+    if (taskIds.length === 0) return []
+    const { data, error } = await supabase
+      .from('task_dependencies')
+      .select('task_id, depends_on_task_id')
+      .in('task_id', taskIds)
+    if (error) throw error
+    return data ?? []
+  },
+
+  addDependency: async (taskId: string, dependsOnTaskId: string): Promise<void> => {
+    const { error } = await supabase
+      .from('task_dependencies')
+      .insert({ task_id: taskId, depends_on_task_id: dependsOnTaskId })
+    if (error) throw error
+  },
+
+  removeDependency: async (taskId: string, dependsOnTaskId: string): Promise<void> => {
+    const { error } = await supabase
+      .from('task_dependencies')
+      .delete()
+      .eq('task_id', taskId)
+      .eq('depends_on_task_id', dependsOnTaskId)
     if (error) throw error
   },
 }

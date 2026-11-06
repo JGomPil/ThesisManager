@@ -201,6 +201,7 @@ export function TaskBoard({
       <TaskDetailDialog
         task={openTask}
         subtasks={openTask ? subtasksOf(openTask.id) : []}
+        siblings={rows}
         open={openTaskId !== null}
         onOpenChange={(v) => { if (!v) setOpenTaskId(null) }}
         caps={caps}

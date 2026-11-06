@@ -72,6 +72,28 @@ usuarios). **Es solo para pruebas**: nunca se aplica a un proyecto real.
 73 | La administración puede añadir participantes y acuerdos (arreglo de la `0011`) |
 74 | El estudiante **no** puede convocar reuniones ni escribir acuerdos |
 75 | El autor **sí** puede borrar su propio comentario (arreglo de `comments_select`) |
+76 | Una dependencia normal **sí** se puede crear: la regla no es excesiva |
+77 | El ciclo directo A→B→A se rechaza **con error**, no en silencio |
+78 | El ciclo largo A→B→C→A también, y el mensaje dice que es un ciclo |
+79 | Una tarea **no** puede depender de una tarea de otro trabajo, ni siquiera lo consigue la administración, que sí pasa la política |
+80 | El estudiante **no** puede crear dependencias: el orden del plan lo pone la dirección |
+81 | `met_at` lo escribe la base de datos al marcar el hito, y lo borra al revertirlo |
+82 | El estudiante **ve** los hitos de su trabajo pero no los escribe |
+83 | Solo la administración crea plantillas; un director no |
+84 | **Aplicar una plantilla genera el plan completo**: 3 tareas, fechas relativas correctas y jerarquía resuelta |
+85 | El estudiante **no** puede aplicar una plantilla: `app.apply_template` no es `security definer` |
+86 | Una plantilla de **otro tipo de trabajo** se rechaza |
+87 | Una plantilla mal formada **no deja medio plan creado**: o entera o nada |
+88 | `anon` no puede ejecutar `app.apply_template`; `authenticated`, sí |
+89 | La envoltura `public.apply_template` funciona y **no concede nada extra**: el estudiante sigue sin poder |
+
+La prueba 33 ha vuelto a ganarse el sueldo en la Fase 3. Recorre todas las funciones del
+esquema `app` y exige que `anon` no pueda ejecutar ninguna; al añadir la migración `0012` falló,
+porque las tres funciones de disparador nuevas nacieron abiertas a `anon`. La causa está
+documentada en `SECURITY.md` §5.2.decies: la `0007` terminaba con un `alter default privileges
+... revoke`, que se lee como «y las que vengan, también» y **no hace eso**. Comprobado contra
+PostgreSQL 16: esa sentencia no deja ni una fila en `pg_default_acl`. Dos agujeros de privilegios
+encontrados por pruebas estructurales y ninguno por leer el SQL.
 
 Las pruebas 68 y 70 son las dos que justifican el diseño de las notificaciones. La 68 es la
 razón de que no exista política de INSERT en `notifications`: si el cliente pudiera crearlas,

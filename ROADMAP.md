@@ -96,16 +96,42 @@ compartida, una mención solo alcanza a quien ya es miembro activo del trabajo, 
 escribir en el buzón de otra persona porque `notifications` no tiene política de `INSERT`
 (`SECURITY.md` §5.2.nonies).
 
-## Fase 3 — Planificación avanzada
+## Fase 3 — Planificación avanzada · **implementada, pendiente de aplicar la migración `0012`**
 
-Calendario (mes/semana/agenda) con filtros · Gantt en SVG propio · dependencias entre tareas con
-detección de ciclos · plantillas de tareas **por tipo de trabajo** · hitos · alertas de retraso.
+Estado a 6 de noviembre de 2026:
+
+| | Elemento |
+|---|---|
+| ✅ | Calendario con vistas de **mes, semana y agenda**, y filtros por tipo de evento y por trabajo |
+| ✅ | **Gantt en SVG propio**, con escalas de año/mes/semana, hitos, línea de hoy y líneas de dependencia |
+| ✅ | **Dependencias entre tareas con detección de ciclos** en la base de datos (cláusula `CYCLE`), y el desplegable del cliente no ofrece lo que crearía un círculo |
+| ✅ | **Plantillas de tareas por tipo de trabajo**, con fechas relativas y jerarquía, aplicables en una sola llamada atómica |
+| ✅ | **Hitos** con fecha de cumplimiento escrita por la base de datos |
+| ✅ | Alertas de retraso: hitos vencidos y tareas que esperan a otra sin terminar, marcadas en el cronograma |
+| ⏳ | **La migración `0012` no está aplicada al proyecto real**: hasta entonces fallarán las dependencias, los hitos y el botón de aplicar plantilla |
 
 Las **subtareas** se adelantaron a la Fase 1 al implementar las listas de comprobación
 de cada tarea (`tasks.parent_task_id`), a petición del usuario el 6 de noviembre de 2026.
 
+Alcance original de la fase: calendario (mes/semana/agenda) con filtros · Gantt en SVG propio ·
+dependencias entre tareas con detección de ciclos · plantillas de tareas **por tipo de trabajo** ·
+hitos · alertas de retraso.
+
 **Criterios**: aplicar una plantilla a un trabajo genera el plan completo con fechas relativas
 correctas; cada usuario ve en el calendario solo los eventos de sus trabajos.
+
+**Estado de los criterios**: el primero lo verifica la prueba `[84]` contra PostgreSQL real
+(tres tareas, desplazamientos de 0 y 60 días aplicados, jerarquía resuelta), más `[87]` para la
+atomicidad. El segundo **no lo implementa la pantalla del calendario**, y es a propósito: lo
+cumplen `tasks_select`, `meetings_select` y `milestones_select`, que ya filtran por
+`app.accessible_work_ids()`. Filtrarlo también en el cliente daría dos reglas que mantener en
+paralelo y la del cliente sería la que se quedara atrás. Los filtros de la pantalla son de
+comodidad: quitan ruido, no ocultan nada.
+
+La fase añadió 14 pruebas (de 75 a 89) y encontró **tres** huecos que el esquema arrastraba desde
+la `0002`: los ciclos de dependencias se «validaban en aplicación», una tarea podía depender de
+una tarea de otro trabajo, y el `alter default privileges` de la `0007` no protegía las funciones
+futuras (`SECURITY.md` §5.2.decies a §5.2.duodecies).
 
 ## Fase 4 — Informes y analítica
 
