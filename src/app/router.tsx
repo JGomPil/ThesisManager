@@ -1,28 +1,54 @@
+import * as React from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { supabaseConfigured } from '@/lib/supabase'
 import { ConfigurationScreen } from '@/app/configuration-screen'
 import { AppShell, PendingApprovalScreen } from '@/app/layout/app-shell'
 import { DesktopSiteNotice } from '@/app/layout/desktop-site-notice'
 import { useAuth } from '@/features/auth/auth-context'
+import { LoadingPanel, EmptyState } from '@/components/common/states'
+
+/**
+ * QUÉ SE CARGA DE ENTRADA Y QUÉ NO.
+ *
+ * Estas cuatro pantallas son el camino diario —entrar, ver el panel, abrir la
+ * lista y entrar en un trabajo—, así que van en el paquete principal: hacerlas
+ * perezosas solo añadiría un parpadeo al arranque sin ahorrar nada a nadie.
+ */
 import { LoginPage } from '@/features/auth/login-page'
-import { ResetPasswordPage } from '@/features/auth/reset-password-page'
 import { DashboardPage } from '@/features/dashboard/dashboard-page'
 import { WorksListPage } from '@/features/works/works-list-page'
-import { WorkFormPage } from '@/features/works/work-form-page'
 import { WorkDetailPage } from '@/features/works/work-detail-page'
-import { PeoplePage } from '@/features/works/people-page'
-import { PersonPage } from '@/features/works/person-page'
-import { AdminHomePage } from '@/features/admin/admin-home-page'
-import { InvitationsPage } from '@/features/admin/invitations-page'
-import { ProfilePage } from '@/features/auth/profile-page'
-import { WorkTypesPage } from '@/features/admin/work-types-page'
-import { ArchivedWorksPage } from '@/features/admin/archived-works-page'
-import { TemplatesPage } from '@/features/admin/templates-page'
-import { CatalogsPage } from '@/features/admin/catalogs-page'
-import { CalendarPage } from '@/features/calendar/calendar-page'
-import { ReportsPage } from '@/features/reports/reports-page'
-import { WorkReportPage } from '@/features/reports/work-report-page'
-import { LoadingPanel, EmptyState } from '@/components/common/states'
+
+/**
+ * EL RESTO SE DESCARGA AL ENTRAR EN ÉL, y no antes.
+ *
+ * Antes se importaban las diecisiete pantallas de golpe, de modo que un
+ * estudiante que solo entra a ver su trabajo se descargaba también Catálogos,
+ * Plantillas, Tipos de trabajo, Invitaciones y Archivados: pantallas que no
+ * puede ni abrir, porque `RequireAdmin` se lo impide. En GitHub Pages ese peso
+ * lo paga el visitante en cada visita, y buena parte de las visitas son desde
+ * el móvil. Los gráficos ya iban aparte desde la Fase 4 (`manualChunks` en
+ * `vite.config.ts`); esto hace lo mismo con la administración y los informes.
+ *
+ * `React.lazy` espera una exportación por omisión y aquí todo se exporta con
+ * nombre, de ahí el `.then()` de cada línea. El indicador de carga mientras
+ * llega el trozo lo pone el `Suspense` de `AppShell`, alrededor del `Outlet`:
+ * así el menú no desaparece y solo parpadea el contenido.
+ */
+const ResetPasswordPage = React.lazy(() => import('@/features/auth/reset-password-page').then((m) => ({ default: m.ResetPasswordPage })))
+const WorkFormPage = React.lazy(() => import('@/features/works/work-form-page').then((m) => ({ default: m.WorkFormPage })))
+const PeoplePage = React.lazy(() => import('@/features/works/people-page').then((m) => ({ default: m.PeoplePage })))
+const PersonPage = React.lazy(() => import('@/features/works/person-page').then((m) => ({ default: m.PersonPage })))
+const ProfilePage = React.lazy(() => import('@/features/auth/profile-page').then((m) => ({ default: m.ProfilePage })))
+const CalendarPage = React.lazy(() => import('@/features/calendar/calendar-page').then((m) => ({ default: m.CalendarPage })))
+const ReportsPage = React.lazy(() => import('@/features/reports/reports-page').then((m) => ({ default: m.ReportsPage })))
+const WorkReportPage = React.lazy(() => import('@/features/reports/work-report-page').then((m) => ({ default: m.WorkReportPage })))
+const AdminHomePage = React.lazy(() => import('@/features/admin/admin-home-page').then((m) => ({ default: m.AdminHomePage })))
+const WorkTypesPage = React.lazy(() => import('@/features/admin/work-types-page').then((m) => ({ default: m.WorkTypesPage })))
+const InvitationsPage = React.lazy(() => import('@/features/admin/invitations-page').then((m) => ({ default: m.InvitationsPage })))
+const ArchivedWorksPage = React.lazy(() => import('@/features/admin/archived-works-page').then((m) => ({ default: m.ArchivedWorksPage })))
+const TemplatesPage = React.lazy(() => import('@/features/admin/templates-page').then((m) => ({ default: m.TemplatesPage })))
+const CatalogsPage = React.lazy(() => import('@/features/admin/catalogs-page').then((m) => ({ default: m.CatalogsPage })))
 
 /**
  * Guarda de ruta. Es USABILIDAD, no seguridad: aunque alguien manipulara el
@@ -71,7 +97,15 @@ export function Router() {
       <BrowserRouter basename={import.meta.env.BASE_URL}>
         <Routes>
           <Route path="/acceso" element={<PublicOnly><LoginPage /></PublicOnly>} />
-          <Route path="/restablecer" element={<ResetPasswordPage />} />
+          {/* Fuera del `AppShell`, así que no hereda su `Suspense`. */}
+          <Route
+            path="/restablecer"
+            element={
+              <React.Suspense fallback={<div className="flex min-h-dvh items-center justify-center"><LoadingPanel /></div>}>
+                <ResetPasswordPage />
+              </React.Suspense>
+            }
+          />
 
           <Route element={<RequireAuth><AppShell /></RequireAuth>}>
             <Route index element={<DashboardPage />} />

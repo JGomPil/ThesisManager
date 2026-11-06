@@ -89,4 +89,5 @@ export const qk = {
   invitations: ['invitations'] as const,
 
   maintenance: ['maintenance', 'keepalive'] as const,
+  planUsage: ['maintenance', 'plan-usage'] as const,
 }

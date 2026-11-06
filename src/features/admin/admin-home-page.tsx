@@ -10,6 +10,7 @@ import { keepaliveHealth, maintenanceRepo } from '@/data/repositories/maintenanc
 import { cn } from '@/lib/utils'
 import { PendingAccountsCard } from '@/features/admin/pending-accounts-card'
 import { BackupCard } from '@/features/admin/backup-card'
+import { PlanUsageCard } from '@/features/admin/plan-usage-card'
 
 const SECTIONS = [
   {
@@ -86,6 +87,8 @@ export function AdminHomePage() {
       </div>
 
       <BackupCard />
+
+      <PlanUsageCard />
 
       <Card>
         <CardHeader className="pb-3">

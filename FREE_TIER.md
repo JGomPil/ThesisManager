@@ -251,8 +251,27 @@ varios cientos de memorias y artículos reales, que rara vez pasan de 2–5 MB. 
 algún día se acerca al límite hay dos salidas sin coste: registrar los
 documentos pesados como **enlace externo** en lugar de subirlos (la aplicación
 ya lo admite en la misma ficha), o descargar y retirar lo de los cursos
-cerrados. **El aviso aparecerá en el panel de Supabase, no en la aplicación**,
-así que conviene mirarlo en la revisión mensual de §6.
+cerrados.
+
+**Desde el 7 de noviembre de 2026 la propia aplicación lo mide**: Administración
+→ *Consumo del plan gratuito* recorre los tres cubos, suma el tamaño que
+devuelven los metadatos de cada objeto y lo compara con el gigabyte, con aviso
+al 70 % y al 90 %. Se calcula a petición y no al abrir la pantalla, porque la
+API de Storage no lista de forma recursiva y hay una consulta por carpeta.
+
+Esa tarjeta dice también lo que **no** mide, y conviene repetirlo aquí: no mide
+el tamaño de la base de datos —no se puede desde el navegador— y cuenta lo que
+la cuenta que mira puede ver. El total exacto del proyecto sigue estando en el
+panel de Supabase (Settings → Usage), y esa es la cifra de la revisión mensual
+de §6.
+
+Además contrasta el número de ficheros con las filas que los reclaman
+(`document_versions`, `template_files`, `profiles`), por una razón aprendida al
+hacer la primera copia: la API de Storage responde «correcto, ninguno» tanto
+cuando el cubo está vacío como cuando las políticas no dejan ver su contenido,
+así que un recuento a secas no demuestra nada. De ese contraste sale gratis algo
+que no se veía de ninguna otra manera: los ficheros **huérfanos**, los que
+quedaron en el cubo sin fila que los reclame y ocupan sitio para siempre.
 
 Hay tres cubos, todos privados, y los dos pequeños están acotados para que no
 compitan por el gigabyte con lo que de verdad importa:

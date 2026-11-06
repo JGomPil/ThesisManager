@@ -12,6 +12,7 @@ import { useTheme } from '@/hooks/use-theme'
 import { KeepaliveBanner } from '@/features/admin/keepalive-banner'
 import { NotificationsMenu } from '@/features/notifications/notifications-menu'
 import { InstallButton } from '@/app/layout/install-button'
+import { LoadingPanel } from '@/components/common/states'
 
 const NAV = [
   { to: '/', label: 'Resumen', icon: LayoutDashboard, end: true },
@@ -143,7 +144,14 @@ export function AppShell() {
         <main className="min-w-0 flex-1 p-4 lg:p-6 print:p-0">
           <div className="mx-auto max-w-7xl space-y-4">
             {isOrgAdmin && <KeepaliveBanner />}
-            <Outlet />
+            {/* La mayoría de las pantallas se cargan al entrar en ellas
+                (`React.lazy` en `router.tsx`). El `Suspense` va aquí dentro, y
+                no alrededor del enrutador, para que mientras llega el trozo
+                sigan a la vista el menú y la cabecera: así se ve que la
+                aplicación responde, en lugar de quedarse la ventana en blanco. */}
+            <React.Suspense fallback={<LoadingPanel />}>
+              <Outlet />
+            </React.Suspense>
           </div>
         </main>
       </div>

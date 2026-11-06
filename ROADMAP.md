@@ -24,7 +24,7 @@ Estado a 6 de noviembre de 2026:
 | ✅ | Andamiaje Vite + React + TS + Tailwind, `base` y `404.html`, build verificado |
 | ✅ | Capa de acceso a datos (repositorios) y tipos de la base de datos |
 | ✅ | Autenticación PKCE, guardas de ruta, recuperación de contraseña, pantalla de cuenta pendiente |
-| ✅ | Dominio puro con pruebas unitarias (capacidades, progreso, estados por tipo, iniciales, dependencias; 92 en total hoy) |
+| ✅ | Dominio puro con pruebas unitarias (capacidades, progreso, estados por tipo, iniciales, dependencias, consumo del plan; 108 en total hoy, incluidas las del recorrido de Storage con un cliente simulado) |
 | ✅ | Administración del catálogo de tipos de trabajo (crear, editar, desactivar) |
 | ✅ | Administración de los catálogos planos: líneas de investigación, titulaciones y cursos académicos, con la diferencia entre **retirar** y **borrar** explicada en pantalla (pruebas `[90]`–`[95]`) |
 | ✅ | Trabajos: listado con filtros, ficha, alta y edición, cambio de estado |
@@ -188,6 +188,8 @@ Estado a 6 de noviembre de 2026:
 
 | | Elemento |
 |---|---|
+| ✅ | **Consumo del plan gratuito a la vista** (7-11-2026): Administración suma lo que ocupan los tres cubos de Storage frente al gigabyte, con aviso al 70 % y al 90 %, desglose por cubo y contraste con las filas que reclaman cada fichero —de donde salen los **huérfanos**, que ocupaban sitio sin que nadie los viera—. Dice lo que no mide: ni el tamaño de la base de datos ni lo que esta cuenta no puede ver |
+| ✅ | **Paquete dividido por rutas** (7-11-2026): las pantallas que no están en el camino diario se descargan al entrar en ellas. El paquete principal baja de 569 kB a 427 kB (154 kB a 120 kB comprimido): un estudiante ya no se descarga Catálogos, Plantillas ni Invitaciones, que además no puede abrir |
 | ✅ | `deploy.yml`, `keepalive.yml` y `repo-activity.yml` en marcha, y aviso de `last_ping_at` en Administración (adelantado a la Fase 1, como decía esta misma sección) |
 | ✅ | **Tipos de documento y ciclo de vida por tipo de trabajo administrables** (`0021`): los dos últimos catálogos que seguían sin política de escritura ni pantalla. Con esto el punto 5 de la Fase 1 —administrar desde la interfaz los tipos «con sus reglas», estados, roles, titulaciones, líneas y cursos— queda cumplido del todo. Los tipos de documento globales se renombran y se retiran pero **no se borran** (`on delete set null` dejaría documentos sin tipo y sin rastro), y la organización de un tipo es inmutable por *trigger*, porque con dos políticas permisivas el `WITH CHECK` no puede impedirlo. Pruebas [150]–[155] |
 | ✅ | **Estados de los trabajos y roles académicos administrables** (`0020`) desde la pantalla de catálogos: nombre, color, orden, retirar, crear y borrar si nadie los usa. **Las capacidades de un rol no**, porque son el modelo de permisos que lee RLS: un rol nuevo nace sin ellas y las de un rol existente no se pueden cambiar. Cerrado con dos *triggers*, una política y las pruebas [143]–[149] |

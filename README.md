@@ -16,7 +16,8 @@ código.
 >   `supabase/verify.sql`: **12 comprobaciones, todas `OK`** —RLS en todas las tablas, `anon` sin
 >   acceso a ninguna función de `app`, las 18 tablas del núcleo, las políticas y disparadores de
 >   la `0020` y la `0021`, y el rol de estudiante sin capacidades.
->   155 pruebas de seguridad contra PostgreSQL 16 y 92 pruebas unitarias del dominio.
+>   155 pruebas de seguridad contra PostgreSQL 16 y 108 pruebas unitarias (dominio, y el
+>   recorrido de los cubos de Storage contra un cliente simulado).
 > - Progreso detallado en [`ROADMAP.md`](ROADMAP.md); decisiones técnicas en
 >   [`docs/FASE_0.md`](docs/FASE_0.md).
 
