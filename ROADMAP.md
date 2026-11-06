@@ -3,6 +3,11 @@
 Criterio transversal: **ninguna fase se declara terminada sin sus criterios de aceptación
 validados contra la base de datos real.** Que algo se vea bien no cuenta.
 
+Estado de la base de datos real a 6 de noviembre de 2026: migraciones `0001…0021` aplicadas y
+verificadas con `supabase/verify.sql` —doce comprobaciones, todas en `OK`—. Esa consulta es la
+respuesta a «¿qué hay aplicado ahí dentro?»: el editor SQL del panel descarta los avisos, así que
+«Success. No rows returned» confirma que nada falló, pero no dice qué se ejecutó.
+
 ## Fase 0 — Análisis y arquitectura · **entregada y aprobada** (5 de noviembre de 2026)
 
 Documentación, modelo de datos, SQL propuesto y workflows propuestos.
