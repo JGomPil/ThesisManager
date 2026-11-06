@@ -153,3 +153,54 @@ No es necesario para el funcionamiento.
 4. `npm run check:secrets` termina correctamente.
 5. Sin sesión, `GET /rest/v1/academic_works` con la clave anon devuelve `[]`.
 6. Actions → *Keepalive Supabase* → *Run workflow* termina en verde.
+
+## 11. Cuando el despliegue falla sin que falle el código
+
+Caso real del 6 de noviembre de 2026, documentado porque cuesta un rato
+entenderlo la primera vez y porque la comprobación «obvia» engaña.
+
+### El síntoma
+
+El trabajo `build` termina correcto y el artefacto se genera; falla el paso
+`actions/deploy-pages@v4`:
+
+```
+Current status: updating_pages      (repetido ~10 minutos)
+##[error]Timeout reached, aborting!
+Canceling Pages deployment...
+```
+
+Es la infraestructura de Pages, no el proyecto: ni el *build*, ni Vite, ni la
+`base`. Se comprueba en <https://www.githubstatus.com> (componente **Pages**) y
+con `gh api repos/<owner>/<repo>/pages`.
+
+### Relanzar el trabajo fallido NO sirve
+
+Es lo primero que se intenta y falla en cinco segundos:
+
+```
+Created deployment for a4ab112…, ID: a4ab112…
+##[error]Deployment cancelled.
+```
+
+**El identificador del despliegue de Pages es el SHA del commit.** Si ese
+despliegue quedó cancelado, volver a lanzar el mismo trabajo intenta crear uno
+con el mismo identificador y nace cancelado. Por eso `gh run rerun --failed` no
+arregla este fallo concreto: hace falta **un commit nuevo** —cualquiera, aunque
+solo toque documentación— para que haya un identificador distinto.
+
+### Lo importante: un `200` no prueba nada
+
+Al fallar la publicación, la web **sigue sirviendo la versión anterior**, así que
+responde `HTTP 200` con normalidad. Comprobar un despliegue con un código de
+estado es comprobar que GitHub Pages está vivo, no que tu versión esté arriba.
+
+Lo que sí lo prueba es el nombre del paquete, que lleva el *hash* del contenido:
+
+```bash
+curl -s https://jgompil.github.io/ThesisManager/ | grep -o 'assets/index-[A-Za-z0-9_-]*\.js'
+ls dist/assets/ | grep '^index-.*\.js$'
+```
+
+Si los dos nombres no coinciden, lo publicado no es lo que acabas de construir,
+responda lo que responda el servidor.
