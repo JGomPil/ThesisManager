@@ -6,6 +6,27 @@
     <meta name="description" content="Gestión y supervisión de trabajos académicos del GIB-UVa" />
     <meta name="robots" content="noindex, nofollow" />
     <title>Thesis Manager</title>
+
+    <!-- Instalable como aplicación. Las rutas son RELATIVAS porque esto se
+         publica en un subdirectorio de GitHub Pages (/ThesisManager/): con
+         rutas absolutas, el navegador buscaría el manifest y los iconos en la
+         raíz del dominio y no encontraría ninguno. -->
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+
+    <!-- El color de la barra del navegador, uno por tema. El manifest solo
+         admite uno, así que el modo oscuro se resuelve aquí. -->
+    <meta name="theme-color" content="#2563eb" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)" />
+
+    <!-- iOS no lee el manifest para esto: necesita sus propias etiquetas para
+         abrirse sin la barra de Safari al lanzarla desde la pantalla de
+         inicio. `default` deja la hora y la batería legibles sobre la cabecera
+         clara de la aplicación. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Thesis" />
   </head>
   <body>
     <div id="root"></div>

@@ -50,7 +50,7 @@ mediante RLS: el frontend es código público y no protege nada por sí mismo.
 [`ARCHITECTURE.md`](ARCHITECTURE.md) | Estructura del proyecto y decisiones técnicas |
 [`DATABASE.md`](DATABASE.md) | Modelo de datos, catálogos y estimación de volumen |
 [`SECURITY.md`](SECURITY.md) | Roles, permisos, RLS, RGPD y pruebas obligatorias |
-[`DEPLOYMENT.md`](DEPLOYMENT.md) | Despliegue en GitHub Pages y configuración de Supabase |
+[`DEPLOYMENT.md`](DEPLOYMENT.md) | Despliegue en GitHub Pages, configuración de Supabase y app instalable |
 [`FREE_TIER.md`](FREE_TIER.md) | Límites, condiciones, riesgos y costes reales |
 [`BACKUP.md`](BACKUP.md) | Copias de seguridad, restauración y exportación |
 [`docs/EXPORTACION.md`](docs/EXPORTACION.md) | Consultas SQL de exportación con los catálogos resueltos |
@@ -76,6 +76,8 @@ npm run check:secrets    # verifica que dist/ no publica credenciales privilegia
 npm run check:embeds     # embeds de PostgREST que necesitan pista explícita
 npm run check:export     # ejecuta las consultas de docs/EXPORTACION.md contra el esquema
 npm run check:pure       # las pruebas unitarias no importan infraestructura
+npm run check:pwa        # manifest, iconos y service worker de la app instalable
+npm run icons            # regenera los iconos desde scripts/make-icons.py
 npm run drill            # ensaya la restauración de una copia (sin argumento: autoprueba)
 ```
 

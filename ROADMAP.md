@@ -34,6 +34,7 @@ Estado a 6 de noviembre de 2026:
 | ✅ | Perfil propio editable y cambio de contraseña |
 | ✅ | Despliegue real en GitHub Pages verificado (HTTP 200, rutas profundas y `base` correctos) |
 | ✅ | Pantalla de configuración cuando faltan las variables de Supabase |
+| ✅ | **Instalable como aplicación**: manifest, iconos generados (`npm run icons`), *service worker* que **nunca** sirve el HTML de caché —para que un despliegue nuevo llegue siempre— y comprobación propia en Actions (`check:pwa`), porque un icono roto no da ningún error visible |
 | ✅ | **Fotos de perfil** (`0017`): cubo privado, visibilidad **idéntica a la del nombre** por una sola función (`app.can_see_profile`), redimensionado a 256 px en el navegador e iniciales de color estable cuando no hay foto. Se ven en participantes, tareas, comentarios, personas y la barra superior |
 | ⏳ | **La migración `0017` no está aplicada al proyecto real**: hasta entonces, subir una foto fallará (no existe el cubo) |
 | ✅ | **Uso desde el móvil**: los cuatro listados principales como tarjetas por debajo de 640 px, calendario que arranca en agenda, diálogos con `dvh` (iOS), cajón lateral con cuenta y salida, y campos de 16 px para que iOS no haga zoom al escribir |

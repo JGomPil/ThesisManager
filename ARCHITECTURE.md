@@ -212,6 +212,12 @@ de tipos de trabajo extensibles: concentra `work_types`, `work_statuses`, `work_
   Gantt). Esconder sigue siendo trabajo de las clases.
 - **16 px en los campos de formulario por debajo de `sm:`**: Safari en iOS hace zoom al enfocar un
   campo con letra menor y no lo deshace al salir.
+- **Instalable, pero sin modo sin conexión.** El *service worker* existe por una razón concreta
+  —Chrome en Android solo ofrece instalar si hay uno con manejador de `fetch`— y hace lo mínimo:
+  las navegaciones van **siempre** a la red (si el HTML se sirviera de caché, un despliegue nuevo
+  no llegaría nunca, que es el fallo clásico de los PWA), `assets/` va de caché porque lleva el
+  *hash* en el nombre, y Supabase no se cachea jamás. Un modo sin conexión de verdad no tendría
+  sentido aquí: todos los datos son remotos, así que enseñaría el armazón vacío con un error.
 - **Aviso de «sitio para ordenador»** (`DesktopSiteNotice`). Con ese ajuste del navegador, el
   móvil declara ~980 px de ancho y la página se encoge para caber: todo se ve diminuto y, peor,
   **nada de lo responsive se aplica**, porque las reglas miran el ancho declarado. Es un ajuste

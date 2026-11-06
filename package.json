@@ -18,7 +18,9 @@
     "check:embeds": "bash scripts/check-embeds.sh",
     "check:export": "./scripts/check-export-queries.sh",
     "drill": "./scripts/restore-drill.sh",
-    "check:pure": "./scripts/check-pure-tests.sh"
+    "check:pure": "./scripts/check-pure-tests.sh",
+    "check:pwa": "./scripts/check-pwa.sh",
+    "icons": "python3 scripts/make-icons.py"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

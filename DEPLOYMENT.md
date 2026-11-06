@@ -233,3 +233,63 @@ curl -s https://jgompil.github.io/ThesisManager/assets/index-XXXX.js \
 
 Un texto visible sirve de testigo porque el minificador no lo toca: renombra
 variables, no cadenas.
+
+## 12. Instalable como aplicación (PWA)
+
+Desde el 6 de noviembre de 2026 la web se puede añadir a la pantalla de inicio y
+abrirse sin la barra del navegador. No es una aplicación nativa ni la sustituye:
+es la misma web, en su propia ventana y con su icono.
+
+### Qué la hace instalable
+
+| Pieza | Dónde | Para qué |
+|---|---|---|
+| `manifest.webmanifest` | `public/` | nombre, icono, colores y `display: standalone` |
+| `icon-192`, `icon-512`, `icon-maskable-512` | `public/` | Android. El *maskable* es obligatorio si no se quiere que el sistema recorte el dibujo |
+| `apple-touch-icon.png` | `public/` | iOS **no** usa el manifest para el icono |
+| `sw.js` | `public/` | Chrome en Android solo ofrece instalar si hay *service worker* con manejador de `fetch` |
+| `<meta theme-color>` y las etiquetas `apple-mobile-web-app-*` | `index.html` | color de la barra y apertura sin Safari |
+
+Los iconos **se generan**, no se dibujan a mano: `npm run icons`
+(`scripts/make-icons.py`). Cinco tamaños y dos recortes hechos a mano se
+desincronizan en cuanto cambia el color de la marca.
+
+### Las dos trampas, las dos invisibles
+
+**1. Las rutas absolutas.** Esto se publica en `/ThesisManager/`, no en la raíz
+del dominio. Un `"start_url": "/"` o un icono `"/icon-512.png"` funcionan en
+local y en producción apuntan a un sitio donde no hay nada. **No da error**: el
+navegador pone su icono genérico y la aplicación se instala igual, mal.
+
+**2. El *service worker* que deja a la gente en una versión vieja.** Es el fallo
+clásico de los PWA. Aquí se evita por construcción, y conviene no «mejorarlo»
+sin entender esto:
+
+- **Las navegaciones (el HTML) van siempre a la red.** Solo si la red falla se
+  sirve la última copia, y únicamente para no dar la pantalla de error del
+  navegador. Si el HTML se sirviera de caché, un despliegue nuevo no llegaría.
+- **`assets/` va de caché primero**, porque esos ficheros llevan el *hash* del
+  contenido en el nombre y por tanto nunca cambian. Un despliegue nuevo pide
+  nombres nuevos.
+- **Supabase no se cachea jamás.** Serían datos académicos viejos presentados
+  como actuales, y además sus URL van firmadas y caducan.
+
+No hay modo sin conexión de verdad, y es deliberado: todos los datos son
+remotos, así que una caché offline enseñaría el armazón vacío con un error, que
+es peor que decir «no hay conexión».
+
+### Comprobarlo
+
+```bash
+npm run build && npm run check:pwa     # también corre en Actions tras el build
+```
+
+Verifica sobre `dist/` —lo que de verdad se publica— que el manifest tiene lo
+que tiene que tener, que **todos los iconos declarados existen**, que ninguna
+ruta es absoluta y que el *service worker* distingue las navegaciones.
+
+### Instalarla
+
+- **Android/Chrome**: menú ⋮ → «Instalar aplicación» (o el aviso que sale solo).
+- **iPhone/Safari**: Compartir → «Añadir a pantalla de inicio». En iOS no hay
+  aviso automático: hay que decírselo a la gente.

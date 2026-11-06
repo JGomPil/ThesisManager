@@ -79,6 +79,12 @@ jobs:
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
         run: npm run build
 
+      - name: Comprobar que sigue siendo instalable
+        # Cuando esto se rompe no se nota: un icono que da 404 no produce
+        # ningún error, el navegador pone el suyo genérico y la aplicación «se
+        # instala igual». Se comprueba sobre dist/, que es lo que se publica.
+        run: ./scripts/check-pwa.sh dist
+
       - name: GitHub Pages necesita 404.html para las rutas profundas
         # Pages sirve 404.html conservando la URL solicitada; al ser una copia
         # de index.html, React Router resuelve la ruta en el cliente.
