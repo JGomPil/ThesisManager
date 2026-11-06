@@ -106,3 +106,56 @@ begin
   where id = 'bbbbbbbb-0000-0000-0000-000000000001';
 end $$;
 reset role;
+
+-- =============================================================================
+-- El alta completa en un solo paso, tal y como la hace el formulario
+-- =============================================================================
+
+\echo '[42] El admin crea un trabajo y asigna direccion y estudiante acto seguido'
+do $$
+declare
+  nuevo uuid;
+  rol_dir uuid;
+  rol_alu uuid;
+  n int;
+begin
+  set local role authenticated;
+  perform set_config('test.uid','11111111-1111-1111-1111-111111111111', true);
+
+  select id into rol_dir from work_roles where is_supervisory and can_manage_members limit 1;
+  select id into rol_alu from work_roles where is_student limit 1;
+
+  -- 1. Crear. El `returning` es lo que hace supabase-js con .insert().select().
+  insert into academic_works (organization_id, work_type_id, status_id, title)
+  select 'aaaaaaaa-0000-0000-0000-000000000001',
+         (select id from work_types where code='TFG'),
+         (select id from work_statuses where code='PROPUESTA'),
+         'TFG recien creado con participantes'
+  returning id into nuevo;
+
+  -- 2. Asignarse como dirección: el administrador aún no es miembro de este
+  --    trabajo, así que esto depende de `app.is_admin_of_work`, no de
+  --    `has_work_capability`. Es justo el punto donde el formulario fallaría
+  --    si la política solo mirase las funciones académicas.
+  insert into work_members (work_id, user_id, work_role_id, is_primary)
+  values (nuevo, '11111111-1111-1111-1111-111111111111', rol_dir, true);
+
+  -- 3. Y asignar al estudiante.
+  insert into work_members (work_id, user_id, work_role_id, is_primary)
+  values (nuevo, '33333333-3333-3333-3333-333333333333', rol_alu, true);
+
+  select count(*) into n from work_members where work_id = nuevo;
+  if n <> 2 then
+    raise exception 'FALLO [42]: se esperaban 2 participantes y hay %', n;
+  end if;
+
+  -- Y el trabajo debe ser visible de inmediato para el estudiante asignado.
+  perform set_config('test.uid','33333333-3333-3333-3333-333333333333', true);
+  select count(*) into n from academic_works where id = nuevo;
+  if n <> 1 then
+    raise exception 'FALLO [42]: el estudiante asignado no ve su trabajo';
+  end if;
+
+  raise notice 'CORRECTO: alta del trabajo con direccion y estudiante en un paso';
+end $$;
+reset role;

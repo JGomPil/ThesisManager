@@ -15,6 +15,12 @@ export const workFormSchema = z
     objectives: z.string().max(5000).optional(),
     methodology: z.string().max(5000).optional(),
     keywords: z.string().optional(),
+    // Participantes iniciales. Solo se usan al CREAR: en la edición los
+    // gestiona la tarjeta de participantes de la ficha, que admite funciones
+    // múltiples por persona y permisos por trabajo. Aquí se cubre únicamente
+    // el caso común de alta, para no tener que crear el trabajo y volver.
+    supervisor_id: z.string().uuid().or(z.literal('')).optional(),
+    student_id: z.string().uuid().or(z.literal('')).optional(),
   })
   .refine(
     (v) => !v.start_date || !v.expected_end_date || v.expected_end_date >= v.start_date,

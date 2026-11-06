@@ -16,8 +16,10 @@ import { qk } from '@/lib/query-keys'
 import { errorMessage } from '@/lib/supabase'
 import { worksRepo } from '@/data/repositories/works.repo'
 import {
-  useAcademicYears, usePrograms, useResearchLines, useWorkStatuses, useWorkTypeStatuses, useWorkTypes,
+  useAcademicYears, usePrograms, useResearchLines, useWorkRoles, useWorkStatuses,
+  useWorkTypeStatuses, useWorkTypes,
 } from '@/hooks/use-catalogs'
+import { peopleRepo } from '@/data/repositories/people.repo'
 import { statusesForWorkType } from '@/domain/works/statuses'
 import { workFormSchema, type WorkFormValues } from '@/schemas/work'
 import { useAuth } from '@/features/auth/auth-context'
@@ -36,6 +38,13 @@ export function WorkFormPage() {
   const programs = usePrograms()
   const years = useAcademicYears()
   const lines = useResearchLines()
+  const roles = useWorkRoles()
+  const people = useQuery({ queryKey: qk.people.directory, queryFn: peopleRepo.directory, enabled: !isEdit })
+
+  // Las funciones se eligen por sus PROPIEDADES, no por un código fijo: son un
+  // catálogo editable y el usuario puede renombrarlas o añadir otras.
+  const supervisorRole = (roles.data ?? []).find((r) => r.is_supervisory && r.can_manage_members)
+  const studentRole = (roles.data ?? []).find((r) => r.is_student)
 
   const existing = useQuery({
     queryKey: qk.works.detail(id ?? ''),
@@ -49,8 +58,16 @@ export function WorkFormPage() {
       title: '', work_type_id: '', status_id: '', program_id: '', academic_year_id: '',
       research_line_id: '', start_date: '', expected_end_date: '',
       description: '', objectives: '', methodology: '', keywords: '',
+      supervisor_id: '', student_id: '',
     },
   })
+
+  // Al crear, la dirección por defecto es quien está creando el trabajo. Es lo
+  // que ocurre casi siempre, y evita el paso de crearlo y volver a asignarse.
+  React.useEffect(() => {
+    if (isEdit || !userId) return
+    if (!form.getValues('supervisor_id')) form.setValue('supervisor_id', userId)
+  }, [isEdit, userId, form])
 
   // Al cargar un trabajo existente, poblar el formulario.
   React.useEffect(() => {
@@ -118,11 +135,49 @@ export function WorkFormPage() {
       }
       if (isEdit) return worksRepo.update(id!, payload)
       if (!organizationId) throw new Error('No tienes una organización activa.')
-      return worksRepo.create({ ...payload, organization_id: organizationId, created_by: userId })
+      const work = await worksRepo.create({ ...payload, organization_id: organizationId, created_by: userId })
+
+      // Participantes iniciales. Van después de crear el trabajo porque
+      // necesitan su id, así que son dos operaciones y no una transacción: si
+      // la segunda falla, el trabajo queda creado sin participantes. En ese
+      // caso no se oculta el problema, se avisa y se lleva a la ficha, donde
+      // se puede completar a mano. Hacerlo atómico exigiría una función en la
+      // base de datos; no compensa para dos filas que se pueden añadir allí.
+      const pending: { user_id: string; work_role_id: string }[] = []
+      if (values.supervisor_id && supervisorRole) {
+        pending.push({ user_id: values.supervisor_id, work_role_id: supervisorRole.id })
+      }
+      if (values.student_id && studentRole) {
+        pending.push({ user_id: values.student_id, work_role_id: studentRole.id })
+      }
+
+      const failed: string[] = []
+      for (const m of pending) {
+        try {
+          await worksRepo.addMember({ ...m, work_id: work.id, is_primary: true })
+        } catch (e) {
+          failed.push(errorMessage(e))
+        }
+      }
+      return { work, failed }
     },
-    onSuccess: (work) => {
+    onSuccess: (result) => {
       void qc.invalidateQueries({ queryKey: qk.works.all })
-      toast.push('success', isEdit ? 'Trabajo actualizado.' : 'Trabajo creado.')
+      if (isEdit) {
+        toast.push('success', 'Trabajo actualizado.')
+        navigate(`/trabajos/${id!}`)
+        return
+      }
+      const { work, failed } = result as { work: { id: string }; failed: string[] }
+      void qc.invalidateQueries({ queryKey: qk.works.detail(work.id) })
+      if (failed.length > 0) {
+        toast.push(
+          'error',
+          `Trabajo creado, pero no se pudo asignar a algún participante: ${failed[0]}. Añádelo desde la ficha.`,
+        )
+      } else {
+        toast.push('success', 'Trabajo creado.')
+      }
       navigate(`/trabajos/${work.id}`)
     },
     onError: (e) => toast.push('error', errorMessage(e)),
@@ -227,6 +282,52 @@ export function WorkFormPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Participantes iniciales. Solo al crear: en la edición los gestiona la
+            tarjeta de la ficha, que admite funciones múltiples y permisos por
+            trabajo. Aquí están las dos que casi siempre se conocen de entrada,
+            para no obligar a crear el trabajo y volver a entrar en él. */}
+        {!isEdit && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Participantes</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="supervisor_id">Dirección</Label>
+                <Select id="supervisor_id" className="mt-1.5" {...form.register('supervisor_id')}>
+                  <option value="">Sin asignar todavía</option>
+                  {(people.data ?? []).map((pe) => (
+                    <option key={pe.id} value={pe.id}>
+                      {pe.id === userId ? `${pe.full_name} (yo)` : pe.full_name}
+                    </option>
+                  ))}
+                </Select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Se asigna como {supervisorRole?.name.toLowerCase() ?? 'dirección'} principal.
+                  Los codirectores se añaden después, desde la ficha.
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="student_id">Estudiante</Label>
+                <Select id="student_id" className="mt-1.5" {...form.register('student_id')}>
+                  <option value="">Sin asignar todavía</option>
+                  {(people.data ?? [])
+                    .filter((pe) => pe.id !== form.watch('supervisor_id'))
+                    .map((pe) => (
+                      <option key={pe.id} value={pe.id}>{pe.full_name}</option>
+                    ))}
+                </Select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {(people.data ?? []).length <= 1
+                    ? 'Aquí solo aparecen personas con cuenta. Da de alta al estudiante en Administración → Invitaciones y asígnalo luego desde la ficha.'
+                    : 'Puedes dejarlo sin asignar y completarlo cuando se confirme.'}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader className="pb-3"><CardTitle className="text-sm">Contenido académico</CardTitle></CardHeader>
