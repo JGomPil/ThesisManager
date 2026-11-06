@@ -19,28 +19,62 @@ Avatares y adjuntos pequeños | Supabase Storage | `supabase storage` (§4) |
 Lo valioso y frágil es la base de datos. Los ficheros grandes están fuera por diseño
 (`FREE_TIER.md` §5.6), y de ellos responde la infraestructura institucional.
 
-## 2. Volcado manual (procedimiento recomendado)
+## 2. Volcado de la base de datos
 
-Requiere Supabase CLI y la contraseña de la base de datos (panel → *Settings → Database*).
+### 2.1. Con el guion (procedimiento recomendado)
 
 ```bash
-# Volcado completo: esquema + datos + usuarios de auth
-supabase db dump --db-url "postgresql://postgres:<PASS>@db.<REF>.supabase.co:5432/postgres" \
+./scripts/backup-dump.sh                      # pregunta región y contraseña
+./scripts/backup-dump.sh eu-west-3 ~/copias   # si ya se saben
+```
+
+Pide la contraseña sin que se vea ni quede en el historial, construye la cadena de
+conexión, vuelca los cuatro esquemas y **ensaya la copia acto seguido** con
+`restore-drill.sh` (§5.0). No hace falta instalar PostgreSQL ni la CLI de Supabase:
+usa `pg_dump` dentro de Docker. Se niega a escribir dentro del repositorio.
+
+Los dos únicos datos que hay que tener a mano:
+
+- **La contraseña de la base de datos**: panel → *Settings → Database*. Si no se
+  recuerda, se restablece ahí mismo sin consecuencias: la aplicación **no la usa**
+  (entra con la clave pública `anon`), así que cambiarla no rompe nada.
+- **La región del proyecto**: aparece en el panel, en la página del proyecto, junto
+  a su nombre. No se puede deducir desde fuera: las cabeceras HTTP de la API
+  devuelven el nodo de Cloudflare más cercano a quien pregunta, no la región de
+  Supabase.
+
+### 2.2. A mano, si se prefiere
+
+```bash
+pg_dump "postgresql://postgres.<REF>:<PASS>@aws-0-<REGION>.pooler.supabase.com:5432/postgres" \
+  --schema=public --schema=auth --schema=app --schema=storage \
   --file "thesis-manager-$(date +%Y%m%d).sql"
-
-# Solo datos (más pequeño, para restaurar sobre migraciones ya aplicadas)
-supabase db dump --data-only --db-url "..." --file "datos-$(date +%Y%m%d).sql"
 ```
 
-Alternativa con `pg_dump` directo, si se prefiere formato comprimido:
+**El anfitrión es el del «session pooler», no la conexión directa.** La conexión
+directa de Supabase (`db.<REF>.supabase.co`) ya solo publica registro AAAA, es decir
+**solo IPv6**, y desde una red sin IPv6 —la mayoría de las universitarias y
+domésticas— no resuelve siquiera: el error que da no menciona IPv6 y se parece a un
+problema de contraseña. El *pooler* responde por IPv4. Y el puerto es **5432**, el
+de sesión; el 6543 es el de transacción y `pg_dump` no funciona con él.
 
-```bash
-pg_dump "postgresql://postgres:<PASS>@db.<REF>.supabase.co:5432/postgres" \
-  -Fc -f "thesis-manager-$(date +%Y%m%d).dump"
-```
+Dos mensajes de error que conviene saber leer:
 
-**Destino del fichero**: unidad institucional (Drive/OneDrive de la UVa) o disco cifrado.
-**Nunca** el repositorio, ni un *issue*, ni un artefacto de Actions, ni un servicio personal.
+| Mensaje | Qué significa de verdad |
+|---|---|
+| `Tenant or user not found` | La región no es esa, o el usuario no lleva `.<REF>` detrás de `postgres` |
+| `password authentication failed` | La contraseña |
+
+**Los cuatro esquemas, y cada uno por un motivo**: `public` son los datos
+académicos; `auth` son **los usuarios**, y sin él se restaura todo y nadie puede
+entrar; `app` son las funciones que usan las políticas de RLS; `storage` son los
+metadatos de los ficheros. `storage` pertenece a un rol administrativo de Supabase
+y a veces `pg_dump` no puede con todo él; el guion reintenta sin ese esquema antes
+que quedarse sin copia, y avisa.
+
+**Destino del fichero**: unidad institucional (Drive/OneDrive de la UVa) o disco
+cifrado. **Nunca** el repositorio, ni un *issue*, ni un artefacto de Actions, ni un
+servicio personal.
 
 ## 3. Calendario de copias
 
