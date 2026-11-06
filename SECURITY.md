@@ -647,6 +647,34 @@ total institucional, y una regla de permisos se convertiría en un error de dato
 ya cargadas, no de una consulta nueva y más ancha, que es la forma habitual de
 que una exportación acabe conteniendo más de lo que la pantalla mostraba.
 
+### 5.2.septdecies · Una columna que decide quién ve algo no la puede poner el cliente
+
+`document_comments` existía desde la 0002 con dos claves ajenas INDEPENDIENTES:
+`version_id` y `work_id`. Nada impedía una fila cuya versión perteneciera a un
+trabajo y cuyo `work_id` dijera otro, y `work_id` no es un campo cualquiera: es
+exactamente la columna por la que `doccomments_select` decide **quién ve el
+comentario**. Un `work_id` descolocado es un comentario sobre la entrega de
+alguien mostrado al grupo de personas equivocado.
+
+**La solución no es validar, es derivar.** El disparador
+`app.enforce_doc_comment_scope()` (migración `0015`) no comprueba que los dos
+campos cuadren: sobrescribe `work_id` con el de la versión. Y como PostgreSQL
+aplica el `WITH CHECK` de RLS **después** de los disparadores BEFORE, la política
+acaba decidiendo sobre el trabajo de verdad. El efecto se ve en la prueba
+`[112]`: quien manda la versión de un trabajo ajeno con el `work_id` del suyo no
+obtiene un comentario mal colocado, obtiene un rechazo por no ser miembro del
+trabajo que la versión delata.
+
+Es una forma general que conviene recordar para lo que venga: **cuando una
+columna determina la visibilidad de la fila y se puede deducir de otra, se
+deduce en un disparador BEFORE y la política decide sobre el resultado.** Validar
+y devolver un error es más débil, porque deja la puerta abierta a la siguiente
+ruta de inserción que alguien añada sin acordarse de la comprobación.
+
+Lo mismo valía para `documents.task_id` (0010) y para `template_files`
+(0014), pero allí la columna cruzada no decidía la visibilidad —el `work_id` o
+el `template_id` venían del propio objeto— y bastó con comprobar y fallar.
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.
@@ -721,7 +749,7 @@ Cada una debe ejecutarse **contra la base de datos** con el JWT del usuario corr
 desde la interfaz.
 
 > **Ya verificadas.** Las migraciones de `supabase/migrations/` se han aplicado a un
-> PostgreSQL 16 real y se ejecutan **110 pruebas** de seguridad, todas correctas:
+> PostgreSQL 16 real y se ejecutan **118 pruebas** de seguridad, todas correctas:
 > `./scripts/test-rls.sh` (detalle en `supabase/tests/README.md`). Cubren los puntos 1–6, 12 y 13
 > de la lista siguiente. Los puntos 7, 10 y 11 dependen del frontend y del despliegue, y los 8 y 9
 > del proyecto real de Supabase; se validan en la Fase 1.
@@ -734,7 +762,7 @@ desde la interfaz.
 >
 > El segundo apareció ya en producción y la suite **no** lo detectó: el `EXECUTE` que faltaba en
 > `app.has_work_capability` (§5.2.ter). Las cuatro razones por las que se escapó, y lo que se ha
-> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 110
+> cambiado para que no vuelva a pasar, están documentadas allí. El recuento subió de 31 a 118
 > pruebas y el runner ahora falla de verdad cuando algo va mal, que antes no lo hacía.
 
 

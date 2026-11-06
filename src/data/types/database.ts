@@ -403,6 +403,22 @@ export type DocumentVersionRow = {
   notes: string | null
 }
 
+/**
+ * Comentario sobre una VERSIÓN de un documento (puesto en marcha por la 0015).
+ *
+ * `work_id` lo deriva el disparador `app.enforce_doc_comment_scope` de la
+ * versión comentada: es la columna por la que la política decide quién lo ve, y
+ * no debe depender de lo que mande el cliente.
+ */
+export type DocumentCommentRow = {
+  id: string
+  version_id: string
+  work_id: string
+  author_id: string
+  content: string
+  created_at: string
+}
+
 export type MeetingModality = 'PRESENCIAL' | 'ONLINE' | 'HIBRIDA'
 
 export type MeetingRow = {
@@ -504,6 +520,7 @@ export type Database = {
       templates: Table<TemplateRow, Auto<TemplateRow, 'id' | 'work_type_id' | 'description' | 'is_active' | 'created_by' | 'created_at'>>
       template_tasks: Table<TemplateTaskRow, Auto<TemplateTaskRow, 'id' | 'description' | 'offset_days' | 'duration_days' | 'priority' | 'order_index' | 'parent_index' | 'assignee_role_id'>>
       template_files: Table<TemplateFileRow, Auto<TemplateFileRow, 'id' | 'template_task_id' | 'description' | 'storage_path' | 'external_url' | 'mime_type' | 'size_bytes' | 'created_by' | 'created_at'>>
+      document_comments: Table<DocumentCommentRow, Auto<DocumentCommentRow, 'id' | 'work_id' | 'created_at'>>
       keepalive: Table<KeepaliveRow, Auto<KeepaliveRow, 'id' | 'label' | 'last_ping_at' | 'note' | 'created_at'>>
     }
     Views: Record<string, never>

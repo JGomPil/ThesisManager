@@ -3,7 +3,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Archive, Download, ExternalLink, FileText, Link2, Paperclip, Plus, ShieldAlert, Upload,
+  Archive, Download, ExternalLink, FileText, Link2, MessageSquare, Paperclip, Plus,
+  ShieldAlert, Upload,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -25,6 +26,7 @@ import {
 } from '@/data/repositories/documents.repo'
 import { tasksRepo } from '@/data/repositories/tasks.repo'
 import { useDocumentTypes } from '@/hooks/use-catalogs'
+import { DocumentDetailDialog } from '@/features/documents/document-detail-dialog'
 import { documentFormSchema, type DocumentFormValues } from '@/schemas/work'
 import type { DocumentReviewStatus } from '@/data/types/database'
 import type { WorkCapabilities } from '@/domain/permissions/work-capabilities'
@@ -53,12 +55,27 @@ export function DocumentsCard({
   taskId?: string
 }) {
   const [open, setOpen] = React.useState(false)
+  const [abierto, setAbierto] = React.useState<string | null>(null)
   const qc = useQueryClient()
   const toast = useToast()
 
   const docs = useQuery({
     queryKey: qk.documents.byWork(workId),
     queryFn: () => documentsRepo.byWork(workId),
+  })
+
+  /**
+   * Cuántos comentarios tiene cada versión, en UNA consulta para todo el
+   * trabajo. Sin esto no habría forma de saber que hay algo escrito sin abrir
+   * cada documento, y un comentario que no se ve es un comentario perdido.
+   *
+   * Si falla —por ejemplo porque la migración 0015 no está aplicada— se queda
+   * en un objeto vacío y el resto de la tarjeta sigue funcionando: el recuento
+   * es un adorno, los documentos no.
+   */
+  const comentarios = useQuery({
+    queryKey: qk.documents.commentCounts(workId),
+    queryFn: () => documentsRepo.commentCounts(workId),
   })
 
   const archive = useMutation({
@@ -112,6 +129,8 @@ export function DocumentsCard({
               caps={caps}
               userId={userId}
               showTask={!taskId}
+              comentarios={comentarios.data ?? {}}
+              onOpen={() => setAbierto(d.id)}
               onDownload={download}
               onArchive={() => archive.mutate(d.id)}
               onReview={(versionId, status) => review.mutate({ versionId, status })}
@@ -125,6 +144,15 @@ export function DocumentsCard({
           <Plus /> Añadir documento
         </Button>
       )}
+
+      <DocumentDetailDialog
+        doc={rows.find((d) => d.id === abierto) ?? null}
+        open={abierto !== null}
+        onOpenChange={(v) => { if (!v) setAbierto(null) }}
+        caps={caps}
+        userId={userId}
+        workId={workId}
+      />
 
       <NewDocumentDialog
         open={open}
@@ -152,27 +180,45 @@ export function DocumentsCard({
 }
 
 function DocumentRowItem({
-  doc, caps, userId, showTask, onDownload, onArchive, onReview,
+  doc, caps, userId, showTask, comentarios, onOpen, onDownload, onArchive, onReview,
 }: {
   doc: DocumentWithVersions
   caps: WorkCapabilities
   userId: string | null
   showTask: boolean
+  /** Recuento de comentarios por versión, para no abrir a ciegas. */
+  comentarios: Record<string, number>
+  onOpen: () => void
   onDownload: (path: string) => void
   onArchive: () => void
   onReview: (versionId: string, status: DocumentReviewStatus) => void
 }) {
   const last = doc.versions[0]
   const status = REVIEW_STATUSES.find((s) => s.value === last?.review_status)
+  const totalComentarios = doc.versions.reduce((n, v) => n + (comentarios[v.id] ?? 0), 0)
 
   return (
     <li className="py-2.5 first:pt-0">
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-sm font-medium">{doc.name}</span>
+            {/* El nombre abre la ficha: versiones y, en cada una, su hilo de
+                comentarios. Antes el nombre no llevaba a ningún sitio y las
+                versiones anteriores no se podían ni ver. */}
+            <button type="button" className="text-left text-sm font-medium hover:underline" onClick={onOpen}>
+              {doc.name}
+            </button>
             {doc.document_type && <ToneBadge tone="slate">{doc.document_type.name}</ToneBadge>}
             {status && <ToneBadge tone={status.tone}>{status.label}</ToneBadge>}
+            {totalComentarios > 0 && (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline"
+                onClick={onOpen}
+              >
+                <MessageSquare className="size-3" /> {totalComentarios}
+              </button>
+            )}
             {showTask && doc.task_id && (
               <span className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Paperclip className="size-3" /> vinculado a una tarea

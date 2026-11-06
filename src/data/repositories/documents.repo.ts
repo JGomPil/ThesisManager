@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type {
-  Database, DocumentReviewStatus, DocumentRow, DocumentVersionRow,
+  Database, DocumentCommentRow, DocumentReviewStatus, DocumentRow, DocumentVersionRow,
 } from '@/data/types/database'
 
 type DocumentInsert = Database['public']['Tables']['documents']['Insert']
@@ -33,6 +33,10 @@ type PersonLite = { id: string; full_name: string } | null
 export type DocumentVersionWithPeople = DocumentVersionRow & {
   author: PersonLite
   reviewer: PersonLite
+}
+
+export type DocumentCommentWithAuthor = DocumentCommentRow & {
+  author: { id: string; full_name: string; avatar_url: string | null } | null
 }
 
 export type DocumentWithVersions = DocumentRow & {
@@ -160,6 +164,62 @@ export const documentsRepo = {
     const { data, error } = await supabase.storage.from(DOCS_BUCKET).createSignedUrl(storagePath, seconds)
     if (error) throw error
     return data.signedUrl
+  },
+
+  // ---------------------------------------------------------------------------
+  // Comentarios anclados a una VERSIÓN (migración 0015)
+  //
+  // El anclaje es la versión y no una página ni un párrafo: una posición dentro
+  // del fichero no se puede resolver cuando el fichero puede ser un PDF, un
+  // .docx o un enlace a Drive, y una referencia que no se puede resolver es
+  // peor que ninguna. «Esto, en la v3» se entiende siempre y no se rompe al
+  // subir la v4.
+  //
+  // `work_id` NO se envía: lo pone el disparador `app.enforce_doc_comment_scope`
+  // a partir de la versión. Es la columna por la que la política decide quién ve
+  // el comentario, así que no es un dato que deba poner el cliente.
+  // ---------------------------------------------------------------------------
+
+  comments: async (versionId: string): Promise<DocumentCommentWithAuthor[]> => {
+    const { data, error } = await supabase
+      .from('document_comments')
+      .select('*, author:profiles!document_comments_author_id_fkey(id,full_name,avatar_url)')
+      .eq('version_id', versionId)
+      .order('created_at')
+    if (error) throw error
+    return (data ?? []) as unknown as DocumentCommentWithAuthor[]
+  },
+
+  /**
+   * Cuántos comentarios tiene cada versión del trabajo, en UNA consulta.
+   * Sirve para poder decir «3 comentarios» en el listado sin pedirlos uno por
+   * uno: son decenas de filas y el plan gratuito se mide en peticiones.
+   */
+  commentCounts: async (workId: string): Promise<Record<string, number>> => {
+    const { data, error } = await supabase
+      .from('document_comments')
+      .select('version_id')
+      .eq('work_id', workId)
+    if (error) throw error
+    const cuenta: Record<string, number> = {}
+    for (const f of data ?? []) cuenta[f.version_id] = (cuenta[f.version_id] ?? 0) + 1
+    return cuenta
+  },
+
+  addComment: async (versionId: string, authorId: string, content: string): Promise<void> => {
+    const { error } = await supabase
+      .from('document_comments')
+      // Sin `work_id`: la columna es NOT NULL, pero PostgreSQL comprueba las
+      // restricciones DESPUÉS de los disparadores BEFORE, y el de la 0015 ya lo
+      // ha rellenado con el de la versión. Mandarlo desde aquí solo abriría la
+      // posibilidad de mandarlo mal.
+      .insert({ version_id: versionId, author_id: authorId, content })
+    if (error) throw error
+  },
+
+  removeComment: async (id: string): Promise<void> => {
+    const { error } = await supabase.from('document_comments').delete().eq('id', id)
+    if (error) throw error
   },
 
   removeFile: async (storagePath: string): Promise<void> => {

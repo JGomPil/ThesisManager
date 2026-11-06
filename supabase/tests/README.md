@@ -107,6 +107,14 @@ usuarios). **Es solo para pruebas**: nunca se aplica a un proyecto real.
 108 | **Borrar una tarea de plantilla no falla** y deja sin material a las tareas ya creadas desde ella. Documenta el peligro, no lo celebra: es la razón del aviso con recuento en la interfaz |
 109 | El estudiante **descarga** el material del cubo y **no puede subir** nada a él |
 110 | La administración sube, y **ni ella** puede usar una ruta que no empiece por el uuid de una plantilla |
+111 | La dirección comenta la entrega del estudiante y el comentario queda anclado a **esa versión** |
+112 | **El `work_id` se deriva de la versión, no se cree al cliente**: mandar otro no coloca el comentario en otro trabajo, y comentar la versión de un trabajo ajeno lo rechaza la política sobre el trabajo de verdad. Es la prueba que cierra la laguna de la 0002 |
+113 | Un ajeno —miembro del grupo, de ningún trabajo— no puede comentar |
+114 | La administración del trabajo **sí** puede, aunque no sea miembro (arreglo de `doccomments_insert`) |
+115 | Un ajeno no ve ningún comentario; el estudiante ve los de su propia entrega |
+116 | Solo el autor retira su comentario: el estudiante no borra el de la dirección |
+117 | **El hilo avisa en los dos sentidos** —a quien subió la versión, a quien ya había comentado y a quien valida— y nadie se avisa a sí mismo |
+118 | `anon` no llega a los comentarios |
 
 La prueba 33 ha vuelto a ganarse el sueldo en la Fase 3. Recorre todas las funciones del
 esquema `app` y exige que `anon` no pueda ejecutar ninguna; al añadir la migración `0012` falló,
@@ -134,6 +142,11 @@ pruebas anteriores no lo vieron; el relato completo está en `SECURITY.md` §5.2
 faltaba en producción. Hoy el estado de privilegios lo fijan solo el arnés (que emula los
 `alter default privileges` de Supabase) y las propias migraciones. Si añades una prueba, **no
 pongas un `grant` para que funcione**: si hace falta, es que falta en una migración.
+
+La prueba 113 se cayó dos veces antes de existir de verdad: usaba al usuario `4444` como «ajeno»,
+y la prueba 35 lo había hecho colaborador de TFG-01 cuarenta pruebas antes. Una prueba montada
+sobre un dato que otra modifica no comprueba lo que dice comprobar, y además da verde. Ahora crea
+su propio ajeno (`5555`, miembro de la organización y de ningún trabajo) en el mismo fichero.
 
 Todos los datos son ficticios y los dominios de correo son `.invalid`, reservado por el RFC 2606
 precisamente para ejemplos.

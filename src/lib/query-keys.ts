@@ -41,6 +41,8 @@ export const qk = {
 
   documents: {
     byWork: (workId: string) => ['documents', 'work', workId] as const,
+    comments: (versionId: string) => ['documents', 'comments', versionId] as const,
+    commentCounts: (workId: string) => ['documents', 'comment-counts', workId] as const,
   },
 
   meetings: {

@@ -76,7 +76,7 @@ Estado a 6 de noviembre de 2026:
 | ✅ | Notificaciones internas creadas por disparadores, buzón con recuento de no leídas en la barra superior |
 | ✅ | Gestión documental con versiones y estados de revisión (adelantada a la Fase 1) |
 | ⏳ | **La migración `0011` todavía no está aplicada al proyecto real de Supabase**: hasta entonces, reuniones y comentarios funcionan pero no se genera ninguna notificación |
-| ⏳ | Comentarios a nivel de documento: pendientes, y van sobre `document_comments` (anclados a una **versión** concreta, que es donde significan algo para una revisión), no sobre `comments` |
+| ✅ | **Comentarios a nivel de documento** (`0015`): anclados a una **versión** concreta —que es donde significan algo para una revisión— sobre `document_comments`, no sobre `comments`. Ficha del documento con su historia de versiones y el hilo de cada una, y aviso a quien subió la versión, a quien ya había comentado y a quien valida |
 
 > **La gestión documental se adelantó a la Fase 1** el 6 de noviembre de 2026, a
 > petición del usuario: documentos con versiones, estados de revisión, vínculo
