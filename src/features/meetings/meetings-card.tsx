@@ -281,13 +281,13 @@ function MeetingDetailDialog({
         <div className="space-y-4">
           <Section title="Temas previstos">
             {meeting.topics
-              ? <p className="whitespace-pre-wrap text-sm leading-relaxed">{meeting.topics}</p>
+              ? <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{meeting.topics}</p>
               : <p className="text-sm text-muted-foreground">Sin temas anotados.</p>}
           </Section>
 
           <Section title="Acta compartida">
             {meeting.summary
-              ? <p className="whitespace-pre-wrap text-sm leading-relaxed">{meeting.summary}</p>
+              ? <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{meeting.summary}</p>
               : (
                 <p className="text-sm text-muted-foreground">
                   Sin acta todavía.{canEdit && ' Edita la reunión para redactarla.'}
@@ -515,7 +515,7 @@ function PrivateNotes({
           {rows.map((n) => (
             <li key={n.id} className="flex items-start gap-2">
               <div className="min-w-0 flex-1">
-                <p className="whitespace-pre-wrap text-sm">{n.content}</p>
+                <p className="whitespace-pre-wrap break-words text-sm">{n.content}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {format(parseISO(n.created_at), "d MMM yyyy 'a las' HH:mm", { locale: es })}
                 </p>

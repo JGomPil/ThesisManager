@@ -208,7 +208,7 @@ export function WorkReportPage() {
                       {format(parseISO(r.scheduled_at), "d 'de' MMMM 'de' yyyy, HH:mm", { locale: es })}
                       {r.agreements.length > 0 && ` · ${r.agreements.length} acuerdo(s)`}
                     </p>
-                    {r.summary && <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{r.summary}</p>}
+                    {r.summary && <p className="mt-1 whitespace-pre-wrap break-words text-muted-foreground">{r.summary}</p>}
                   </li>
                 ))}
               </ul>

@@ -17,6 +17,12 @@ export const DialogContent = React.forwardRef<
       ref={ref}
       className={cn(
         'fixed left-1/2 top-1/2 z-50 grid w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4',
+        // `[&>*]:min-w-0` tiene más fondo del que parece: los hijos de un grid
+        // valen `min-width: auto`, o sea que NO se encogen por debajo de su
+        // contenido. Un nombre largo sin espacios, una tabla o una fila de
+        // botones empujan al hijo más allá del ancho del diálogo —que es fijo—
+        // y lo que se sale por el lado no se puede alcanzar.
+        '[&>*]:min-w-0',
         // `dvh`, no `vh`: en iOS Safari `100vh` cuenta la barra de direcciones
         // como si no estuviera, así que el diálogo se salía por abajo y su
         // último botón quedaba debajo de la barra, inalcanzable. `dvh` es la
@@ -60,7 +66,10 @@ export const DialogTitle = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Title>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
 >(({ className, ...props }, ref) => (
-  <DialogPrimitive.Title ref={ref} className={cn('text-lg font-semibold leading-none tracking-tight', className)} {...props} />
+  // `break-words`: el título suele ser algo que ha escrito una persona (el
+  // nombre de una tarea, de un documento), y una palabra larga sin espacios
+  // —una URL, un nombre de fichero— ensancharía el diálogo entero.
+  <DialogPrimitive.Title ref={ref} className={cn('text-lg font-semibold leading-none tracking-tight break-words', className)} {...props} />
 ))
 DialogTitle.displayName = 'DialogTitle'
 

@@ -224,7 +224,7 @@ function DocumentRowItem({
             {/* El nombre abre la ficha: versiones y, en cada una, su hilo de
                 comentarios. Antes el nombre no llevaba a ningún sitio y las
                 versiones anteriores no se podían ni ver. */}
-            <button type="button" className="text-left text-sm font-medium hover:underline" onClick={onOpen}>
+            <button type="button" className="break-words text-left text-sm font-medium hover:underline" onClick={onOpen}>
               {doc.name}
             </button>
             {doc.document_type && <ToneBadge tone="slate">{doc.document_type.name}</ToneBadge>}

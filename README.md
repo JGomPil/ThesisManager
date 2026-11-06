@@ -77,6 +77,7 @@ npm run check:secrets    # verifica que dist/ no publica credenciales privilegia
 npm run check:embeds     # embeds de PostgREST que necesitan pista explícita
 npm run check:export     # ejecuta las consultas de docs/EXPORTACION.md contra el esquema
 npm run check:pure       # las pruebas unitarias no importan infraestructura
+npm run check:wrap       # el texto libre puede partir palabras (si no, descoloca el móvil)
 npm run check:pwa        # manifest, iconos y service worker de la app instalable
 npm run icons            # regenera los iconos desde scripts/make-icons.py
 npm run drill            # ensaya la restauración de una copia (sin argumento: autoprueba)

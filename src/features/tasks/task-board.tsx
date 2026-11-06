@@ -377,7 +377,7 @@ function TaskCard({
         <button
           type="button"
           onClick={onOpen}
-          className="block w-full text-left text-sm font-medium leading-snug underline-offset-2 hover:underline"
+          className="block w-full break-words text-left text-sm font-medium leading-snug underline-offset-2 hover:underline"
         >
           {task.title}
         </button>

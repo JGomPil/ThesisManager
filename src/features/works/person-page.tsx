@@ -121,7 +121,7 @@ export function PersonPage() {
                 <h3 className="text-sm font-medium">Información académica</h3>
                 {/* `whitespace-pre-line`: se escribió en un área de texto con
                     saltos de línea, y sin esto se leería como un párrafo único. */}
-                <p className="mt-1.5 whitespace-pre-line text-sm text-muted-foreground">{p.bio}</p>
+                <p className="mt-1.5 whitespace-pre-line break-words text-sm text-muted-foreground">{p.bio}</p>
               </div>
             )}
           </CardContent>

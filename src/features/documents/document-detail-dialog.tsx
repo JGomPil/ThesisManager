@@ -152,7 +152,7 @@ export function DocumentDetailDialog({
                       )}
 
                       {activa && v.notes && (
-                        <p className="mt-2 whitespace-pre-wrap rounded-md bg-background p-2 text-xs text-muted-foreground">
+                        <p className="mt-2 whitespace-pre-wrap break-words rounded-md bg-background p-2 text-xs text-muted-foreground">
                           Nota de la revisión: {v.notes}
                         </p>
                       )}
@@ -256,7 +256,7 @@ function VersionComments({
                   </Button>
                 )}
               </div>
-              <p className="mt-0.5 whitespace-pre-wrap">{c.content}</p>
+              <p className="mt-0.5 whitespace-pre-wrap break-words">{c.content}</p>
             </li>
           ))}
         </ul>

@@ -128,7 +128,7 @@ export function TaskDetailDialog({
               En qué consiste
             </h3>
             {task.description ? (
-              <p className="whitespace-pre-wrap text-sm leading-relaxed">{task.description}</p>
+              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{task.description}</p>
             ) : (
               <p className="text-sm text-muted-foreground">
                 Sin descripción.{' '}

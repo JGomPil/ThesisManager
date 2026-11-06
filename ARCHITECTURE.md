@@ -225,6 +225,15 @@ de tipos de trabajo extensibles: concentra `work_types`, `work_statuses`, `work_
   puede decirlo. Se detecta cruzando tres indicios (puntero grueso, ancho declarado ≥ 700 px y
   —pantalla real estrecha **o** escala del viewport < 0,9) para que un iPad no lo vea nunca. Pasó
   de verdad el 6 de noviembre de 2026 y nos costó un rato con el síntoma delante.
+- **El ancho de la página lo fija su elemento más ancho**, y por eso un solo texto mal envuelto
+  descoloca todo. Una palabra sin espacios —una URL pegada en la descripción de un trabajo, un DOI,
+  un nombre de fichero— ensancha su tarjeta más que la pantalla del teléfono, y lo que se nota no es
+  esa tarjeta: es la ficha entera corrida hacia un lado. `whitespace-pre-wrap` respeta los saltos de
+  línea de quien escribe, que es lo que se quiere, pero **no parte palabras**: su pareja obligatoria
+  es `break-words`. Diez sitios la tenían suelta. La regla es mecánica, así que la vigila
+  `scripts/check-text-wrap.sh` en Actions, y no la memoria. En el mismo apartado:
+  `[&>*]:min-w-0` en el diálogo, porque los hijos de un grid valen `min-width: auto` y no se
+  encogen por debajo de su contenido.
 - **Lo nuevo degrada; lo que ya estaba no se rompe.** Un *embed* de PostgREST a una tabla que no
   existe no devuelve una lista vacía: responde error y tumba la consulta **entera**. Al añadir
   `documents:template_documents(*)` al `select` de plantillas, la pantalla de Plantillas se quedaba

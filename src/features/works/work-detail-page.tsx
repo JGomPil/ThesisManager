@@ -295,7 +295,7 @@ function Section({ label, text }: { label: string; text: string }) {
   return (
     <div>
       <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="whitespace-pre-wrap leading-relaxed">{text}</p>
+      <p className="whitespace-pre-wrap break-words leading-relaxed">{text}</p>
     </div>
   )
 }
