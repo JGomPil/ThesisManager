@@ -16,6 +16,7 @@ import { ProfilePage } from '@/features/auth/profile-page'
 import { WorkTypesPage } from '@/features/admin/work-types-page'
 import { ArchivedWorksPage } from '@/features/admin/archived-works-page'
 import { TemplatesPage } from '@/features/admin/templates-page'
+import { CatalogsPage } from '@/features/admin/catalogs-page'
 import { CalendarPage } from '@/features/calendar/calendar-page'
 import { LoadingPanel, EmptyState } from '@/components/common/states'
 
@@ -77,6 +78,7 @@ export function Router() {
           <Route path="admin/invitaciones" element={<RequireAdmin><InvitationsPage /></RequireAdmin>} />
           <Route path="admin/archivados" element={<RequireAdmin><ArchivedWorksPage /></RequireAdmin>} />
           <Route path="admin/plantillas" element={<RequireAdmin><TemplatesPage /></RequireAdmin>} />
+          <Route path="admin/catalogos" element={<RequireAdmin><CatalogsPage /></RequireAdmin>} />
           <Route
             path="*"
             element={

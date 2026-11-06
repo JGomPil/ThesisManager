@@ -86,6 +86,12 @@ usuarios). **Es solo para pruebas**: nunca se aplica a un proyecto real.
 87 | Una plantilla mal formada **no deja medio plan creado**: o entera o nada |
 88 | `anon` no puede ejecutar `app.apply_template`; `authenticated`, sí |
 89 | La envoltura `public.apply_template` funciona y **no concede nada extra**: el estudiante sigue sin poder |
+90 | Un director **no** puede crear ni borrar líneas de investigación |
+91 | La administración crea, renombra y retira una línea |
+92 | **Borrar una línea en uso no falla**: deja en blanco la línea de los trabajos que la tenían. Documenta el peligro, no lo celebra |
+93 | **Retirar** una línea **no** la quita de los trabajos que la usaban: esa es la diferencia con borrar |
+94 | Un director tampoco toca titulaciones ni cursos académicos |
+95 | No puede haber dos cursos académicos marcados como actuales (índice único parcial) |
 
 La prueba 33 ha vuelto a ganarse el sueldo en la Fase 3. Recorre todas las funciones del
 esquema `app` y exige que `anon` no pueda ejecutar ninguna; al añadir la migración `0012` falló,

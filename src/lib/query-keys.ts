@@ -14,6 +14,11 @@ export const qk = {
     programs: ['catalogs', 'programs'] as const,
     researchLines: ['catalogs', 'research-lines'] as const,
     documentTypes: ['catalogs', 'document-types'] as const,
+    /** Listas de administración: incluyen lo desactivado. */
+    allResearchLines: ['catalogs', 'research-lines', 'all'] as const,
+    allPrograms: ['catalogs', 'programs', 'all'] as const,
+    allAcademicYears: ['catalogs', 'academic-years', 'all'] as const,
+    usage: ['catalogs', 'usage'] as const,
   },
 
   works: {

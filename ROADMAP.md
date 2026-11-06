@@ -21,6 +21,7 @@ Estado a 6 de noviembre de 2026:
 | ✅ | Autenticación PKCE, guardas de ruta, recuperación de contraseña, pantalla de cuenta pendiente |
 | ✅ | Dominio puro con 20 pruebas unitarias (capacidades, progreso, estados por tipo) |
 | ✅ | Administración del catálogo de tipos de trabajo (crear, editar, desactivar) |
+| ✅ | Administración de los catálogos planos: líneas de investigación, titulaciones y cursos académicos, con la diferencia entre **retirar** y **borrar** explicada en pantalla (pruebas `[90]`–`[95]`) |
 | ✅ | Trabajos: listado con filtros, ficha, alta y edición, cambio de estado |
 | ✅ | Participantes con roles múltiples por trabajo |
 | ✅ | Tareas: Kanban y lista, con el límite de edición del estudiante respetado |
