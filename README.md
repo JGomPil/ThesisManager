@@ -14,8 +14,9 @@ código.
 >   quedarse en blanco.
 > - Migraciones `0001…0020` **aplicadas** en el proyecto real y verificadas el 2026-11-06 con
 >   `supabase/verify.sql`: RLS en todas las tablas, `anon` sin acceso a ninguna función de `app`,
->   las 18 tablas del núcleo y el rol de estudiante sin capacidades. 149 pruebas de seguridad
->   contra PostgreSQL 16 y 92 pruebas unitarias del dominio.
+>   las 18 tablas del núcleo y el rol de estudiante sin capacidades. La `0021` —tipos de documento
+>   y ciclo de vida por tipo de trabajo— está escrita y probada, **pendiente de aplicar**.
+>   155 pruebas de seguridad contra PostgreSQL 16 y 92 pruebas unitarias del dominio.
 > - Progreso detallado en [`ROADMAP.md`](ROADMAP.md); decisiones técnicas en
 >   [`docs/FASE_0.md`](docs/FASE_0.md).
 
@@ -83,13 +84,13 @@ npm run icons            # regenera los iconos desde scripts/make-icons.py
 npm run drill            # ensaya la restauración de una copia (sin argumento: autoprueba)
 ```
 
-Base de datos: aplicar `supabase/migrations/0001…0020` y después
+Base de datos: aplicar `supabase/migrations/0001…0021` y después
 `supabase/seed/0001_catalogs.sql`. Detalle en [`DEPLOYMENT.md`](DEPLOYMENT.md) §5.
 
 Pruebas de seguridad del modelo de datos, sin necesidad de proyecto en Supabase (requiere Docker):
 
 ```bash
-./scripts/test-rls.sh                      # 149 pruebas de RLS, catálogos, storage y keepalive
+./scripts/test-rls.sh                      # 155 pruebas de RLS, catálogos, storage y keepalive
 ./scripts/backup-dump.sh                    # vuelca la base real y ensaya la copia seguida
 python3 scripts/backup-storage.py <carpeta> # y los ficheros de Storage, que no van en el .sql
 ./scripts/restore-drill.sh copia.sql       # ¿esta copia se puede restaurar de verdad?

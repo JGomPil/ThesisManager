@@ -20,6 +20,8 @@ export const qk = {
     allAcademicYears: ['catalogs', 'academic-years', 'all'] as const,
     allWorkStatuses: ['catalogs', 'work-statuses', 'all'] as const,
     allWorkRoles: ['catalogs', 'work-roles', 'all'] as const,
+    allDocumentTypes: ['catalogs', 'document-types', 'all'] as const,
+    documentTypeUsage: ['catalogs', 'usage', 'document-types'] as const,
     statusRoleUsage: ['catalogs', 'usage', 'statuses-roles'] as const,
     usage: ['catalogs', 'usage'] as const,
   },

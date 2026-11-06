@@ -112,6 +112,8 @@ Se definen en el esquema `app`, con `search_path` fijado explícitamente
 Catálogos (`work_types`…) | cualquier autenticado de la organización | **solo `ADMIN`/`OWNER`** |
 `work_statuses` (0020) | cualquier autenticado | **solo `ADMIN`/`OWNER` de alguna organización**; el `code` es inmutable (*trigger*) |
 `work_roles` (0020) | cualquier autenticado | **solo `ADMIN`/`OWNER`**, y **nunca las capacidades**: un rol nuevo nace sin ellas (política `roles_insert`) y las de un rol existente no se pueden cambiar (*trigger*) |
+`document_types` (0021) | autenticado de la organización, o los globales | **`ADMIN`/`OWNER`**: los propios por completo, los globales **solo UPDATE** (renombrar y retirar, no borrar); `organization_id` inmutable (*trigger*) |
+`work_type_statuses` (0021) | cualquier autenticado | **`ADMIN`/`OWNER`** de la organización del tipo de trabajo, o de cualquiera si el tipo es global (`app.can_manage_work_type`) |
 `keepalive` | **`anon` y `authenticated`: `USING (true)`** | nadie |
 
 La restricción del UPDATE de tareas por parte del estudiante (solo `status`) se implementa con un
@@ -869,6 +871,36 @@ catálogos son **globales**, sin `organization_id`, a diferencia de `work_types`
 Sus nombres los comparten todas las organizaciones. Hoy hay una sola —el grupo— y por eso es
 aceptable que su administración los renombre; el día que haya una segunda, esto tiene que
 convertirse en catálogos por organización.
+
+### 5.2.tervicies · Con dos políticas permisivas, `USING` y `WITH CHECK` no se emparejan
+
+La `0021` abre los dos últimos catálogos sin pantalla: los tipos de documento y el ciclo de vida
+por tipo de trabajo. Los tipos de documento tienen dos clases de fila —las globales, del catálogo
+inicial, y las de cada organización— y por eso llevan **dos** políticas de escritura: una para las
+propias (todo) y otra para las globales (solo UPDATE, porque borrar una dejaría sin tipo, y sin
+rastro de cuál era, los documentos de todas las organizaciones).
+
+Y ahí apareció un error de razonamiento que conviene dejar escrito, porque es fácil de creer al
+revés. En un UPDATE, PostgreSQL evalúa el `USING` sobre la fila **vieja** y el `WITH CHECK` sobre
+la **nueva**. Con **una** política cuyas dos condiciones piden lo mismo, eso basta para que una fila
+no pueda salirse de su propio ámbito: cambiar `organization_id` incumpliría una de las dos. Pero
+con **varias** políticas permisivas, el motor combina con OR los `USING` entre sí y los `WITH CHECK`
+entre sí, **por separado**. No empareja las dos condiciones de la misma política. De modo que un
+tipo propio que pasa a global cumple el `USING` de `doctypes_write` (era propio) y el `WITH CHECK`
+de `doctypes_update_global` (ahora es global), y el cambio pasa.
+
+Lo descubrió la prueba [152], que fue escrita porque el comentario de la migración afirmaba —mal—
+que no hacía falta un *trigger*. Ahora lo hay: `doctypes_org_inmutable`, que es lo único que de
+verdad impide mover una fila de organización.
+
+**La regla práctica**: si una tabla tiene más de una política permisiva de escritura, no se puede
+razonar «el `USING` mira lo viejo y el `WITH CHECK` lo nuevo, luego la transición está cerrada».
+Las transiciones entre ámbitos se cierran con un *trigger*, que sí ve `OLD` y `NEW` a la vez.
+
+El otro catálogo, `work_type_statuses`, no necesita nada de esto: una fila suya no concede acceso a
+nada, solo decide qué opciones salen en un desplegable. Y la regla del modelo —**un tipo sin filas
+admite todos los estados activos**— hace que un error en esa pantalla sea reversible quitando las
+filas, que es lo que comprueba la prueba [154].
 
 ## 6. Autenticación y alta de usuarios
 

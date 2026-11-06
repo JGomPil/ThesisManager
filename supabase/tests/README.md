@@ -146,6 +146,12 @@ usuarios). **Es solo para pruebas**: nunca se aplica a un proyecto real.
 147 | Un rol **nuevo nace sin capacidades** (lo impone la política `roles_insert`, no un disparador, porque el catálogo inicial sí tiene que poder crearlos con ellas), y un rol **en uso no se puede borrar** |
 148 | Un estado **en uso no se puede borrar** (`on delete restrict`) y **retirarlo lo conserva** en los trabajos que ya lo tenían |
 149 | `anon` no lee ni escribe estos catálogos. Admite los dos desenlaces correctos —«permission denied» por falta de GRANT, o cero filas por RLS— para no atar la prueba a cuál de las dos barreras actúa primero |
+150 | La administración crea un **tipo de documento de su organización**; un director no |
+151 | Un tipo de documento **global se renombra y se retira, pero no se borra**: la clave ajena es `on delete set null`, así que borrarlo dejaría sin tipo —y sin rastro— los documentos de todas las organizaciones |
+152 | Un tipo de documento **no se puede mover de organización**. Falló mientras esto se dejaba a las políticas, y por una razón que vale recordar: con **dos** políticas permisivas, PostgreSQL combina con OR los `USING` entre sí y los `WITH CHECK` entre sí **por separado**, así que una fila propia que pasa a global cumple el `USING` de una política y el `WITH CHECK` de la otra. Hace falta un *trigger* |
+153 | La administración define **qué estados aplican a un tipo de trabajo**; un director no |
+154 | **Quitar todas las filas es volver al valor por omisión**: el tipo admite otra vez todos los estados activos. Comprueba que un error en esa pantalla es reversible |
+155 | `anon` no ve ni escribe tipos de documento ni ciclos de vida |
 
 La prueba 33 ha vuelto a ganarse el sueldo con la migración `0020`: los dos disparadores nuevos
 (`enforce_status_code_inmutable`, `enforce_role_solo_descriptivo`) nacieron ejecutables por `anon`

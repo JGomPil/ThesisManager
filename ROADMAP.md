@@ -3,14 +3,14 @@
 Criterio transversal: **ninguna fase se declara terminada sin sus criterios de aceptación
 validados contra la base de datos real.** Que algo se vea bien no cuenta.
 
-## Fase 0 — Análisis y arquitectura · **entregada, pendiente de aprobación**
+## Fase 0 — Análisis y arquitectura · **entregada y aprobada** (5 de noviembre de 2026)
 
 Documentación, modelo de datos, SQL propuesto y workflows propuestos.
 Resumen y decisiones pendientes de tu visto bueno: [`docs/FASE_0.md`](docs/FASE_0.md).
 
 Sin código de aplicación. Sin `package.json`. Nada aplicado a Supabase.
 
-## Fase 1 — MVP funcional · **en curso**
+## Fase 1 — MVP funcional · **completada**
 
 Estado a 6 de noviembre de 2026:
 
@@ -19,7 +19,7 @@ Estado a 6 de noviembre de 2026:
 | ✅ | Andamiaje Vite + React + TS + Tailwind, `base` y `404.html`, build verificado |
 | ✅ | Capa de acceso a datos (repositorios) y tipos de la base de datos |
 | ✅ | Autenticación PKCE, guardas de ruta, recuperación de contraseña, pantalla de cuenta pendiente |
-| ✅ | Dominio puro con pruebas unitarias (capacidades, progreso, estados por tipo; 72 en total hoy) |
+| ✅ | Dominio puro con pruebas unitarias (capacidades, progreso, estados por tipo, iniciales, dependencias; 92 en total hoy) |
 | ✅ | Administración del catálogo de tipos de trabajo (crear, editar, desactivar) |
 | ✅ | Administración de los catálogos planos: líneas de investigación, titulaciones y cursos académicos, con la diferencia entre **retirar** y **borrar** explicada en pantalla (pruebas `[90]`–`[95]`) |
 | ✅ | Trabajos: listado con filtros, ficha, alta y edición, cambio de estado |
@@ -70,7 +70,7 @@ Alcance original de la fase:
 las 13 pruebas de `SECURITY.md` §9 pasan; un administrador puede crear un tipo de trabajo nuevo
 desde la interfaz y usarlo inmediatamente sin desplegar nada.
 
-## Fase 2 — Seguimiento académico · **implementada, pendiente de aplicar la migración `0011`**
+## Fase 2 — Seguimiento académico · **implementada** (la `0011` está aplicada)
 
 Estado a 6 de noviembre de 2026:
 
@@ -184,6 +184,7 @@ Estado a 6 de noviembre de 2026:
 | | Elemento |
 |---|---|
 | ✅ | `deploy.yml`, `keepalive.yml` y `repo-activity.yml` en marcha, y aviso de `last_ping_at` en Administración (adelantado a la Fase 1, como decía esta misma sección) |
+| ✅ | **Tipos de documento y ciclo de vida por tipo de trabajo administrables** (`0021`): los dos últimos catálogos que seguían sin política de escritura ni pantalla. Con esto el punto 5 de la Fase 1 —administrar desde la interfaz los tipos «con sus reglas», estados, roles, titulaciones, líneas y cursos— queda cumplido del todo. Los tipos de documento globales se renombran y se retiran pero **no se borran** (`on delete set null` dejaría documentos sin tipo y sin rastro), y la organización de un tipo es inmutable por *trigger*, porque con dos políticas permisivas el `WITH CHECK` no puede impedirlo. Pruebas [150]–[155] |
 | ✅ | **Estados de los trabajos y roles académicos administrables** (`0020`) desde la pantalla de catálogos: nombre, color, orden, retirar, crear y borrar si nadie los usa. **Las capacidades de un rol no**, porque son el modelo de permisos que lee RLS: un rol nuevo nace sin ellas y las de un rol existente no se pueden cambiar. Cerrado con dos *triggers*, una política y las pruebas [143]–[149] |
 | ⚠️ | **Restaurar sobre un proyecto de Supabase vivo no está ensayado** y no se va a ensayar por ahora (decisión de la dirección, 2026-11-06). Lo que sí está ensayado es que la copia esté completa y se restaure en un PostgreSQL limpio. El procedimiento está escrito en `BACKUP.md` §5 con lo que se espera que ocurra |
 | ✅ | **Ensayo de restauración automático** (`scripts/restore-drill.sh`): restaura una copia en un PostgreSQL desechable y comprueba las tablas del núcleo, que RLS siga activada en todas, que `anon` no ejecute nada de `app` y **que haya usuarios de autenticación**. Sale con código distinto de cero si algo falla |

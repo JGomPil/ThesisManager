@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { EyeOff, Pencil, Plus } from 'lucide-react'
+import { EyeOff, ListChecks, Pencil, Plus } from 'lucide-react'
 import { PageHeader } from '@/app/layout/app-shell'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea } from '@/components/ui/input'
@@ -20,8 +20,9 @@ import { qk } from '@/lib/query-keys'
 import { errorMessage } from '@/lib/supabase'
 import { TONES } from '@/lib/utils'
 import { catalogsRepo } from '@/data/repositories/catalogs.repo'
-import { useAcademicLevels, useWorkTypes } from '@/hooks/use-catalogs'
+import { useAcademicLevels, useWorkTypeStatuses, useWorkTypes } from '@/hooks/use-catalogs'
 import { useAuth } from '@/features/auth/auth-context'
+import { WorkTypeStatusesDialog } from '@/features/admin/work-type-statuses-dialog'
 import { workTypeFormSchema, type WorkTypeFormValues } from '@/schemas/work'
 import type { WorkTypeRow } from '@/data/types/database'
 
@@ -37,7 +38,11 @@ import type { WorkTypeRow } from '@/data/types/database'
 export function WorkTypesPage() {
   const [editing, setEditing] = React.useState<WorkTypeRow | null>(null)
   const [creating, setCreating] = React.useState(false)
+  // El tipo cuyo ciclo de vida se está editando. Ver `WorkTypeStatusesDialog`:
+  // un tipo sin filas admite todos los estados, y eso se dice en el diálogo.
+  const [ciclo, setCiclo] = React.useState<WorkTypeRow | null>(null)
   const types = useWorkTypes(true)
+  const mapeos = useWorkTypeStatuses()
   const qc = useQueryClient()
   const toast = useToast()
 
@@ -74,6 +79,7 @@ export function WorkTypesPage() {
               <TableHead>Defensa</TableHead>
               <TableHead>Depósito</TableHead>
               <TableHead>Titulación</TableHead>
+              <TableHead>Estados</TableHead>
               <TableHead />
             </TableRow>
           </TableHeader>
@@ -98,10 +104,25 @@ export function WorkTypesPage() {
                 <TableCell><Flag on={t.requires_defense} /></TableCell>
                 <TableCell><Flag on={t.requires_deposit} /></TableCell>
                 <TableCell><Flag on={t.requires_program} /></TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {(() => {
+                    const n = (mapeos.data ?? []).filter((m) => m.work_type_id === t.id).length
+                    return n === 0
+                      ? <span title="Sin restricciones: le aplican todos los estados activos">todos</span>
+                      : <span className="tabular-nums">{n}</span>
+                  })()}
+                </TableCell>
                 <TableCell>
                   <div className="flex justify-end gap-1">
                     <Button variant="ghost" size="icon" onClick={() => setEditing(t)} aria-label="Editar tipo">
                       <Pencil />
+                    </Button>
+                    <Button
+                      variant="ghost" size="icon" onClick={() => setCiclo(t)}
+                      aria-label={`Estados aplicables a ${t.name}`}
+                      title="Qué estados se pueden elegir en este tipo"
+                    >
+                      <ListChecks />
                     </Button>
                     {t.is_active && (
                       <Button
@@ -125,13 +146,20 @@ export function WorkTypesPage() {
       <p className="text-xs text-muted-foreground">
         Los tipos no se borran: se desactivan. Un trabajo histórico debe conservar su tipo, y la
         base de datos lo impone con <code>ON DELETE RESTRICT</code>. Los tipos marcados como
-        «global» vienen precargados y solo pueden editarse si se copian a tu organización.
+        «global» vienen precargados y sus datos solo pueden editarse si se copian a tu
+        organización; su <strong>ciclo de vida sí</strong> se puede ajustar desde aquí, y ese
+        cambio lo ven todas las organizaciones (hoy solo hay una).
       </p>
 
       <WorkTypeDialog
         open={creating || editing !== null}
         workType={editing}
         onClose={() => { setCreating(false); setEditing(null) }}
+      />
+      <WorkTypeStatusesDialog
+        type={ciclo}
+        open={ciclo !== null}
+        onOpenChange={(v) => { if (!v) setCiclo(null) }}
       />
     </div>
   )

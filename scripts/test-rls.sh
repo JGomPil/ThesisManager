@@ -60,6 +60,18 @@ run < "$ROOT/supabase/migrations/0018_role_names.sql"
 asegura 'Tutor academico' 'respeta un nombre editado a mano'
 run -c "update work_roles set name = 'Director' where code = 'PRIMARY_SUPERVISOR';"
 
+# La 0021 mira si ACADEMIA conserva su ciclo de vida propio, y antes del seed no
+# hay ACADEMIA: su comprobacion se quedaba muda, que es la misma trampa de la
+# 0018. Repetida aqui, con el catalogo ya sembrado, si habla; y se exige que
+# hable, porque un aviso que no sale no se distingue de uno que no existe.
+SALIDA_0021="$(run < "$ROOT/supabase/migrations/0021_doctypes_and_lifecycle.sql" 2>&1)"
+if ! printf '%s' "$SALIDA_0021" | grep -q 'CORRECTO: 0021 ACADEMIA conserva su ciclo de vida'; then
+  echo "▸ ERROR: la 0021 no ha comprobado el ciclo de vida de ACADEMIA sobre el catalogo sembrado:" >&2
+  printf '%s\n' "$SALIDA_0021" | sed 's/^/    /' >&2
+  exit 1
+fi
+echo "  · CORRECTO: 0021 ACADEMIA conserva su ciclo de vida sobre el catalogo sembrado"
+
 echo "▸ Ejecutando pruebas…"
 # Toda la salida se guarda para poder analizarla: psql devuelve 0 aunque haya
 # habido errores, así que mirar solo su código de salida no vale de nada. Fue
@@ -102,12 +114,12 @@ if printf '%s' "$VERIFICACION" | grep -q '^FALLO'; then
   printf '%s\n' "$VERIFICACION" | grep '^FALLO' | sed 's/^/    /' >&2
   exit 1
 fi
-if [ "$(printf '%s' "$VERIFICACION" | grep -c '^OK')" -lt 10 ]; then
-  echo "▸ ERROR: verify.sql deberia devolver 10 comprobaciones y ha devuelto:" >&2
+if [ "$(printf '%s' "$VERIFICACION" | grep -c '^OK')" -lt 12 ]; then
+  echo "▸ ERROR: verify.sql deberia devolver 12 comprobaciones y ha devuelto:" >&2
   printf '%s\n' "$VERIFICACION" | sed 's/^/    /' >&2
   exit 1
 fi
-echo "  · 10 comprobaciones, todas OK"
+echo "  · 12 comprobaciones, todas OK"
 
 FALLOS="$(grep -cE '^(ERROR|FALLO)|FALLO \[' "$SALIDA" || true)"
 EJECUTADAS="$(grep -cE '^\[[0-9]+\]' "$SALIDA" || true)"

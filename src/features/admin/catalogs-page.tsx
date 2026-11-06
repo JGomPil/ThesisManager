@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Flag, GraduationCap, Microscope, Pencil, Plus, Trash2, Users, X } from 'lucide-react'
+import { Check, FileText, Flag, GraduationCap, Microscope, Pencil, Plus, Trash2, Users, X } from 'lucide-react'
 import { PageHeader } from '@/app/layout/app-shell'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea } from '@/components/ui/input'
@@ -19,6 +19,7 @@ import { useAuth } from '@/features/auth/auth-context'
 import {
   AVISO_CATALOGOS_GLOBALES, WorkRolesCard, WorkStatusesCard,
 } from '@/features/admin/statuses-roles-cards'
+import { DocumentTypesCard } from '@/features/admin/document-types-card'
 
 /**
  * Catálogos planos de la organización: líneas de investigación, titulaciones y
@@ -80,7 +81,7 @@ export function CatalogsPage() {
     <div className="space-y-4">
       <PageHeader
         title="Catálogos"
-        description="Líneas de investigación, titulaciones, cursos académicos, estados de los trabajos y roles."
+        description="Líneas de investigación, titulaciones, cursos, estados de los trabajos, roles y tipos de documento."
         breadcrumb={[{ label: 'Administración', to: '/admin' }, { label: 'Catálogos' }]}
       />
 
@@ -123,6 +124,14 @@ export function CatalogsPage() {
         hint={`Cómo participa cada persona en un trabajo. ${AVISO_CATALOGOS_GLOBALES}`}
       >
         <WorkRolesCard />
+      </SectionCard>
+
+      <SectionCard
+        title="Tipos de documento"
+        icon={<FileText className="size-4 text-muted-foreground" />}
+        hint="Qué clases de entregable existen. Los que trae el catálogo son comunes a todo el grupo; los que se añadan aquí, propios."
+      >
+        <DocumentTypesCard />
       </SectionCard>
     </div>
   )

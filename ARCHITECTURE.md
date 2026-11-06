@@ -247,6 +247,14 @@ de tipos de trabajo extensibles: concentra `work_types`, `work_statuses`, `work_
   direcciones o en el menú de tres puntos, así que la aplicación *era* instalable y parecía que no.
   Si el evento no llega, el botón no se dibuja, y su ausencia también informa: ese navegador no la
   instala (Safari no implementa el evento) o ya está instalada.
+- **Con más de una política permisiva, `USING` y `WITH CHECK` no se emparejan** (`0021`). En un
+  UPDATE, PostgreSQL evalúa el `USING` sobre la fila vieja y el `WITH CHECK` sobre la nueva, y con
+  **una** política cuyas dos condiciones piden lo mismo eso cierra las transiciones entre ámbitos.
+  Con varias, el motor combina con OR los `USING` entre sí y los `WITH CHECK` entre sí, por
+  separado: un tipo de documento propio que pasa a global cumple el `USING` de una política y el
+  `WITH CHECK` de la otra. Lo que cierra una transición es un *trigger*, que ve `OLD` y `NEW` a la
+  vez. Lo encontró la prueba [152], escrita porque el comentario de la migración afirmaba lo
+  contrario.
 - **Lo que se puede administrar se decide por lo que una columna ES, no por lo que cuesta
   editarla** (`0020`). Los estados de los trabajos y los roles académicos se administran desde la
   pantalla de catálogos —antes hacía falta una migración para cambiar un nombre—, pero las cuatro

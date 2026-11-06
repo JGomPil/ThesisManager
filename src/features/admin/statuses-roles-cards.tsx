@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Check, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,10 +9,10 @@ import { ToneBadge } from '@/components/ui/badge'
 import { ErrorPanel, Spinner } from '@/components/common/states'
 import { useToast } from '@/components/ui/toast'
 import { qk } from '@/lib/query-keys'
-import { cn } from '@/lib/utils'
 import { errorMessage } from '@/lib/supabase'
 import { catalogsRepo } from '@/data/repositories/catalogs.repo'
 import type { WorkRoleRow, WorkStatusRow } from '@/data/types/database'
+import { FilaCatalogo } from '@/features/admin/catalog-row'
 
 /**
  * Estados de un trabajo y roles académicos: administrarlos sin una migración.
@@ -59,50 +59,6 @@ function codigoDesde(nombre: string): string {
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
     .toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '')
     .slice(0, 40)
-}
-
-function FilaCatalogo({
-  nombre, codigo, badges, enUso, onEditar, onRetirar, onBorrar, retirado,
-}: {
-  nombre: string
-  codigo: string
-  badges?: React.ReactNode
-  enUso: number
-  onEditar: () => void
-  onRetirar: () => void
-  onBorrar: () => void
-  retirado: boolean
-}) {
-  return (
-    <li className="flex items-start gap-2 text-sm">
-      <span className="min-w-0 flex-1">
-        <span className={cn('block break-words', retirado && 'text-muted-foreground line-through')}>
-          {nombre}
-        </span>
-        <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-          <code className="rounded bg-muted px-1 py-0.5">{codigo}</code>
-          {badges}
-          {enUso > 0 && <span>· lo usan {enUso}</span>}
-        </span>
-      </span>
-      <Button variant="ghost" size="icon" className="size-7 shrink-0"
-        onClick={onEditar} aria-label={`Editar ${nombre}`}>
-        <Pencil className="size-3.5" />
-      </Button>
-      <Button variant="ghost" size="sm" className="shrink-0 px-2 text-xs"
-        onClick={onRetirar}>
-        {retirado ? 'Reactivar' : 'Retirar'}
-      </Button>
-      {/* Borrar solo si no lo usa nadie. Con uso, la clave ajena lo rechaza
-          (`on delete restrict`): el botón solo serviría para dar un error. */}
-      {enUso === 0 && (
-        <Button variant="ghost" size="icon" className="size-7 shrink-0"
-          onClick={onBorrar} aria-label={`Borrar ${nombre}`}>
-          <Trash2 className="size-3.5" />
-        </Button>
-      )}
-    </li>
-  )
 }
 
 // -----------------------------------------------------------------------------

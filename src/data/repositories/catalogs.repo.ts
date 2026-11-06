@@ -17,6 +17,8 @@ type StatusInsert = Database['public']['Tables']['work_statuses']['Insert']
 type StatusUpdate = Database['public']['Tables']['work_statuses']['Update']
 type RoleInsert = Database['public']['Tables']['work_roles']['Insert']
 type RoleUpdate = Database['public']['Tables']['work_roles']['Update']
+type DocTypeInsert = Database['public']['Tables']['document_types']['Insert']
+type DocTypeUpdate = Database['public']['Tables']['document_types']['Update']
 
 /**
  * Cuántos trabajos usan cada línea, titulación y curso.
@@ -127,6 +129,60 @@ export const catalogsRepo = {
 
   removeWorkRole: async (id: string): Promise<void> => {
     const { error } = await supabase.from('work_roles').delete().eq('id', id)
+    if (error) throw error
+  },
+
+  // ---------------------------------------------------------------------------
+  // Tipos de documento y ciclo de vida por tipo de trabajo (migración 0021)
+  // ---------------------------------------------------------------------------
+
+  /** Incluye los retirados y los globales: es la lista de administración. */
+  listAllDocumentTypes: async (): Promise<DocumentTypeRow[]> =>
+    unwrap(await supabase.from('document_types').select('*').order('display_order')),
+
+  createDocumentType: async (input: DocTypeInsert): Promise<DocumentTypeRow> =>
+    unwrap(await supabase.from('document_types').insert(input).select('*').single()),
+
+  /**
+   * `organization_id` no viaja: lo rechazaría el disparador
+   * `doctypes_org_inmutable`. Y no es una formalidad —con dos políticas
+   * permisivas, el WITH CHECK no basta para impedirlo (ver 0021)—.
+   */
+  updateDocumentType: async (
+    id: string,
+    patch: Pick<DocTypeUpdate, 'name' | 'display_order' | 'is_active'>,
+  ): Promise<DocumentTypeRow> =>
+    unwrap(await supabase.from('document_types').update(patch).eq('id', id).select('*').single()),
+
+  removeDocumentType: async (id: string): Promise<void> => {
+    const { error } = await supabase.from('document_types').delete().eq('id', id)
+    if (error) throw error
+  },
+
+  /**
+   * Cuántos documentos y cuántos entregables de plantilla usan cada tipo.
+   *
+   * Aquí la clave ajena es `on delete set null`, no `restrict`: borrar un tipo
+   * **no falla**, deja en blanco el tipo de todo lo que lo usaba y no queda
+   * rastro de cuál era. Por eso el recuento no es un adorno: es lo que permite
+   * decir «lo usan 4 documentos» antes de que alguien lo borre.
+   */
+  documentTypeUsage: async (): Promise<Record<string, number>> => {
+    const docs = unwrap(await supabase.from('documents').select('document_type_id'))
+    const cuenta: Record<string, number> = {}
+    for (const d of docs) if (d.document_type_id) cuenta[d.document_type_id] = (cuenta[d.document_type_id] ?? 0) + 1
+    return cuenta
+  },
+
+  /** Estados aplicables a un tipo: sin filas, le aplican todos los activos. */
+  setWorkTypeStatuses: async (workTypeId: string, statusIds: string[]): Promise<void> => {
+    const borrado = await supabase.from('work_type_statuses').delete().eq('work_type_id', workTypeId)
+    if (borrado.error) throw borrado.error
+    if (statusIds.length === 0) return
+    const filas = statusIds.map((status_id, i) => ({
+      work_type_id: workTypeId, status_id, display_order: i + 1,
+    }))
+    const { error } = await supabase.from('work_type_statuses').insert(filas)
     if (error) throw error
   },
 

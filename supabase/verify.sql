@@ -102,6 +102,24 @@ with comprobaciones as (
      and tgname in ('work_statuses_code_inmutable','work_roles_solo_descriptivo')
 
   union all
+  -- 5.bis La 0021: las tres politicas y el disparador que hace inmutable la
+  --       organizacion de un tipo de documento. Ese disparador no es un adorno:
+  --       con dos politicas permisivas, el WITH CHECK no puede impedirlo.
+  select 11, 'migracion 0021: politicas de tipos de documento y ciclo de vida',
+         case when count(*) = 3 then 'OK' else 'FALLO' end,
+         count(*) || ' de 3 (' || coalesce(string_agg(policyname, ', ' order by policyname), 'ninguna') || ')'
+    from pg_policies
+   where schemaname = 'public'
+     and policyname in ('doctypes_write','doctypes_update_global','wtstatuses_write')
+
+  union all
+  select 12, 'migracion 0021: la organizacion de un tipo de documento es inmutable',
+         case when count(*) = 1 then 'OK' else 'FALLO' end,
+         case when count(*) = 1 then 'disparador presente' else 'falta' end
+    from pg_trigger
+   where not tgisinternal and tgname = 'doctypes_org_inmutable'
+
+  union all
   -- 6. Y que ningun rol tenga capacidades que no deba: el estudiante, ninguna.
   select 10, 'el rol de estudiante no tiene capacidades',
          case when count(*) = 0 then 'OK' else 'FALLO' end,
