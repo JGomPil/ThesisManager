@@ -29,6 +29,7 @@ import { daysUntil } from '@/domain/works/progress'
 import { cn } from '@/lib/utils'
 import { TaskDetailDialog } from '@/features/tasks/task-detail-dialog'
 import { propsDeApertura } from '@/components/common/row-link'
+import { useIsPhone } from '@/hooks/use-media-query'
 
 export function TaskBoard({
   work,
@@ -39,7 +40,19 @@ export function TaskBoard({
   caps: WorkCapabilities
   userId: string | null
 }) {
-  const [view, setView] = React.useState<'kanban' | 'list'>('kanban')
+  /**
+   * En el móvil arranca en LISTA, igual que el calendario arranca en «agenda».
+   *
+   * Un tablero kanban son columnas en paralelo, y en una pantalla de 360 px no
+   * hay sitio para dos: o se aprietan hasta no leerse o hay que arrastrar a lo
+   * ancho buscando la columna, que es lo que de verdad pasaba. La lista es la
+   * misma información en vertical, que es por donde se desplaza un móvil.
+   *
+   * Es el valor INICIAL, no una imposición: los dos botones siguen ahí y girar
+   * el móvil no cambia la vista que se haya elegido a mano.
+   */
+  const esMovil = useIsPhone()
+  const [view, setView] = React.useState<'kanban' | 'list'>(esMovil ? 'list' : 'kanban')
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [openTaskId, setOpenTaskId] = React.useState<string | null>(null)
   // La tarea que se está editando. Es un identificador y no la tarea entera a
