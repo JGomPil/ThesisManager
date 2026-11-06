@@ -225,7 +225,11 @@ de tipos de trabajo extensibles: concentra `work_types`, `work_statuses`, `work_
   puede decirlo. Se detecta cruzando tres indicios (puntero grueso, ancho declarado ≥ 700 px y
   —pantalla real estrecha **o** escala del viewport < 0,9) para que un iPad no lo vea nunca. Pasó
   de verdad el 6 de noviembre de 2026 y nos costó un rato con el síntoma delante.
-- **Un dato que se muestra se edita donde se muestra.** Las tareas se podían
+- **Un dato que se muestra se edita donde se muestra.** Vale igual para los **hitos**: antes solo se
+  podían escribir al crearlos, y una fecha mal puesta obligaba a borrar el hito y rehacerlo,
+  perdiendo su marca de cumplido. En una tarjeta tan estrecha como la de hitos no caben unos
+  campos por fila, así que el lápiz carga el hito en el formulario de abajo —el mismo que
+  añade—, que cambia de rótulo y dice qué está editando. Las tareas se podían
   crear con fechas y título pero no corregirlos después, que en un plan académico equivale a no
   poder ponerlos: la fecha de una tarea es justamente lo que se mueve. La ficha de la tarea tiene
   ahora «Editar», y abre **el mismo formulario** que el alta (`TaskDialog` con `task`), no uno
