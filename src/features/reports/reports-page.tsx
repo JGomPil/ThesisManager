@@ -254,19 +254,19 @@ export function ReportsPage() {
                   {/* Las dos cifras, cada una con su nombre y sin fundirse. */}
                   <dl className="mt-2 grid grid-cols-2 gap-2 text-sm">
                     <div>
-                      <dt className="text-xs text-muted-foreground">% tareas</dt>
+                      <dt className="text-sm text-muted-foreground">% tareas</dt>
                       <dd className="tabular-nums">
                         {f.progress.taskCompletion === null ? '—' : `${f.progress.taskCompletion} %`}
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-xs text-muted-foreground">Progreso académico</dt>
+                      <dt className="text-sm text-muted-foreground">Progreso académico</dt>
                       <dd className="tabular-nums">
                         {f.progress.academicProgress === null ? '—' : `${f.progress.academicProgress} %`}
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-xs text-muted-foreground">Tareas</dt>
+                      <dt className="text-sm text-muted-foreground">Tareas</dt>
                       <dd className="tabular-nums">
                         {f.progress.completedTasks}/{f.progress.totalTasks}
                         {f.progress.overdueTasks > 0 && (
@@ -275,7 +275,7 @@ export function ReportsPage() {
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-xs text-muted-foreground">Fin previsto</dt>
+                      <dt className="text-sm text-muted-foreground">Fin previsto</dt>
                       <dd className={isLate(f) ? 'font-medium text-destructive' : undefined}>
                         {f.expectedEndDate
                           ? format(parseISO(f.expectedEndDate), 'd MMM yyyy', { locale: es })
