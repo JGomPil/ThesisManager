@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { PageHeader } from '@/app/layout/app-shell'
 import { Card } from '@/components/ui/card'
-import { ToneBadge } from '@/components/ui/badge'
+import { Badge, ToneBadge } from '@/components/ui/badge'
 import { Avatar } from '@/components/ui/avatar'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EmptyState, ErrorPanel, LoadingPanel } from '@/components/common/states'
@@ -27,13 +27,21 @@ import { useAuth } from '@/features/auth/auth-context'
  * a una petición de distancia.
  */
 export function PeoplePage() {
-  const { isOrgAdmin } = useAuth()
+  const { isOrgAdmin, organizationId } = useAuth()
   // La fila entera abre la ficha de la persona. Las insignias de trabajo que
   // hay dentro siguen llevando a su trabajo: `useRowLink` no navega cuando el
   // clic cae sobre un enlace.
   const rowLink = useRowLink()
   const people = useQuery({ queryKey: qk.people.directory, queryFn: peopleRepo.directory })
   const works = useQuery({ queryKey: qk.works.list({}), queryFn: () => worksRepo.list({}) })
+  // Quién administra el grupo. Va aparte del directorio porque no es un dato
+  // del perfil: administrar el grupo y participar en un trabajo son los dos
+  // ejes independientes de SECURITY.md §2.
+  const orgMembers = useQuery({
+    queryKey: qk.people.orgMembers(organizationId ?? ''),
+    queryFn: () => peopleRepo.orgMembers(organizationId!),
+    enabled: organizationId !== null,
+  })
 
   if (people.isLoading || works.isLoading) return <LoadingPanel />
   if (people.isError) return <ErrorPanel error={people.error} />
@@ -41,6 +49,12 @@ export function PeoplePage() {
 
   const rows = people.data ?? []
   const allWorks = works.data ?? []
+  // `OWNER` y `ADMIN` son hoy lo mismo en todo el sistema: `app.is_org_admin`
+  // pregunta `role in ('OWNER','ADMIN')`. Se muestran con la misma insignia
+  // porque mostrar dos nombres para la misma capacidad engaña.
+  const administran = new Set(
+    (orgMembers.data ?? []).filter((m) => m.role !== 'MEMBER').map((m) => m.user_id),
+  )
 
   // Las relaciones de cada persona, una sola vez para las dos vistas.
   const filas = rows.map((p) => ({
@@ -64,7 +78,9 @@ export function PeoplePage() {
       <p className="text-sm text-muted-foreground">
         {isOrgAdmin
           ? 'Como administración, ves a todas las personas del grupo.'
-          : 'Ves a las personas con las que compartes algún trabajo. Quien no tiene relación contigo no aparece aquí.'}
+          : 'Ves a las personas con las que compartes algún trabajo. Quien no tiene relación contigo no aparece aquí.'}{' '}
+        La insignia <strong>Administración</strong> señala a quien administra el grupo: quien da de
+        alta a otras personas y gestiona los catálogos.
       </p>
 
       {rows.length === 0 ? (
@@ -89,6 +105,9 @@ export function PeoplePage() {
                 <div className="min-w-0 flex-1">
                 <p className="font-medium">
                   <Link to={`/personas/${p.id}`} className="hover:underline">{p.full_name}</Link>
+                  {administran.has(p.id) && (
+                    <Badge variant="secondary" className="ml-1.5 align-middle">Administración</Badge>
+                  )}
                 </p>
                 <p className="truncate text-sm text-muted-foreground">
                   <a href={`mailto:${p.email}`} className="hover:underline">{p.email}</a>
@@ -132,6 +151,9 @@ export function PeoplePage() {
                         <Link to={`/personas/${p.id}`} className="min-w-0 truncate hover:underline">
                           {p.full_name}
                         </Link>
+                        {administran.has(p.id) && (
+                          <Badge variant="secondary" className="shrink-0">Administración</Badge>
+                        )}
                       </span>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{p.email}</TableCell>

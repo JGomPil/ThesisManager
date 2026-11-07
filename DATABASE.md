@@ -34,6 +34,7 @@ transversales: notifications · activity_logs · system_settings · keepalive
 | Tabla | Qué concede | Ámbito |
 |---|---|---|
 | `organization_members` | Permisos **administrativos**: gestionar usuarios, catálogos, ver todo | Organización completa |
+| | `role in ('OWNER','ADMIN','MEMBER')`. Se puede cambiar desde la ficha de la persona, y **nunca puede quedar la organización sin ningún administrador activo**: lo rechaza el *trigger* `org_members_last_admin` (`0023`), que es `security definer` porque cuenta filas y, sin eso, RLS le esconde justo las que lo harían fallar | |
 | `research_group_members` | Pertenencia al grupo de investigación, visibilidad agregada | Grupo |
 | `work_members` | Permisos **académicos**: director, codirector, estudiante, colaborador | **Un solo trabajo** |
 

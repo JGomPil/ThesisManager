@@ -1,13 +1,17 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { ExternalLink, Mail } from 'lucide-react'
 import { PageHeader } from '@/app/layout/app-shell'
 import { Avatar } from '@/components/ui/avatar'
 import { Badge, ToneBadge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Select } from '@/components/ui/select'
+import { useToast } from '@/components/ui/toast'
 import { EmptyState, ErrorPanel, LoadingPanel } from '@/components/common/states'
 import { qk } from '@/lib/query-keys'
-import { peopleRepo } from '@/data/repositories/people.repo'
+import { errorMessage } from '@/lib/supabase'
+import { peopleRepo, type OrgRole } from '@/data/repositories/people.repo'
 import { worksRepo } from '@/data/repositories/works.repo'
 import { useAuth } from '@/features/auth/auth-context'
 
@@ -38,9 +42,17 @@ import { useAuth } from '@/features/auth/auth-context'
  * estudiante los trabajos que comparten, no los que lleva con otro director.
  * Por eso el texto del pie dice «contigo»: no es una biografía completa.
  */
+const PAPELES: Record<OrgRole, string> = {
+  OWNER: 'Propietario',
+  ADMIN: 'Administrador',
+  MEMBER: 'Miembro',
+}
+
 export function PersonPage() {
   const { id = '' } = useParams()
-  const { userId, isOrgAdmin } = useAuth()
+  const { userId, isOrgAdmin, organizationId } = useAuth()
+  const qc = useQueryClient()
+  const toast = useToast()
 
   const person = useQuery({
     queryKey: qk.people.detail(id),
@@ -48,6 +60,27 @@ export function PersonPage() {
     enabled: id.length > 0,
   })
   const works = useQuery({ queryKey: qk.works.list({}), queryFn: () => worksRepo.list({}) })
+
+  // Solo lo pide la administración: es la única que puede cambiar esto, y el
+  // resto de la ficha no lo necesita para dibujarse.
+  const orgMembers = useQuery({
+    queryKey: qk.people.orgMembers(organizationId ?? ''),
+    queryFn: () => peopleRepo.orgMembers(organizationId!),
+    enabled: isOrgAdmin && organizationId !== null,
+  })
+
+  const cambiarPapel = useMutation({
+    mutationFn: (role: OrgRole) => peopleRepo.setOrgRole(organizationId!, id, role),
+    onSuccess: (_d, role) => {
+      void qc.invalidateQueries({ queryKey: qk.people.orgMembers(organizationId ?? '') })
+      // Si uno se lo cambia a sí mismo, lo que decide qué menús se dibujan es
+      // `memberships` del contexto de autenticación: sin invalidarlo, la
+      // pantalla seguiría comportándose como administradora hasta recargar.
+      void qc.invalidateQueries({ queryKey: qk.myMemberships })
+      toast.push('success', `Papel actualizado: ${PAPELES[role].toLowerCase()}.`)
+    },
+    onError: (e) => toast.push('error', errorMessage(e)),
+  })
 
   if (person.isLoading || works.isLoading) return <LoadingPanel />
   if (person.isError) return <ErrorPanel error={person.error} />
@@ -67,6 +100,14 @@ export function PersonPage() {
   }
 
   const esUnoMismo = p.id === userId
+
+  // `OWNER` y `ADMIN` son hoy lo mismo: `app.is_org_admin` pregunta
+  // `role in ('OWNER','ADMIN')`. Para contar administradores, lo que importa es
+  // «no es MEMBER».
+  const miembros = orgMembers.data ?? []
+  const suMembresia = miembros.find((m) => m.user_id === p.id)
+  const administran = miembros.filter((m) => m.role !== 'MEMBER')
+  const esUltimoAdmin = administran.length === 1 && administran[0]?.user_id === p.id
 
   // Todas sus participaciones en trabajos visibles, las vigentes primero. Las
   // pasadas NO se esconden: saber quién dirigió un trabajo que ya acabó es
@@ -153,6 +194,77 @@ export function PersonPage() {
             </p>
           </CardContent>
         </Card>
+
+        {/* EL PAPEL ADMINISTRATIVO, aquí y no en una pantalla de administración
+            aparte: se busca mirando a la persona. Solo lo ve y lo cambia la
+            administración, pero eso no lo garantiza esta tarjeta —lo garantiza
+            `org_members_write`—, igual que el resto de la ficha. */}
+        {isOrgAdmin && organizationId !== null && (
+          <Card className="lg:col-span-3">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Papel en el grupo</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-0 text-sm">
+              {orgMembers.isLoading ? (
+                <p className="text-muted-foreground">Cargando…</p>
+              ) : suMembresia === undefined ? (
+                <p className="text-muted-foreground">
+                  Esta persona no pertenece al grupo: tiene cuenta y no ve nada. Se autoriza desde{' '}
+                  <Link to="/admin" className="text-primary hover:underline">Administración</Link>,
+                  en la tarjeta de cuentas pendientes.
+                </p>
+              ) : (
+                <>
+                  <div className="max-w-xs">
+                    <Label htmlFor="org-role">Papel administrativo</Label>
+                    <Select
+                      id="org-role"
+                      className="mt-1.5"
+                      value={suMembresia.role}
+                      disabled={cambiarPapel.isPending}
+                      onChange={(e) => cambiarPapel.mutate(e.target.value as OrgRole)}
+                    >
+                      {/* Quitarle el papel al único administrador no se ofrece,
+                          y además lo impide el disparador de la 0023: la
+                          pantalla avisa, la base de datos protege. */}
+                      <option value="MEMBER" disabled={esUltimoAdmin}>Miembro</option>
+                      <option value="ADMIN">Administrador</option>
+                      <option value="OWNER">Propietario</option>
+                    </Select>
+                  </div>
+
+                  <p className="text-muted-foreground">
+                    Administrar el grupo <strong>no es</strong> dirigir trabajos: son dos cosas
+                    independientes. Quien administra da de alta cuentas, gestiona los catálogos y
+                    las plantillas y ve todos los trabajos del grupo; las funciones académicas se
+                    asignan trabajo a trabajo. Podéis ser varios administradores sin problema.
+                  </p>
+
+                  <p className="text-xs text-muted-foreground">
+                    «Propietario» y «Administrador» tienen hoy exactamente las mismas capacidades:
+                    todo el sistema pregunta por los dos juntos. La diferencia es solo una etiqueta.
+                  </p>
+
+                  {esUltimoAdmin && (
+                    <p className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2.5 text-xs">
+                      {esUnoMismo ? 'Eres el único administrador' : 'Es la única administración'} del
+                      grupo, así que ese papel no se puede retirar todavía: nombra antes a otra
+                      persona. El papel de administrador solo lo concede un administrador, de modo
+                      que un grupo sin ninguno no tendría forma de recuperarlo desde la aplicación.
+                      No es solo este aviso: la base de datos lo rechaza (migración 0023).
+                    </p>
+                  )}
+
+                  {esUnoMismo && !esUltimoAdmin && suMembresia.role !== 'MEMBER' && (
+                    <p className="text-xs text-muted-foreground">
+                      Si te quitas el papel a ti mismo, solo podrá devolvértelo otro administrador.
+                    </p>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <Card>

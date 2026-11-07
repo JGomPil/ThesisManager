@@ -19,9 +19,14 @@ Lo que el frontend aporta es usabilidad: no mostrar lo que no se puede usar. Nun
 
 | Rol | Puede |
 |---|---|
-`OWNER` | Todo lo de `ADMIN`, más gestionar administradores y ajustes críticos |
-`ADMIN` | Gestionar usuarios, invitar, gestionar grupos y **catálogos** (incluidos los tipos de trabajo), crear y configurar trabajos, asignar participantes, ver todos los trabajos de la organización, estadísticas globales, plantillas |
+`OWNER` | **Hoy, exactamente lo mismo que `ADMIN`**: todas las comprobaciones del sistema preguntan `role in ('OWNER','ADMIN')`, de principio a fin. Es una etiqueta reservada para el día que haya una diferencia, no una diferencia |
+`ADMIN` | Gestionar usuarios, invitar, **nombrar y retirar administradores** (`org_members_write`), gestionar grupos y **catálogos** (incluidos los tipos de trabajo), crear y configurar trabajos, asignar participantes, ver todos los trabajos de la organización, estadísticas globales, plantillas |
 `MEMBER` | Pertenecer a la organización; acceso solo a los trabajos donde tenga relación académica |
+
+Pueden ser varios a la vez, y **nunca cero**: un *trigger* de la `0023` rechaza cualquier cambio
+que dejase la organización sin ningún administrador activo. El motivo está en la tabla de arriba:
+el papel de administrador solo lo concede un administrador, así que un grupo sin ninguno no tiene
+forma de recuperarlo desde la aplicación. Ver §5.2.quatervicies.bis.
 
 El rol administrativo **no concede** funciones académicas. Un `ADMIN` ve los trabajos para
 gestionarlos, pero no es director de nada salvo que exista su fila en `work_members`.
@@ -942,6 +947,40 @@ trataba como inmutable; ahora lo trata la base de datos, que es donde las prohib
 Lo comprueban las pruebas [156]–[159], y `verify.sql` responde en su comprobación 13 si la política
 y el *trigger* están en el proyecto real.
 
+### 5.2.quatervicies.bis · Una comprobación que lee tablas y no es `security definer` falla ABIERTO
+
+La `0023` impide que una organización se quede sin administradores. Hace falta porque el papel de
+administrador solo lo puede conceder un administrador (`org_members_write` → `app.is_org_admin`):
+si el último se degrada, se desactiva o borra su fila, no queda nadie —ni él— que pueda devolverlo,
+y la única salida es un `UPDATE` a mano en el panel de Supabase. Es la misma trampa que el botón
+«Retirar» de los tipos de trabajo, con la diferencia de que allí se pudo añadir la vuelta atrás y
+aquí no: quien tendría que deshacerlo es justo el que se ha quedado sin permiso.
+
+**No puede ser una política de RLS**, y eso merece quedar escrito: una política decide si una fila
+se deja tocar mirando esa fila, mientras que esto es una condición sobre el CONJUNTO —cuántos
+administradores quedan—, que solo se puede evaluar cuando el cambio ya está hecho. De ahí un
+*trigger* `AFTER`. Y `AFTER` a propósito: un `BEFORE` tendría que simular el resultado, que es
+donde se cuelan los errores. PostgreSQL además encola los `AFTER ... FOR EACH ROW` hasta el final
+de la sentencia, así que un solo `UPDATE` que degrade a los dos administradores de golpe también
+queda cazado.
+
+**Y ahora la parte que de verdad hay que recordar.** La primera versión del *trigger* no era
+`security definer`, copiando el estilo de los de la `0020` y la `0021`. Pero aquellos solo comparan
+`OLD` y `NEW`, y este **lee la tabla para contar**: sin `security definer`, esa consulta pasa por
+RLS con los permisos de quien hizo el cambio. El último administrador que se desactivaba a sí mismo
+dejaba de ver su propia organización en ese mismo instante —`app.my_org_ids()` solo devuelve las
+pertenencias activas—, así que la guarda «si la organización ya no existe, no hay nada que
+proteger», puesta para no impedir el borrado de una organización, se cumplía por el motivo
+equivocado y el *trigger* se apartaba.
+
+Es decir: la comprobación se desactivaba sola exactamente en el caso que venía a impedir, y en
+silencio. **Fallaba abierto.** Una comprobación de seguridad que se anula en el único caso que
+importa es peor que no tenerla, porque ocupa su sitio y tranquiliza. Lo cazó la prueba [161], que
+estaba escrita para el dato —¿sigue siendo administrador?— y no para la ausencia de excepción; con
+una prueba que solo comprobara que «salta un error», este fallo habría pasado. La regla, entonces:
+**un *trigger* que lee tablas para validar algo va con los privilegios del propietario**, como el
+resto de `app.*`, y la propia migración comprueba `prosecdef` antes de terminar.
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.
@@ -1021,7 +1060,7 @@ Cada una debe ejecutarse **contra la base de datos** con el JWT del usuario corr
 desde la interfaz.
 
 > **Ya verificadas.** Las migraciones de `supabase/migrations/` se han aplicado a un
-> PostgreSQL 16 real y se ejecutan **159 pruebas** de seguridad, todas correctas:
+> PostgreSQL 16 real y se ejecutan **163 pruebas** de seguridad, todas correctas:
 > `./scripts/test-rls.sh` (detalle en `supabase/tests/README.md`). Cubren los puntos 1–6, 12 y 13
 > de la lista siguiente. Los puntos 7, 10 y 11 dependen del frontend y del despliegue, y los 8 y 9
 > del proyecto real de Supabase; se validan en la Fase 1.

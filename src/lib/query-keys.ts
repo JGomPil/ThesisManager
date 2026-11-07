@@ -43,6 +43,7 @@ export const qk = {
     directory: ['people', 'directory'] as const,
     detail: (id: string) => ['people', 'detail', id] as const,
     pending: ['people', 'pending'] as const,
+    orgMembers: (organizationId: string) => ['people', 'org-members', organizationId] as const,
   },
 
   documents: {

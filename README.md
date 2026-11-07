@@ -16,8 +16,11 @@ código.
 >   `supabase/verify.sql`: **13 comprobaciones, todas `OK`** —RLS en todas las tablas, `anon` sin
 >   acceso a ninguna función de `app`, las 18 tablas del núcleo, las políticas y disparadores de
 >   la `0020`, la `0021` y la `0022`, y el rol de estudiante sin capacidades.
->   159 pruebas de seguridad contra PostgreSQL 16 y 115 pruebas unitarias (dominio, y el
+>   163 pruebas de seguridad contra PostgreSQL 16 y 115 pruebas unitarias (dominio, y el
 >   recorrido de los cubos de Storage contra un cliente simulado).
+> - **La `0023` está escrita y PENDIENTE de aplicar al proyecto real.** Impide que el grupo se
+>   quede sin ningún administrador, que es un callejón sin salida: el papel solo lo concede un
+>   administrador. Con ella aplicada, `verify.sql` pasa a devolver **15 comprobaciones**.
 > - Progreso detallado en [`ROADMAP.md`](ROADMAP.md); decisiones técnicas en
 >   [`docs/FASE_0.md`](docs/FASE_0.md).
 
@@ -85,7 +88,7 @@ npm run icons            # regenera los iconos desde scripts/make-icons.py
 npm run drill            # ensaya la restauración de una copia (sin argumento: autoprueba)
 ```
 
-Base de datos: aplicar `supabase/migrations/0001…0022` y después
+Base de datos: aplicar `supabase/migrations/0001…0023` y después
 `supabase/seed/0001_catalogs.sql`. Detalle en [`DEPLOYMENT.md`](DEPLOYMENT.md) §5.
 
 Pruebas de seguridad del modelo de datos, sin necesidad de proyecto en Supabase (requiere Docker):

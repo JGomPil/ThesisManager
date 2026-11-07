@@ -156,6 +156,10 @@ usuarios). **Es solo para pruebas**: nunca se aplica a un proyecto real.
 157 | Un tipo de trabajo **global se retira, pero no se borra**: lo comparten todas las organizaciones. Se prueba sobre un tipo global SIN trabajos, creado a propósito, porque con trabajos el borrado lo impediría la clave ajena y la prueba pasaría sin comprobar la política |
 158 | La **organización y el código** de un tipo de trabajo son inmutables. Mismo motivo que la 152: con dos políticas permisivas no lo puede impedir el `WITH CHECK`, hace falta un *trigger* |
 159 | Los tipos **propios de la organización** se siguen creando, editando y borrando: la `0022` añade una política y no quita nada de la `0003` |
+160 | La administración **nombra administrador** a un miembro; un miembro **no puede ascenderse a sí mismo**. Se comprueba el dato y no la ausencia de error: a un `UPDATE` sin permiso, la política le descarta las filas y no falla |
+161 | **El último administrador no se puede degradar, ni desactivar, ni borrar.** Tumbó la primera versión del *trigger*, que no era `security definer`: al desactivarse, el administrador dejaba de ver su propia organización y la comprobación se apartaba sola. Fallaba **abierto** |
+162 | **Con dos administradores, uno sí puede dejar de serlo.** Igual de importante que la 161: un *trigger* que protegiera de más cerraría el relevo, y se vería igual de poco |
+163 | Un miembro normal se desactiva y se reactiva sin problema: no es un *trigger* que bloquee todo |
 
 La prueba 33 ha vuelto a ganarse el sueldo con la migración `0020`: los dos disparadores nuevos
 (`enforce_status_code_inmutable`, `enforce_role_solo_descriptivo`) nacieron ejecutables por `anon`

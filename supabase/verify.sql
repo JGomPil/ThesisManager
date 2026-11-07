@@ -140,6 +140,29 @@ with comprobaciones as (
            where not tgisinternal and tgname = 'work_types_inmutables')
 
   union all
+  -- 5.quater La 0023: el disparador que impide que el grupo se quede sin
+  --          administradores. Sin el, el ultimo administrador puede degradarse
+  --          y nadie —ni el— puede devolver el papel desde la aplicacion.
+  select 14, 'migracion 0023: el grupo no se queda sin administradores',
+         case when count(*) = 1 then 'OK' else 'FALLO' end,
+         case when count(*) = 1 then 'disparador presente' else 'falta' end
+    from pg_trigger
+   where not tgisinternal and tgname = 'org_members_last_admin'
+
+  union all
+  -- 6.bis Y que de verdad quede alguien administrando: un grupo sin
+  --       administracion no se arregla desde la aplicacion.
+  select 15, 'cada organizacion tiene al menos un administrador activo',
+         case when count(*) = 0 then 'OK' else 'FALLO' end,
+         case when count(*) = 0 then 'todas tienen administracion'
+              else 'SIN ADMINISTRACION: ' || string_agg(name, ', ') end
+    from organizations o
+   where not exists (
+     select 1 from organization_members m
+      where m.organization_id = o.id and m.is_active and m.role in ('OWNER','ADMIN')
+   )
+
+  union all
   -- 6. Y que ningun rol tenga capacidades que no deba: el estudiante, ninguna.
   select 10, 'el rol de estudiante no tiene capacidades',
          case when count(*) = 0 then 'OK' else 'FALLO' end,

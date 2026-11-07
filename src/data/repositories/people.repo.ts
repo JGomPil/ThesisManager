@@ -21,6 +21,15 @@ export type Membership = OrganizationMemberRow & {
   organization: { id: string; name: string; slug: string } | null
 }
 
+export type OrgRole = OrganizationMemberRow['role']
+
+/** Lo justo para saber quién administra el grupo. */
+export type OrgMemberBrief = {
+  user_id: string
+  role: OrgRole
+  is_active: boolean
+}
+
 export const peopleRepo = {
   /** Perfil del usuario autenticado. RLS garantiza que solo pueda ser el suyo. */
   me: async (userId: string): Promise<ProfileRow | null> => {
@@ -92,6 +101,60 @@ export const peopleRepo = {
       .from('organization_members')
       .insert({ organization_id: organizationId, user_id: userId, role })
     if (error) throw error
+  },
+
+  /**
+   * Quién pertenece al grupo y con qué papel ADMINISTRATIVO.
+   *
+   * No es una relación académica: administrar el grupo y dirigir un trabajo son
+   * los dos ejes independientes de SECURITY.md §2. Esto es el primero.
+   *
+   * Lo puede leer cualquier miembro, no solo la administración: `org_members_
+   * select` deja ver las filas de la propia organización. Es deliberado —saber
+   * a quién hay que pedir un alta es parte de poder usar la aplicación—, y en
+   * la pantalla se traduce en una insignia junto al nombre.
+   */
+  orgMembers: async (organizationId: string): Promise<OrgMemberBrief[]> => {
+    const { data, error } = await supabase
+      .from('organization_members')
+      .select('user_id, role, is_active')
+      .eq('organization_id', organizationId)
+      .eq('is_active', true)
+    if (error) throw error
+    return (data ?? []) as OrgMemberBrief[]
+  },
+
+  /**
+   * Cambia el papel administrativo de alguien que YA pertenece al grupo.
+   *
+   * DOS COSAS QUE NO DECIDE ESTA FUNCIÓN, y conviene saber dónde están:
+   *
+   *  a) Quién puede llamarla. La política `org_members_write` exige ser
+   *     administrador de esa organización. Si no lo eres, el UPDATE no afecta a
+   *     ninguna fila —y no da error, que es la trampa de siempre—, así que aquí
+   *     se pide la fila de vuelta y se dice con palabras cuando no viene.
+   *
+   *  b) Que el grupo no se quede sin administradores. Eso lo impone el
+   *     disparador `org_members_last_admin` de la migración 0023, no la
+   *     pantalla: un formulario que no ofrece la opción no protege de nada,
+   *     porque cualquiera con sesión puede hablar con PostgREST. La pantalla
+   *     además lo avisa antes, que es otra cosa: educar, no proteger.
+   */
+  setOrgRole: async (organizationId: string, userId: string, role: OrgRole): Promise<void> => {
+    const { data, error } = await supabase
+      .from('organization_members')
+      .update({ role })
+      .eq('organization_id', organizationId)
+      .eq('user_id', userId)
+      .select('user_id')
+      .maybeSingle()
+    if (error) throw error
+    if (data === null) {
+      throw new Error(
+        'No se ha podido cambiar el papel: o esa persona ya no pertenece al grupo, o tu cuenta no ' +
+          'lo administra. Si deberías poder, lo más probable es que falte aplicar alguna migración.',
+      )
+    }
   },
 
   /**
