@@ -12,15 +12,12 @@ código.
 > - Aplicación publicada en **https://jgompil.github.io/ThesisManager/**, conectada a un proyecto
 >   de Supabase real. Sin las variables de entorno, la web explica cuáles faltan en lugar de
 >   quedarse en blanco.
-> - Migraciones `0001…0021` **aplicadas** en el proyecto real y verificadas el 2026-11-06 con
->   `supabase/verify.sql`: **12 comprobaciones, todas `OK`** —RLS en todas las tablas, `anon` sin
+> - Migraciones `0001…0022` **aplicadas** en el proyecto real y verificadas el 2026-11-07 con
+>   `supabase/verify.sql`: **13 comprobaciones, todas `OK`** —RLS en todas las tablas, `anon` sin
 >   acceso a ninguna función de `app`, las 18 tablas del núcleo, las políticas y disparadores de
->   la `0020` y la `0021`, y el rol de estudiante sin capacidades.
+>   la `0020`, la `0021` y la `0022`, y el rol de estudiante sin capacidades.
 >   159 pruebas de seguridad contra PostgreSQL 16 y 115 pruebas unitarias (dominio, y el
 >   recorrido de los cubos de Storage contra un cliente simulado).
-> - **La `0022` está escrita y PENDIENTE de aplicar al proyecto real.** Sin ella, editar o
->   retirar un tipo de trabajo global —TFG, TFM, TESIS, ACADEMIA— falla con
->   `PGRST116 · 0 rows`. Con ella aplicada, `verify.sql` pasa a devolver **13 comprobaciones**.
 > - Progreso detallado en [`ROADMAP.md`](ROADMAP.md); decisiones técnicas en
 >   [`docs/FASE_0.md`](docs/FASE_0.md).
 
