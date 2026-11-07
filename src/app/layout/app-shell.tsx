@@ -89,11 +89,24 @@ export function AppShell() {
       </header>
 
       <div className="flex">
-        {/* Navegación lateral */}
+        {/* Navegación lateral. EN ESCRITORIO SE QUEDA QUIETA. Era `lg:static`, así que el menú
+            formaba parte del flujo de la página y se iba hacia arriba con el
+            scroll: en una ficha de trabajo larga o en el tablero de tareas
+            había que volver arriba del todo para cambiar de sección. Con
+            `lg:sticky` y una altura igual a la ventana menos la barra superior
+            (3.5rem = h-14), el menú se mantiene a la vista y, si algún día
+            tiene más entradas de las que caben, se desplaza por dentro gracias
+            al `overflow-y-auto` que ya estaba.
+
+            `lg:inset-y-auto` es imprescindible: `inset-y-14` fija arriba Y
+            abajo, y un elemento `sticky` con las dos cosas no se pega. En el
+            móvil no se toca nada: ahí sigue siendo un cajón `fixed` que entra y
+            sale con `translate-x`. */}
         <aside
           className={cn(
             'fixed inset-y-14 left-0 z-30 w-60 shrink-0 overflow-y-auto border-r bg-background p-3',
-            'transition-transform lg:static lg:translate-x-0 print:hidden',
+            'transition-transform lg:translate-x-0 print:hidden',
+            'lg:sticky lg:inset-y-auto lg:top-14 lg:h-[calc(100dvh-3.5rem)] lg:self-start',
             open ? 'translate-x-0' : '-translate-x-full',
           )}
         >

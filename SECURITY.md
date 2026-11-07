@@ -902,6 +902,46 @@ nada, solo decide qué opciones salen en un desplegable. Y la regla del modelo �
 admite todos los estados activos**— hace que un error en esa pantalla sea reversible quitando las
 filas, que es lo que comprueba la prueba [154].
 
+### 5.2.quatervicies · Un `UPDATE` sin filas no es un error, y por eso se veía un código en pantalla
+
+La `0022` nace de un aviso que un usuario leyó en su pantalla al editar un TFG:
+
+```
+Cannot coerce the result to a single JSON object [PGRST116]
+The result contains 0 rows
+```
+
+Debajo no había ningún fallo de la interfaz. La política `work_types_write` de la `0003` exige
+`organization_id is not null`, y los tipos precargados —TFG, TFM, TESIS, ACADEMIA— son **globales**:
+`organization_id` nulo. El `UPDATE` salía, PostgreSQL le descartaba todas las filas y **no daba
+error**, porque una política que no deja ver una fila para escribirla no provoca un fallo: provoca
+que no se escriba. El cliente pedía la fila de vuelta (`.single()`) y recibía cero.
+
+Esto es la misma clase de fallo silencioso que cerró la `0009` con las casillas de la lista de
+comprobación, y conviene tenerlo escrito como regla: **un `UPDATE` que no afecta a ninguna fila es
+indistinguible de uno que ha funcionado, salvo que alguien lo mire.** Con `.single()` se mira, pero
+lo que se dice es un código de PostgREST; con `.maybeSingle()` se puede decir en castellano qué ha
+pasado, que es lo que hace ahora `unwrapUpdated` en `catalogs.repo.ts` para los ocho catálogos, no
+solo para el que falló.
+
+Y la pantalla afirmaba dos cosas falsas, que es lo que hizo difícil el diagnóstico: el aviso del
+diálogo decía «si lo editas, el cambio afecta a todas las organizaciones» —no se podía editar— y el
+pie decía que esos datos «solo pueden editarse si se copian a tu organización», un camino que no
+existía en ninguna parte del código. Una interfaz que explica una limitación que no es la real
+cuesta más que una que no explica nada.
+
+La decisión es la de la `0020` y la `0021`: la administración edita las filas globales, porque hoy
+hay **una** organización. Solo `UPDATE`, nunca `DELETE` —un tipo global sin trabajos no lo protege
+`on delete restrict`, y retirar es reversible mientras borrar no lo es—, y al abrir esa puerta se
+cierran dos: la organización de un tipo y su **código**, los dos con el *trigger*
+`work_types_inmutables`, por lo dicho en §5.2.tervicies. El código, además, porque el catálogo
+inicial y la `0021` buscan `code = 'ACADEMIA'` y el `on conflict` del `seed` casa por código: un TFG
+renombrado a mano haría que una reinstalación creara un segundo TFG sin avisar. La interfaz ya lo
+trataba como inmutable; ahora lo trata la base de datos, que es donde las prohibiciones se cumplen.
+
+Lo comprueban las pruebas [156]–[159], y `verify.sql` responde en su comprobación 13 si la política
+y el *trigger* están en el proyecto real.
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.
@@ -981,7 +1021,7 @@ Cada una debe ejecutarse **contra la base de datos** con el JWT del usuario corr
 desde la interfaz.
 
 > **Ya verificadas.** Las migraciones de `supabase/migrations/` se han aplicado a un
-> PostgreSQL 16 real y se ejecutan **149 pruebas** de seguridad, todas correctas:
+> PostgreSQL 16 real y se ejecutan **159 pruebas** de seguridad, todas correctas:
 > `./scripts/test-rls.sh` (detalle en `supabase/tests/README.md`). Cubren los puntos 1–6, 12 y 13
 > de la lista siguiente. Los puntos 7, 10 y 11 dependen del frontend y del despliegue, y los 8 y 9
 > del proyecto real de Supabase; se validan en la Fase 1.

@@ -81,11 +81,11 @@ directorios que empiezan por `_`).
      en rojo, porque es un `raise exception`, así que «Success» significa que ninguna comprobación
      falló. Lo que no contesta es «¿y qué estado tengo ahora?», y para eso está el punto siguiente.
 3. bis. **Verificar el estado**: pegar `supabase/verify.sql` en el editor y mirar la tabla que
-   devuelve. Son doce comprobaciones —RLS en todas las tablas, que `anon` no ejecute nada del
+   devuelve. Son trece comprobaciones —RLS en todas las tablas, que `anon` no ejecute nada del
    esquema `app`, las tablas del núcleo, las migraciones reconocibles por lo que dejan y que el rol
    de estudiante no tenga capacidades— y devuelve FILAS, que es lo único que ese editor muestra.
    No cambia nada: solo lee catálogos del sistema. Si alguna fila dice `FALLO`, ahí está el
-   problema. La propia consulta se comprueba en `scripts/test-rls.sh`, que exige las doce en OK
+   problema. La propia consulta se comprueba en `scripts/test-rls.sh`, que exige las trece en OK
    sobre una base recién construida y falla si falta cualquiera.
 4. `Authentication → Providers`: dejar solo *Email*. **Desactivar el registro público**
    (`Allow new users to sign up` = off): las altas son por invitación.

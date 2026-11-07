@@ -4,7 +4,9 @@ Criterio transversal: **ninguna fase se declara terminada sin sus criterios de a
 validados contra la base de datos real.** Que algo se vea bien no cuenta.
 
 Estado de la base de datos real a 6 de noviembre de 2026: migraciones `0001…0021` aplicadas y
-verificadas con `supabase/verify.sql` —doce comprobaciones, todas en `OK`—. Esa consulta es la
+verificadas con `supabase/verify.sql` —doce comprobaciones, todas en `OK`—. La `0022` (7 de
+noviembre de 2026) está escrita y **pendiente de aplicar**: añade una comprobación, y hasta que se
+aplique, editar un tipo de trabajo global falla con `PGRST116 · 0 rows`. Esa consulta es la
 respuesta a «¿qué hay aplicado ahí dentro?»: el editor SQL del panel descarta los avisos, así que
 «Success. No rows returned» confirma que nada falló, pero no dice qué se ejecutó.
 
@@ -188,6 +190,8 @@ Estado a 6 de noviembre de 2026:
 
 | | Elemento |
 |---|---|
+| ✅ | **Los tipos de trabajo globales, administrables** (`0022`, 7-11-2026): editar un TFG respondía «Cannot coerce the result to a single JSON object [PGRST116] · 0 rows». Debajo no había un fallo de la interfaz: la política de la `0003` exigía `organization_id is not null`, así que el UPDATE no tocaba ninguna fila —y **un UPDATE al que una política le descarta las filas no da error**—. Era además la razón de que «Prácticas» fuese el único tipo editable y de que no se pudiera cambiar el color de las tarjetas del resumen. Se abre el UPDATE a la administración, nunca el DELETE, y se cierran de paso la organización y el código de un tipo (*trigger*, porque con dos políticas permisivas el `WITH CHECK` no puede). Pruebas [156]–[159] |
+| ✅ | **Cinco arreglos de lo que se usa a diario** (7-11-2026): el menú lateral ya no se va con el *scroll* en escritorio (era `lg:static`) · un punto largo de la lista de comprobación se lee entero en varias líneas, antes se cortaba en una · la columna «Dirección» del listado de trabajos nombra a **toda** la dirección y no solo al principal, como ya hacía el informe · el límite de la información académica del perfil se dice con un contador, y su error se ve (era el único campo sin `FieldError`) · «Otros» va al final de las líneas de investigación, no en su sitio alfabético (`src/domain/admin/catalog-order.ts`, 7 pruebas) |
 | ✅ | **Consumo del plan gratuito a la vista** (7-11-2026): Administración suma lo que ocupan los tres cubos de Storage frente al gigabyte, con aviso al 70 % y al 90 %, desglose por cubo y contraste con las filas que reclaman cada fichero —de donde salen los **huérfanos**, que ocupaban sitio sin que nadie los viera—. Dice lo que no mide: ni el tamaño de la base de datos ni lo que esta cuenta no puede ver |
 | ✅ | **Paquete dividido por rutas** (7-11-2026): las pantallas que no están en el camino diario se descargan al entrar en ellas. El paquete principal baja de 569 kB a 427 kB (154 kB a 120 kB comprimido): un estudiante ya no se descarga Catálogos, Plantillas ni Invitaciones, que además no puede abrir |
 | ✅ | `deploy.yml`, `keepalive.yml` y `repo-activity.yml` en marcha, y aviso de `last_ping_at` en Administración (adelantado a la Fase 1, como decía esta misma sección) |

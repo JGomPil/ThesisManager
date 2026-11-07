@@ -89,15 +89,35 @@ export function WorksListPage() {
       .map((m) => m.profile?.full_name)
       .filter(Boolean)
       .join(', ')
+    /**
+     * TODA la dirección, no solo quien figure como principal.
+     *
+     * Un trabajo codirigido mostraba un único nombre y el del codirector no
+     * aparecía en ninguna parte de esta pantalla: para saber quién más lo
+     * dirigía había que abrir la ficha. El informe de un trabajo ya los
+     * nombraba todos, así que las dos pantallas decían cosas distintas del
+     * mismo trabajo.
+     *
+     * El principal va primero, que es el orden en que se nombra una dirección.
+     * Y los nombres se deduplican porque una misma persona puede tener VARIAS
+     * funciones en el mismo trabajo (codirectora y colaboradora, por ejemplo):
+     * son dos filas de `work_members` y una sola persona.
+     */
     const supervisores = w.members.filter((m) => m.status === 'ACTIVE' && m.role?.is_supervisory)
+    const direccion = [
+      ...new Set(
+        supervisores
+          .slice()
+          .sort((a, b) => Number(b.is_primary) - Number(a.is_primary))
+          .map((m) => m.profile?.full_name)
+          .filter((n): n is string => Boolean(n)),
+      ),
+    ].join(', ')
     const dias = daysUntil(w.expected_end_date)
     return {
       w,
       estudiantes: estudiantes || '—',
-      direccion:
-        supervisores.find((m) => m.is_primary)?.profile?.full_name ??
-        supervisores[0]?.profile?.full_name ??
-        '—',
+      direccion: direccion || '—',
       dias,
       vencido: dias !== null && dias < 0 && !w.status?.is_terminal,
     }

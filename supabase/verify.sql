@@ -120,6 +120,26 @@ with comprobaciones as (
    where not tgisinternal and tgname = 'doctypes_org_inmutable'
 
   union all
+  -- 5.ter La 0022: la politica que hace editables los tipos de trabajo GLOBALES
+  --       y el disparador que, al abrir esa puerta, cierra las otras dos (la
+  --       organizacion y el codigo de un tipo). Sin la politica, editar un TFG
+  --       devuelve «PGRST116 · 0 rows» y no cambia nada.
+  select 13, 'migracion 0022: los tipos de trabajo globales son administrables',
+         case when (select count(*) from pg_policies
+                     where schemaname = 'public'
+                       and policyname = 'work_types_update_global') = 1
+                   and (select count(*) from pg_trigger
+                         where not tgisinternal and tgname = 'work_types_inmutables') = 1
+              then 'OK' else 'FALLO' end,
+         (select case when count(*) = 1 then 'politica presente' else 'FALTA LA POLITICA' end
+            from pg_policies
+           where schemaname = 'public' and policyname = 'work_types_update_global')
+         || ' · ' ||
+         (select case when count(*) = 1 then 'disparador presente' else 'falta el disparador' end
+            from pg_trigger
+           where not tgisinternal and tgname = 'work_types_inmutables')
+
+  union all
   -- 6. Y que ningun rol tenga capacidades que no deba: el estudiante, ninguna.
   select 10, 'el rol de estudiante no tiene capacidades',
          case when count(*) = 0 then 'OK' else 'FALLO' end,

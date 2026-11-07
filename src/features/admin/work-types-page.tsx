@@ -146,9 +146,11 @@ export function WorkTypesPage() {
       <p className="text-xs text-muted-foreground">
         Los tipos no se borran: se desactivan. Un trabajo histórico debe conservar su tipo, y la
         base de datos lo impone con <code>ON DELETE RESTRICT</code>. Los tipos marcados como
-        «global» vienen precargados y sus datos solo pueden editarse si se copian a tu
-        organización; su <strong>ciclo de vida sí</strong> se puede ajustar desde aquí, y ese
-        cambio lo ven todas las organizaciones (hoy solo hay una).
+        «global» vienen precargados: su nombre, su color, sus reglas y su ciclo de vida{' '}
+        <strong>sí</strong> se editan desde aquí, y también se pueden retirar, pero no borrar,
+        porque no son de ninguna organización en particular. Esos cambios los ven todas las
+        organizaciones (hoy solo hay una). El código no se cambia nunca: el catálogo inicial y
+        las migraciones casan por código.
       </p>
 
       <WorkTypeDialog

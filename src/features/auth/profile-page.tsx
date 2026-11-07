@@ -11,11 +11,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { FieldError, LoadingPanel } from '@/components/common/states'
 import { useToast } from '@/components/ui/toast'
+import { cn } from '@/lib/utils'
 import { qk } from '@/lib/query-keys'
 import { errorMessage, supabase } from '@/lib/supabase'
 import { peopleRepo } from '@/data/repositories/people.repo'
 import { useAuth } from '@/features/auth/auth-context'
 import { AvatarCard } from '@/features/auth/avatar-card'
+
+/**
+ * Cuánto cabe en la información académica.
+ *
+ * El límite existía desde el primer día y no estaba escrito en ninguna parte:
+ * se escribía de más, el formulario no guardaba y no decía por qué, porque este
+ * campo era además el único del formulario sin `FieldError`. Un número que
+ * gobierna lo que se puede escribir tiene que estar a la vista mientras se
+ * escribe.
+ */
+const BIO_MAX = 1000
 
 const profileSchema = z.object({
   full_name: z.string().trim().min(3, 'Indica tu nombre y apellidos').max(150),
@@ -26,7 +38,7 @@ const profileSchema = z.object({
     .trim()
     .regex(/^(\d{4}-\d{4}-\d{4}-\d{3}[\dX])?$/, 'Formato: 0000-0000-0000-0000')
     .optional(),
-  bio: z.string().trim().max(1000).optional(),
+  bio: z.string().trim().max(BIO_MAX, `Máximo ${BIO_MAX} caracteres`).optional(),
 })
 type ProfileValues = z.infer<typeof profileSchema>
 
@@ -54,6 +66,10 @@ export function ProfilePage() {
       bio: profile.bio ?? '',
     })
   }, [profile, form])
+
+  // Lo que lleva escrito, para el contador. `watch` vuelve a dibujar en cada
+  // pulsación, que es justo lo que se quiere aquí y nada más que aquí.
+  const bioLargo = (form.watch('bio') ?? '').length
 
   const save = useMutation({
     mutationFn: (values: ProfileValues) =>
@@ -135,8 +151,24 @@ export function ProfilePage() {
               </div>
 
               <div>
-                <Label htmlFor="bio">Información académica</Label>
-                <Textarea id="bio" rows={3} className="mt-1.5" {...form.register('bio')} />
+                <div className="flex items-baseline justify-between gap-2">
+                  <Label htmlFor="bio">Información académica</Label>
+                  <span
+                    className={cn(
+                      'text-xs tabular-nums',
+                      bioLargo > BIO_MAX ? 'text-destructive' : 'text-muted-foreground',
+                    )}
+                  >
+                    {bioLargo}/{BIO_MAX}
+                  </span>
+                </div>
+                {/* `maxLength` corta al escribir y al pegar; el contador explica
+                    por qué deja de aparecer texto, que sin él parece que el
+                    teclado ha dejado de funcionar. El rojo es para un texto que
+                    ya venía de antes más largo que el límite: `maxLength` no
+                    recorta lo que ya estaba escrito. */}
+                <Textarea id="bio" rows={3} maxLength={BIO_MAX} className="mt-1.5" {...form.register('bio')} />
+                <FieldError>{form.formState.errors.bio?.message}</FieldError>
               </div>
 
               <div className="flex justify-end">

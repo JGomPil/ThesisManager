@@ -152,6 +152,10 @@ usuarios). **Es solo para pruebas**: nunca se aplica a un proyecto real.
 153 | La administración define **qué estados aplican a un tipo de trabajo**; un director no |
 154 | **Quitar todas las filas es volver al valor por omisión**: el tipo admite otra vez todos los estados activos. Comprueba que un error en esa pantalla es reversible |
 155 | `anon` no ve ni escribe tipos de documento ni ciclos de vida |
+156 | La administración **edita un tipo de trabajo GLOBAL** —nombre, color y duración—; un director no. Es la prueba del aviso `PGRST116 · 0 rows` que salió al editar un TFG: la política de la `0003` pedía `organization_id is not null` y **un UPDATE al que una política le descarta las filas no da error**, así que no cambiaba nada y no se quejaba nadie |
+157 | Un tipo de trabajo **global se retira, pero no se borra**: lo comparten todas las organizaciones. Se prueba sobre un tipo global SIN trabajos, creado a propósito, porque con trabajos el borrado lo impediría la clave ajena y la prueba pasaría sin comprobar la política |
+158 | La **organización y el código** de un tipo de trabajo son inmutables. Mismo motivo que la 152: con dos políticas permisivas no lo puede impedir el `WITH CHECK`, hace falta un *trigger* |
+159 | Los tipos **propios de la organización** se siguen creando, editando y borrando: la `0022` añade una política y no quita nada de la `0003` |
 
 La prueba 33 ha vuelto a ganarse el sueldo con la migración `0020`: los dos disparadores nuevos
 (`enforce_status_code_inmutable`, `enforce_role_solo_descriptivo`) nacieron ejecutables por `anon`

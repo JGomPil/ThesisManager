@@ -183,26 +183,40 @@ export function TaskDetailDialog({
                   {subtasks.map((s) => {
                     const checked = s.status === 'COMPLETADA'
                     return (
-                      <li key={s.id} className="flex items-center gap-2">
+                      // `items-start` y no `items-center`: un punto de dos
+                      // líneas tiene que dejar su casilla arriba, junto a la
+                      // primera, y no centrada a media altura del texto.
+                      <li key={s.id} className="flex items-start gap-2">
                         <button
                           type="button"
                           disabled={!canTick || toggleItem.isPending}
                           onClick={() => toggleItem.mutate({ id: s.id, done: !checked })}
                           aria-label={checked ? 'Desmarcar' : 'Marcar como hecho'}
                           className={cn(
-                            'flex size-4 shrink-0 items-center justify-center rounded border transition-colors',
+                            'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border transition-colors',
                             checked ? 'border-primary bg-primary text-primary-foreground' : 'border-input',
                             !canTick && 'cursor-not-allowed opacity-50',
                           )}
                         >
                           {checked && <Check className="size-3" />}
                         </button>
-                        <span className={cn('min-w-0 flex-1 truncate text-sm', checked && 'text-muted-foreground line-through')}>
+                        {/* NO `truncate`: un punto de la lista es una frase, no una
+                            etiqueta. «Revisar la bibliografía del capítulo 2 y
+                            contrastarla con…» se cortaba en la primera línea y el
+                            resto no había manera de leerlo, ni siquiera pasando el
+                            ratón por encima. Ahora parte en varias líneas, y
+                            `break-words` cubre la URL pegada sin espacios. */}
+                        <span
+                          className={cn(
+                            'min-w-0 flex-1 break-words text-sm leading-snug',
+                            checked && 'text-muted-foreground line-through',
+                          )}
+                        >
                           {s.title}
                         </span>
                         {caps.canManagePlan && (
                           <Button
-                            variant="ghost" size="icon" className="size-6"
+                            variant="ghost" size="icon" className="mt-0.5 size-6 shrink-0"
                             onClick={() => removeItem.mutate(s.id)}
                             aria-label="Quitar punto"
                           >

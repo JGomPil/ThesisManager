@@ -118,6 +118,20 @@ export function errorMessage(error: unknown): string {
     return `La política de seguridad ha rechazado la operación.${codigo} ${extra}`.trim()
   }
 
+  // PGRST116: se pidió UNA fila de vuelta y han venido cero. Casi nunca es lo
+  // que el código dice —«no se puede convertir a un objeto JSON»— y casi
+  // siempre es una de estas dos: la fila ya no existe, o era un UPDATE cuyas
+  // filas descartó una política, que en PostgreSQL no da error. Apareció así,
+  // literal y sin traducir, al editar un tipo de trabajo global (migración
+  // 0022). Los repositorios que esperan una fila lo dicen mejor porque saben
+  // de qué fila hablan; esto es la red para los que no.
+  if (e.code === 'PGRST116') {
+    return (
+      'La base de datos no ha devuelto la fila esperada: o ya no existe, o una política de ' +
+      'seguridad ha descartado la operación sin dar error.' + codigo
+    )
+  }
+
   // Cualquier otro error: el mensaje tal cual, más el detalle si lo hay. Es
   // menos bonito y mucho más útil que un texto genérico.
   if (raw) return extra ? `${raw}${codigo} ${extra}` : `${raw}${codigo}`

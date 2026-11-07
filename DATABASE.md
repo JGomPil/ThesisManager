@@ -50,15 +50,15 @@ desde la interfaz de administración, no con tipos `ENUM` de PostgreSQL.
 | Columna | Tipo | Notas |
 |---|---|---|
 | `id` | uuid PK | |
-| `organization_id` | uuid FK NULL | `NULL` = catálogo global; permite tipos propios por organización |
-| `code` | text | `TFG`, `TFM`, `TESIS`, `ACADEMIA`, … Único por organización |
+| `organization_id` | uuid FK NULL | `NULL` = catálogo global; permite tipos propios por organización. **Inmutable** desde la `0022`: un tipo no se mueve de ámbito |
+| `code` | text | `TFG`, `TFM`, `TESIS`, `ACADEMIA`, … Único por organización. **Inmutable** desde la `0022`: el catálogo inicial y las migraciones casan por código |
 | `name` | text | «Trabajo de Fin de Grado» |
 | `short_name` | text | «TFG» (para tablas y tarjetas) |
 | `academic_level` | text FK ▸ `academic_levels` | `GRADO`, `MASTER`, `DOCTORADO`, `OTRO` |
 | `color` | text | Token de color para insignias y gráficos |
 | `icon` | text | Nombre de icono de Lucide |
 | `display_order` | int | Orden en selectores y dashboard |
-| `is_active` | bool | Desactivar sin borrar: los trabajos históricos conservan su tipo |
+| `is_active` | bool | Desactivar sin borrar: los trabajos históricos conservan su tipo. Los tipos globales se retiran así, y **no** se borran (`0022`) |
 | `default_duration_months` | int NULL | Para proponer la fecha prevista de fin |
 | `requires_defense` | bool | Habilita el estado «Defendido» y el evento de defensa |
 | `requires_deposit` | bool | Habilita «Pendiente de depósito» |

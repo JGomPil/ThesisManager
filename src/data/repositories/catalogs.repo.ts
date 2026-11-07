@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { ordenarConOtrosAlFinal } from '@/domain/admin/catalog-order'
 import type {
   AcademicLevelRow, AcademicYearRow, ProgramRow, ResearchLineRow,
   DocumentTypeRow, WorkRoleRow, WorkStatusRow, WorkTypeRow, WorkTypeStatusRow,
@@ -45,6 +46,38 @@ function unwrap<T>({ data, error }: { data: T | null; error: { message: string }
 }
 
 /**
+ * Como `unwrap`, pero para un UPDATE del que se espera que vuelva LA fila.
+ *
+ * POR QUÉ NO BASTA `.single()`
+ * PostgreSQL no da error cuando una política de RLS descarta las filas de un
+ * UPDATE: no cambia nada y no dice nada, igual que la casilla de la lista de
+ * comprobación que cerró la migración 0009. Con `.single()`, esos cero filas
+ * llegaban a la pantalla convertidos en «Cannot coerce the result to a single
+ * JSON object [PGRST116] The result contains 0 rows», que es verdad y no
+ * significa nada para quien está delante. Fue el aviso que apareció el 7 de
+ * noviembre de 2026 al editar un TFG, y debajo había un tipo de trabajo global
+ * que ninguna política permitía editar (lo abrió la 0022).
+ *
+ * Así que `.maybeSingle()` y el caso se dice con palabras. No sobra con la
+ * 0022 aplicada: queda para el próximo catálogo al que le falte su política, y
+ * para una instalación que vaya por detrás en las migraciones.
+ */
+function unwrapUpdated<T>(
+  { data, error }: { data: T | null; error: { message: string } | null },
+  queEra: string,
+): T {
+  if (error) throw error
+  if (data === null) {
+    throw new Error(
+      `La base de datos no ha modificado ${queEra}. O ya no existe, o ninguna política de ` +
+        'seguridad permite a tu cuenta cambiar esa fila. Si deberías poder, lo más probable es ' +
+        'que falte aplicar alguna migración de supabase/migrations/.',
+    )
+  }
+  return data
+}
+
+/**
  * Acceso al catálogo. Es lo que permite que TFG, TFM, tesis, Academia de
  * Alumnos Internos y cualquier tipo futuro sean configuración y no código.
  */
@@ -59,7 +92,7 @@ export const catalogsRepo = {
     unwrap(await supabase.from('work_types').insert(input).select('*').single()),
 
   updateWorkType: async (id: string, patch: WorkTypeUpdate): Promise<WorkTypeRow> =>
-    unwrap(await supabase.from('work_types').update(patch).eq('id', id).select('*').single()),
+    unwrapUpdated(await supabase.from('work_types').update(patch).eq('id', id).select('*').maybeSingle(), 'este tipo de trabajo'),
 
   /**
    * No se borran los tipos en uso: la base de datos lo impide con
@@ -67,7 +100,7 @@ export const catalogsRepo = {
    * es desactivarlo.
    */
   deactivateWorkType: async (id: string): Promise<WorkTypeRow> =>
-    unwrap(await supabase.from('work_types').update({ is_active: false }).eq('id', id).select('*').single()),
+    unwrapUpdated(await supabase.from('work_types').update({ is_active: false }).eq('id', id).select('*').maybeSingle(), 'este tipo de trabajo'),
 
   listWorkStatuses: async (): Promise<WorkStatusRow[]> =>
     unwrap(await supabase.from('work_statuses').select('*').eq('is_active', true).order('display_order')),
@@ -104,7 +137,7 @@ export const catalogsRepo = {
     id: string,
     patch: Pick<StatusUpdate, 'name' | 'color' | 'display_order' | 'is_terminal' | 'is_active'>,
   ): Promise<WorkStatusRow> =>
-    unwrap(await supabase.from('work_statuses').update(patch).eq('id', id).select('*').single()),
+    unwrapUpdated(await supabase.from('work_statuses').update(patch).eq('id', id).select('*').maybeSingle(), 'este estado'),
 
   removeWorkStatus: async (id: string): Promise<void> => {
     const { error } = await supabase.from('work_statuses').delete().eq('id', id)
@@ -125,7 +158,7 @@ export const catalogsRepo = {
     id: string,
     patch: Pick<RoleUpdate, 'name' | 'display_order' | 'is_active'>,
   ): Promise<WorkRoleRow> =>
-    unwrap(await supabase.from('work_roles').update(patch).eq('id', id).select('*').single()),
+    unwrapUpdated(await supabase.from('work_roles').update(patch).eq('id', id).select('*').maybeSingle(), 'esta función académica'),
 
   removeWorkRole: async (id: string): Promise<void> => {
     const { error } = await supabase.from('work_roles').delete().eq('id', id)
@@ -152,7 +185,7 @@ export const catalogsRepo = {
     id: string,
     patch: Pick<DocTypeUpdate, 'name' | 'display_order' | 'is_active'>,
   ): Promise<DocumentTypeRow> =>
-    unwrap(await supabase.from('document_types').update(patch).eq('id', id).select('*').single()),
+    unwrapUpdated(await supabase.from('document_types').update(patch).eq('id', id).select('*').maybeSingle(), 'este tipo de documento'),
 
   removeDocumentType: async (id: string): Promise<void> => {
     const { error } = await supabase.from('document_types').delete().eq('id', id)
@@ -214,8 +247,13 @@ export const catalogsRepo = {
   listPrograms: async (): Promise<ProgramRow[]> =>
     unwrap(await supabase.from('programs').select('*').eq('is_active', true).order('name')),
 
+  // Las dos listas de líneas pasan por `ordenarConOtrosAlFinal`: si solo lo
+  // hiciera el selector de alta, la pantalla de administración y el formulario
+  // mostrarían el mismo catálogo en dos órdenes distintos.
   listResearchLines: async (): Promise<ResearchLineRow[]> =>
-    unwrap(await supabase.from('research_lines').select('*').eq('is_active', true).order('name')),
+    ordenarConOtrosAlFinal(
+      unwrap(await supabase.from('research_lines').select('*').eq('is_active', true).order('name')),
+    ),
 
   // -------------------------------------------------------------------------
   // Administración de los catálogos planos (líneas, titulaciones, cursos).
@@ -226,13 +264,13 @@ export const catalogsRepo = {
   // quepa pasar `includeInactive` por descuido en un selector de alta.
   // -------------------------------------------------------------------------
   listAllResearchLines: async (): Promise<ResearchLineRow[]> =>
-    unwrap(await supabase.from('research_lines').select('*').order('name')),
+    ordenarConOtrosAlFinal(unwrap(await supabase.from('research_lines').select('*').order('name'))),
 
   createResearchLine: async (input: LineInsert): Promise<ResearchLineRow> =>
     unwrap(await supabase.from('research_lines').insert(input).select('*').single()),
 
   updateResearchLine: async (id: string, patch: LineUpdate): Promise<ResearchLineRow> =>
-    unwrap(await supabase.from('research_lines').update(patch).eq('id', id).select('*').single()),
+    unwrapUpdated(await supabase.from('research_lines').update(patch).eq('id', id).select('*').maybeSingle(), 'esta línea de investigación'),
 
   removeResearchLine: async (id: string): Promise<void> => {
     const { error } = await supabase.from('research_lines').delete().eq('id', id)
@@ -246,7 +284,7 @@ export const catalogsRepo = {
     unwrap(await supabase.from('programs').insert(input).select('*').single()),
 
   updateProgram: async (id: string, patch: ProgramUpdate): Promise<ProgramRow> =>
-    unwrap(await supabase.from('programs').update(patch).eq('id', id).select('*').single()),
+    unwrapUpdated(await supabase.from('programs').update(patch).eq('id', id).select('*').maybeSingle(), 'esta titulación'),
 
   removeProgram: async (id: string): Promise<void> => {
     const { error } = await supabase.from('programs').delete().eq('id', id)
@@ -260,7 +298,7 @@ export const catalogsRepo = {
     unwrap(await supabase.from('academic_years').insert(input).select('*').single()),
 
   updateAcademicYear: async (id: string, patch: YearUpdate): Promise<AcademicYearRow> =>
-    unwrap(await supabase.from('academic_years').update(patch).eq('id', id).select('*').single()),
+    unwrapUpdated(await supabase.from('academic_years').update(patch).eq('id', id).select('*').maybeSingle(), 'este curso académico'),
 
   removeAcademicYear: async (id: string): Promise<void> => {
     const { error } = await supabase.from('academic_years').delete().eq('id', id)
