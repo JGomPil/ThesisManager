@@ -3,9 +3,8 @@
 Criterio transversal: **ninguna fase se declara terminada sin sus criterios de aceptación
 validados contra la base de datos real.** Que algo se vea bien no cuenta.
 
-Estado de la base de datos real a 7 de noviembre de 2026: migraciones `0001…0022` aplicadas y
-verificadas con `supabase/verify.sql` —trece comprobaciones, todas en `OK`—. La `0023` está escrita
-y **pendiente de aplicar**: añade dos comprobaciones (hasta quince). Esa consulta es la
+Estado de la base de datos real a 7 de noviembre de 2026: migraciones `0001…0023` aplicadas y
+verificadas con `supabase/verify.sql` —quince comprobaciones, todas en `OK`—. Esa consulta es la
 respuesta a «¿qué hay aplicado ahí dentro?»: el editor SQL del panel descarta los avisos, así que
 «Success. No rows returned» confirma que nada falló, pero no dice qué se ejecutó.
 

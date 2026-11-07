@@ -31,6 +31,36 @@ export const tasksRepo = {
     return (data ?? []) as unknown as TaskWithAssignee[]
   },
 
+  /**
+   * Lo justo para medir el estado de TODOS los trabajos visibles: una fila por
+   * tarea de primer nivel, con tres columnas.
+   *
+   * POR QUÉ EXISTE
+   * El resumen llamaba a `computeWorkProgress([], …)`, o sea calculaba el
+   * progreso de cada trabajo con una lista de tareas VACÍA. Consecuencia: todos
+   * los trabajos salían como «Sin planificación» —`totalTasks` era 0 siempre—,
+   * y, mucho peor, `overdueTasks` y `blockedTasks` valían 0 también, así que
+   * «Tareas atrasadas» y «Tareas bloqueadas», los dos motivos más graves de la
+   * tarjeta «Necesita atención», no se mostraron nunca. La tarjeta avisaba de lo
+   * único que no era verdad y callaba lo que sí.
+   *
+   * UNA SOLA CONSULTA, no una por trabajo: son decenas de idas y vueltas contra
+   * un proyecto gratuito para pintar una tarjeta. Las subtareas se descartan en
+   * SQL (`parent_task_id is null`) porque la regla del dominio solo cuenta las de
+   * primer nivel, y traerlas sería traer las listas de comprobación enteras.
+   *
+   * No lleva filtro de trabajos: RLS ya devuelve solo las tareas de los trabajos
+   * que quien pregunta puede ver.
+   */
+  topLevelSummary: async (): Promise<{ work_id: string; status: TaskStatus; due_date: string | null }[]> => {
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('work_id, status, due_date')
+      .is('parent_task_id', null)
+    if (error) throw error
+    return (data ?? []) as { work_id: string; status: TaskStatus; due_date: string | null }[]
+  },
+
   /** Tareas asignadas al usuario en todos sus trabajos (dashboard). */
   mine: async (userId: string): Promise<TaskWithWork[]> => {
     const { data, error } = await supabase

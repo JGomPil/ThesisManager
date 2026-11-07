@@ -37,6 +37,7 @@ export const qk = {
   tasks: {
     byWork: (workId: string) => ['tasks', 'work', workId] as const,
     mine: ['tasks', 'mine'] as const,
+    summary: ['tasks', 'summary'] as const,
   },
 
   people: {

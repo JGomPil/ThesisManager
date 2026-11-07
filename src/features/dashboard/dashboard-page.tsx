@@ -11,10 +11,13 @@ import { useRowLink } from '@/components/common/row-link'
 import { cn, toneEdgeClass } from '@/lib/utils'
 import { qk } from '@/lib/query-keys'
 import { worksRepo } from '@/data/repositories/works.repo'
+import type { TaskStatus } from '@/data/types/database'
 import { tasksRepo } from '@/data/repositories/tasks.repo'
 import { useWorkTypes } from '@/hooks/use-catalogs'
 import { useAuth } from '@/features/auth/auth-context'
-import { attentionReasons, ATTENTION_LABELS, computeWorkProgress, daysUntil } from '@/domain/works/progress'
+import {
+  attentionReasons, attentionSeverity, ATTENTION_LABELS, computeWorkProgress, daysUntil,
+} from '@/domain/works/progress'
 import { resolveWorkCapabilities } from '@/domain/permissions/work-capabilities'
 
 export function DashboardPage() {
@@ -27,6 +30,11 @@ export function DashboardPage() {
     queryFn: () => tasksRepo.mine(userId!),
     enabled: userId !== null,
   })
+
+  // Las tareas de primer nivel de todos los trabajos visibles, en UNA consulta.
+  // Sin esto, el resumen medía el progreso con una lista vacía: ver
+  // `tasksRepo.topLevelSummary`.
+  const taskSummary = useQuery({ queryKey: qk.tasks.summary, queryFn: tasksRepo.topLevelSummary })
 
   if (works.isLoading || workTypes.isLoading) return <LoadingPanel />
   if (works.isError) return <ErrorPanel error={works.error} />
@@ -54,14 +62,32 @@ export function DashboardPage() {
     count: allWorks.filter((w) => w.work_type_id === t.id && !w.status?.is_terminal).length,
   }))
 
-  const needAttention = allWorks
-    .map((w) => {
-      const progress = computeWorkProgress([], w.progress_override)
-      const reasons = attentionReasons(progress, w.expected_end_date, w.status?.is_terminal ?? false)
-      return { work: w, reasons }
-    })
-    .filter((x) => x.reasons.length > 0)
-    .slice(0, 6)
+  // Las tareas de cada trabajo, agrupadas una sola vez.
+  //
+  // Mientras la consulta está en vuelo no se calcula nada: con un mapa vacío,
+  // `totalTasks` sería 0 para todos y la tarjeta parpadearía diciendo que los
+  // nueve trabajos están sin planificar antes de corregirse. Es justo el aviso
+  // falso que se viene a arreglar.
+  const tasksByWork = new Map<string, { status: TaskStatus; due_date: string | null }[]>()
+  for (const t of taskSummary.data ?? []) {
+    const lista = tasksByWork.get(t.work_id)
+    if (lista) lista.push(t)
+    else tasksByWork.set(t.work_id, [t])
+  }
+
+  const atencion = taskSummary.isSuccess
+    ? allWorks
+        .map((w) => {
+          const progress = computeWorkProgress(tasksByWork.get(w.id) ?? [], w.progress_override)
+          const reasons = attentionReasons(progress, w.expected_end_date, w.status?.is_terminal ?? false)
+          return { work: w, reasons }
+        })
+        .filter((x) => x.reasons.length > 0)
+        // Lo más grave primero: la tarjeta enseña unos pocos, así que el orden
+        // decide qué se ve. Antes salían los primeros que venía de la consulta.
+        .sort((a, b) => attentionSeverity(a.reasons) - attentionSeverity(b.reasons))
+    : []
+  const needAttention = atencion.slice(0, 6)
 
   const upcoming = allWorks
     .filter((w) => !w.status?.is_terminal && w.expected_end_date)
@@ -153,10 +179,25 @@ export function DashboardPage() {
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm">
               <AlertTriangle className="size-4 text-muted-foreground" /> Necesita atención
+              {atencion.length > 0 && (
+                <span className="font-normal tabular-nums text-muted-foreground">
+                  {needAttention.length < atencion.length
+                    ? `${needAttention.length} de ${atencion.length}`
+                    : atencion.length}
+                </span>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            {needAttention.length === 0 ? (
+            {taskSummary.isLoading ? (
+              <p className="py-2 text-sm text-muted-foreground">Mirando las tareas…</p>
+            ) : taskSummary.isError ? (
+              // Si esto falla no se puede decir que no hay nada que atender:
+              // sería la misma mentira tranquilizadora, al revés.
+              <p className="py-2 text-sm text-muted-foreground">
+                No se han podido leer las tareas, así que esta tarjeta no puede decir nada.
+              </p>
+            ) : needAttention.length === 0 ? (
               <p className="py-2 text-sm text-muted-foreground">Nada que requiera atención inmediata.</p>
             ) : (
               <ul className="divide-y">
@@ -174,6 +215,12 @@ export function DashboardPage() {
                   </li>
                 ))}
               </ul>
+            )}
+            {needAttention.length < atencion.length && (
+              <p className="mt-2 border-t pt-2 text-xs text-muted-foreground">
+                Se muestran los {needAttention.length} más urgentes de {atencion.length}.{' '}
+                <Link to="/trabajos" className="text-primary hover:underline">Ver todos los trabajos</Link>
+              </p>
             )}
           </CardContent>
         </Card>

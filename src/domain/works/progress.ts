@@ -85,6 +85,29 @@ export function attentionReasons(
   return reasons
 }
 
+/**
+ * Gravedad de un trabajo, para ordenar una lista: cuanto más bajo, más urgente.
+ *
+ * `attentionReasons` ya devuelve sus motivos de más grave a menos, así que la
+ * gravedad de un trabajo es la de su primer motivo. Hace falta porque la
+ * tarjeta del resumen muestra unos pocos trabajos y hasta ahora enseñaba los
+ * primeros que venían de la consulta: un trabajo con la fecha superada podía
+ * quedarse fuera de la lista mientras se mostraba otro al que solo le faltaba
+ * el plan. Un aviso que no prioriza no es un aviso, es una lista.
+ */
+const GRAVEDAD: Record<AttentionReason, number> = {
+  PAST_DEADLINE: 0,
+  BLOCKED_TASKS: 1,
+  OVERDUE_TASKS: 2,
+  DEADLINE_SOON: 3,
+  NO_PLAN: 4,
+}
+
+export function attentionSeverity(reasons: AttentionReason[]): number {
+  if (reasons.length === 0) return Number.MAX_SAFE_INTEGER
+  return Math.min(...reasons.map((r) => GRAVEDAD[r]))
+}
+
 export const ATTENTION_LABELS: Record<AttentionReason, string> = {
   PAST_DEADLINE: 'Fecha prevista superada',
   BLOCKED_TASKS: 'Tareas bloqueadas',

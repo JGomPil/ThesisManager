@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { attentionReasons, computeWorkProgress, daysUntil } from '../progress'
+import {
+  attentionReasons, attentionSeverity, computeWorkProgress, daysUntil,
+} from '../progress'
 import { statusesForWorkType } from '../statuses'
 import type { WorkStatusRow, WorkTypeStatusRow } from '@/data/types/database'
 
@@ -66,6 +68,55 @@ describe('attentionReasons', () => {
   it('avisa de un trabajo sin planificación', () => {
     const p = computeWorkProgress([], null, HOY)
     expect(attentionReasons(p, null, false, HOY)).toContain('NO_PLAN')
+  })
+
+  /**
+   * La regresión de verdad: un trabajo CON tareas no está «sin planificación».
+   *
+   * Parece una obviedad y fue un fallo real en el resumen, que llamaba a
+   * `computeWorkProgress([], …)` con una lista vacía: los nueve trabajos salían
+   * como no planificados y, peor, «Tareas atrasadas» y «Tareas bloqueadas» no
+   * aparecían nunca, porque esos recuentos también eran cero. El dominio estaba
+   * bien; lo que estaba mal era lo que se le pasaba.
+   */
+  it('un trabajo CON tareas no se anuncia como sin planificación', () => {
+    const p = computeWorkProgress([{ status: 'EN_CURSO', due_date: '2027-01-01' }], null, HOY)
+    expect(attentionReasons(p, '2027-06-30', false, HOY)).not.toContain('NO_PLAN')
+  })
+
+  it('una tarea bloqueada y una atrasada sí se anuncian', () => {
+    const p = computeWorkProgress(
+      [
+        { status: 'BLOQUEADA', due_date: '2027-01-01' },
+        { status: 'PENDIENTE', due_date: '2026-10-01' },
+      ],
+      null,
+      HOY,
+    )
+    const r = attentionReasons(p, '2027-06-30', false, HOY)
+    expect(r).toContain('BLOCKED_TASKS')
+    expect(r).toContain('OVERDUE_TASKS')
+    expect(r).not.toContain('NO_PLAN')
+  })
+})
+
+describe('attentionSeverity', () => {
+  it('ordena por el motivo más grave de cada trabajo', () => {
+    const conFecha = attentionSeverity(['PAST_DEADLINE', 'NO_PLAN'])
+    const soloPlan = attentionSeverity(['NO_PLAN'])
+    const bloqueada = attentionSeverity(['BLOCKED_TASKS'])
+    expect(conFecha).toBeLessThan(bloqueada)
+    expect(bloqueada).toBeLessThan(soloPlan)
+  })
+
+  it('no depende del orden en que lleguen los motivos', () => {
+    expect(attentionSeverity(['NO_PLAN', 'PAST_DEADLINE'])).toBe(
+      attentionSeverity(['PAST_DEADLINE', 'NO_PLAN']),
+    )
+  })
+
+  it('un trabajo sin motivos va al final de cualquier lista', () => {
+    expect(attentionSeverity([])).toBeGreaterThan(attentionSeverity(['NO_PLAN']))
   })
 })
 
