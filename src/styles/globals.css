@@ -120,4 +120,28 @@
   .tone-red     { @apply bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300; }
   .tone-pink    { @apply bg-pink-100 text-pink-700 dark:bg-pink-500/15 dark:text-pink-300; }
   .tone-teal    { @apply bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300; }
+
+  /* EL MISMO TOKEN, COMO FRANJA.
+     Los tonos de arriba son un fondo pálido con su texto legible encima: eso
+     sirve para una pastilla con letras dentro y no sirve para una franja de
+     4 px, que a ese nivel de claridad no se ve. Estas clases son el mismo
+     catálogo de doce colores en versión saturada, para pintar un borde.
+     Se usan con `border-l-4` (el ancho) y ponen el color.
+
+     Van en el mismo sitio y por el mismo motivo que los tonos: añadir un tipo
+     de trabajo con un color nuevo no tiene que tocar Tailwind. Y ganan a
+     `* { @apply border-border }` de más arriba por especificidad —una clase
+     frente al selector universal—, no por el orden. */
+  .edge-slate   { @apply border-l-slate-400   dark:border-l-slate-500; }
+  .edge-sky     { @apply border-l-sky-500     dark:border-l-sky-400; }
+  .edge-cyan    { @apply border-l-cyan-500    dark:border-l-cyan-400; }
+  .edge-blue    { @apply border-l-blue-500    dark:border-l-blue-400; }
+  .edge-violet  { @apply border-l-violet-500  dark:border-l-violet-400; }
+  .edge-amber   { @apply border-l-amber-500   dark:border-l-amber-400; }
+  .edge-orange  { @apply border-l-orange-500  dark:border-l-orange-400; }
+  .edge-emerald { @apply border-l-emerald-500 dark:border-l-emerald-400; }
+  .edge-green   { @apply border-l-green-500   dark:border-l-green-400; }
+  .edge-red     { @apply border-l-red-500     dark:border-l-red-400; }
+  .edge-pink    { @apply border-l-pink-500    dark:border-l-pink-400; }
+  .edge-teal    { @apply border-l-teal-500    dark:border-l-teal-400; }
 }

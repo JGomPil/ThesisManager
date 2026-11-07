@@ -81,6 +81,13 @@ jobs:
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
         run: npm run build
 
+      - name: Comprobar que los colores del catálogo han sobrevivido al build
+        # Tailwind borra del CSS final toda clase que no vea escrita completa, y
+        # once de los doce tonos del catálogo se construían al vuelo: no pintaron
+        # nunca. No da error, ni aviso, ni pantalla en blanco; solo deja de haber
+        # color, así que solo lo ve un guion que lea el CSS compilado.
+        run: ./scripts/check-tones.sh dist
+
       - name: Comprobar que sigue siendo instalable
         # Cuando esto se rompe no se nota: un icono que da 404 no produce
         # ningún error, el navegador pone el suyo genérico y la aplicación «se

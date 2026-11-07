@@ -19,6 +19,7 @@
     "check:export": "./scripts/check-export-queries.sh",
     "drill": "./scripts/restore-drill.sh",
     "check:wrap": "./scripts/check-text-wrap.sh",
+    "check:tones": "./scripts/check-tones.sh dist",
     "check:pure": "./scripts/check-pure-tests.sh",
     "check:shell": "./scripts/check-shell-quoting.sh",
     "check:pwa": "./scripts/check-pwa.sh",

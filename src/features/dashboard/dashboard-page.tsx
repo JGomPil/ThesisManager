@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ToneBadge } from '@/components/ui/badge'
 import { EmptyState, ErrorPanel, LoadingPanel } from '@/components/common/states'
 import { useRowLink } from '@/components/common/row-link'
+import { cn, toneEdgeClass } from '@/lib/utils'
 import { qk } from '@/lib/query-keys'
 import { worksRepo } from '@/data/repositories/works.repo'
 import { tasksRepo } from '@/data/repositories/tasks.repo'
@@ -86,7 +87,10 @@ export function DashboardPage() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {countsByType.map(({ type, count }) => (
           <Link key={type.id} to={`/trabajos?tipo=${type.id}`} className="group">
-            <Card className="h-full transition-colors group-hover:border-primary/40">
+            {/* La franja del color del tipo. Antes el color solo salía en la
+                pastilla de dentro, así que cuatro tarjetas de cuatro tipos
+                distintos se veían iguales desde un metro. */}
+            <Card className={cn('h-full border-l-4 transition-colors', toneEdgeClass(type.color))}>
               <CardContent className="flex flex-col gap-1.5 p-4">
                 <ToneBadge tone={type.color} className="w-fit">{type.short_name}</ToneBadge>
                 <p className="text-2xl font-semibold tabular-nums">{count}</p>

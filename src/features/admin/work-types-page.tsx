@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { EyeOff, ListChecks, Pencil, Plus } from 'lucide-react'
+import { Eye, EyeOff, ListChecks, Pencil, Plus } from 'lucide-react'
 import { PageHeader } from '@/app/layout/app-shell'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea } from '@/components/ui/input'
@@ -41,6 +41,10 @@ export function WorkTypesPage() {
   // El tipo cuyo ciclo de vida se está editando. Ver `WorkTypeStatusesDialog`:
   // un tipo sin filas admite todos los estados, y eso se dice en el diálogo.
   const [ciclo, setCiclo] = React.useState<WorkTypeRow | null>(null)
+  // El tipo que se va a retirar, pendiente de confirmación. Retirar no borra
+  // nada, pero quita el tipo de los formularios de alta y del resumen: es un
+  // cambio que se ve en pantallas que no son esta, así que se pregunta.
+  const [aRetirar, setARetirar] = React.useState<WorkTypeRow | null>(null)
   const types = useWorkTypes(true)
   const mapeos = useWorkTypeStatuses()
   const qc = useQueryClient()
@@ -48,9 +52,22 @@ export function WorkTypesPage() {
 
   const deactivate = useMutation({
     mutationFn: (id: string) => catalogsRepo.deactivateWorkType(id),
-    onSuccess: () => {
+    onSuccess: (t) => {
       void qc.invalidateQueries({ queryKey: qk.catalogs.workTypes })
-      toast.push('success', 'Tipo desactivado. Los trabajos existentes lo conservan.')
+      setARetirar(null)
+      toast.push(
+        'success',
+        `«${t.name}» retirado. Los trabajos que ya lo usan lo conservan, y puedes reactivarlo aquí mismo.`,
+      )
+    },
+    onError: (e) => toast.push('error', errorMessage(e)),
+  })
+
+  const activate = useMutation({
+    mutationFn: (id: string) => catalogsRepo.activateWorkType(id),
+    onSuccess: (t) => {
+      void qc.invalidateQueries({ queryKey: qk.catalogs.workTypes })
+      toast.push('success', `«${t.name}» vuelve a estar disponible al crear un trabajo.`)
     },
     onError: (e) => toast.push('error', errorMessage(e)),
   })
@@ -113,26 +130,41 @@ export function WorkTypesPage() {
                   })()}
                 </TableCell>
                 <TableCell>
-                  <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => setEditing(t)} aria-label="Editar tipo">
-                      <Pencil />
+                  {/* CADA ACCIÓN CON SU PALABRA, no tres dibujos.
+                      Eran tres iconos sin una letra al lado, y el de retirar se
+                      pulsó para ver qué hacía: con razón, porque un ojo tachado
+                      no dice «quitarlo de los formularios de alta». El texto
+                      solo se esconde en pantalla estrecha, donde no cabe; la
+                      tabla ya se desplaza en horizontal. */}
+                  <div className="flex justify-end gap-1.5">
+                    <Button variant="outline" size="sm" onClick={() => setEditing(t)} aria-label={`Editar ${t.name}`}>
+                      <Pencil /> <span className="hidden lg:inline">Editar</span>
                     </Button>
                     <Button
-                      variant="ghost" size="icon" onClick={() => setCiclo(t)}
+                      variant="outline" size="sm" onClick={() => setCiclo(t)}
                       aria-label={`Estados aplicables a ${t.name}`}
                       title="Qué estados se pueden elegir en este tipo"
                     >
-                      <ListChecks />
+                      <ListChecks /> <span className="hidden lg:inline">Estados</span>
                     </Button>
-                    {t.is_active && (
+                    {t.is_active ? (
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deactivate.mutate(t.id)}
-                        aria-label="Desactivar tipo"
-                        title="Desactivar (no se puede borrar un tipo en uso)"
+                        variant="outline" size="sm"
+                        onClick={() => setARetirar(t)}
+                        aria-label={`Retirar ${t.name}`}
+                        title="Dejar de ofrecerlo al crear trabajos. Reversible"
                       >
-                        <EyeOff />
+                        <EyeOff /> <span className="hidden lg:inline">Retirar</span>
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline" size="sm"
+                        loading={activate.isPending && activate.variables === t.id}
+                        onClick={() => activate.mutate(t.id)}
+                        aria-label={`Reactivar ${t.name}`}
+                        title="Volver a ofrecerlo al crear trabajos"
+                      >
+                        <Eye /> <span className="hidden lg:inline">Reactivar</span>
                       </Button>
                     )}
                   </div>
@@ -144,8 +176,10 @@ export function WorkTypesPage() {
       </Card>
 
       <p className="text-xs text-muted-foreground">
-        Los tipos no se borran: se desactivan. Un trabajo histórico debe conservar su tipo, y la
-        base de datos lo impone con <code>ON DELETE RESTRICT</code>. Los tipos marcados como
+        Los tipos no se borran: se retiran. Un trabajo histórico debe conservar su tipo, y la
+        base de datos lo impone con <code>ON DELETE RESTRICT</code>. Un tipo retirado se queda en
+        esta lista, atenuado, con su botón <strong>Reactivar</strong>: retirar siempre tiene
+        vuelta. Los tipos marcados como
         «global» vienen precargados: su nombre, su color, sus reglas y su ciclo de vida{' '}
         <strong>sí</strong> se editan desde aquí, y también se pueden retirar, pero no borrar,
         porque no son de ninguna organización en particular. Esos cambios los ven todas las
@@ -163,6 +197,29 @@ export function WorkTypesPage() {
         open={ciclo !== null}
         onOpenChange={(v) => { if (!v) setCiclo(null) }}
       />
+
+      <Dialog open={aRetirar !== null} onOpenChange={(v) => { if (!v) setARetirar(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¿Retirar «{aRetirar?.name}»?</DialogTitle>
+            <DialogDescription>
+              Dejará de ofrecerse al crear un trabajo y su tarjeta desaparecerá del resumen.{' '}
+              <strong>No se borra nada</strong>: los trabajos que ya son de este tipo lo
+              conservan, y aquí mismo te quedará el botón <strong>Reactivar</strong> para
+              deshacerlo.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setARetirar(null)}>Cancelar</Button>
+            <Button
+              loading={deactivate.isPending}
+              onClick={() => aRetirar && deactivate.mutate(aRetirar.id)}
+            >
+              <EyeOff /> Retirar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -102,6 +102,21 @@ export const catalogsRepo = {
   deactivateWorkType: async (id: string): Promise<WorkTypeRow> =>
     unwrapUpdated(await supabase.from('work_types').update({ is_active: false }).eq('id', id).select('*').maybeSingle(), 'este tipo de trabajo'),
 
+  /**
+   * Volver a ofrecer un tipo retirado.
+   *
+   * POR QUÉ ESTO FALTABA Y POR QUÉ IMPORTA
+   * El botón de retirar solo se dibujaba para los tipos activos, así que no
+   * había ninguno para el contrario: un clic de más dejaba el tipo fuera de
+   * los formularios de alta y del resumen, y la única vuelta atrás era un
+   * UPDATE a mano en el panel de Supabase. Pasó el 7 de noviembre de 2026, con
+   * un tipo que se quedó «traslúcido gris» y sin forma de recuperarlo desde la
+   * aplicación. Una acción reversible solo es reversible si la pantalla ofrece
+   * la vuelta.
+   */
+  activateWorkType: async (id: string): Promise<WorkTypeRow> =>
+    unwrapUpdated(await supabase.from('work_types').update({ is_active: true }).eq('id', id).select('*').maybeSingle(), 'este tipo de trabajo'),
+
   listWorkStatuses: async (): Promise<WorkStatusRow[]> =>
     unwrap(await supabase.from('work_statuses').select('*').eq('is_active', true).order('display_order')),
 

@@ -17,6 +17,7 @@ import { useToast } from '@/components/ui/toast'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EmptyState, ErrorPanel, LoadingPanel } from '@/components/common/states'
 import { useRowLink } from '@/components/common/row-link'
+import { cn, toneEdgeClass } from '@/lib/utils'
 import { qk } from '@/lib/query-keys'
 import { worksRepo } from '@/data/repositories/works.repo'
 import { errorMessage } from '@/lib/supabase'
@@ -213,7 +214,11 @@ export function WorksListPage() {
               y el coste es markup, no consultas. */}
           <Card className="divide-y sm:hidden">
             {filas.map(({ w, estudiantes, direccion, dias, vencido }) => (
-              <div key={w.id} className="cursor-pointer p-3 active:bg-accent" {...rowLink(`/trabajos/${w.id}`)}>
+              <div
+                key={w.id}
+                className={cn('cursor-pointer border-l-4 p-3 active:bg-accent', toneEdgeClass(w.work_type?.color))}
+                {...rowLink(`/trabajos/${w.id}`)}
+              >
                 <div className="flex items-start justify-between gap-2">
                   <Link to={`/trabajos/${w.id}`} className="min-w-0 font-medium hover:underline">
                     <span className="line-clamp-2">{w.title}</span>
@@ -277,7 +282,10 @@ export function WorksListPage() {
               {filas.map(({ w, estudiantes, direccion, vencido }) => {
                 return (
                   <TableRow key={w.id} className="cursor-pointer" {...rowLink(`/trabajos/${w.id}`)}>
-                    <TableCell className="max-w-[22rem]">
+                    {/* La franja del tipo, al principio de la fila: es lo que
+                        permite ver de un golpe cuántos TFG y cuántas tesis hay
+                        en un listado de cuarenta trabajos. */}
+                    <TableCell className={cn('max-w-[22rem] border-l-4', toneEdgeClass(w.work_type?.color))}>
                       <Link to={`/trabajos/${w.id}`} className="font-medium hover:underline">
                         <span className="line-clamp-2">{w.title}</span>
                       </Link>

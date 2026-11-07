@@ -234,6 +234,19 @@ de tipos de trabajo extensibles: concentra `work_types`, `work_statuses`, `work_
   `scripts/check-text-wrap.sh` en Actions, y no la memoria. En el mismo apartado:
   `[&>*]:min-w-0` en el diálogo, porque los hijos de un grid valen `min-width: auto` y no se
   encogen por debajo de su contenido.
+- **Una clase de Tailwind construida al vuelo no existe.** Tailwind no ejecuta el código: rastrea
+  los ficheros buscando cadenas que parezcan nombres de clase y **borra del CSS final todo lo que no
+  encuentra**. Los colores del catálogo se resolvían con `` `tone-${tono}` ``, así que `.tone-blue`
+  nunca llegó al CSS publicado: la pastilla del TFG se dibujaba con una clase sin ninguna regla
+  detrás —sin fondo, blanca— y daba igual el color que eligiera la administración. **Once de los
+  doce tonos no pintaron nunca**; el duodécimo, `slate`, sobrevivía porque está escrito como valor
+  por defecto, y eso disimulaba el fallo: el color por omisión sí funcionaba. Lo peor es cómo se
+  manifiesta: no hay excepción, ni aviso en la consola, ni pantalla en blanco. El HTML lleva la
+  clase correcta. Solo falta el color, y eso se parece a una decisión de diseño. Ahora los
+  veinticuatro nombres están escritos completos en `src/lib/utils.ts` (`TONE_CLASS` y `EDGE_CLASS`,
+  con `Record<Tone, string>`, que obliga a que no falte ninguno) y `scripts/check-tones.sh` lee el
+  **CSS compilado** en Actions para comprobar que siguen ahí. El CSS de origen no sirve de testigo:
+  ahí están siempre los doce.
 - **Lo nuevo degrada; lo que ya estaba no se rompe.** Un *embed* de PostgREST a una tabla que no
   existe no devuelve una lista vacía: responde error y tumba la consulta **entera**. Al añadir
   `documents:template_documents(*)` al `select` de plantillas, la pantalla de Plantillas se quedaba
