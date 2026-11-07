@@ -20,8 +20,11 @@ import { EmptyState, ErrorPanel, FieldError, LoadingPanel } from '@/components/c
 import { useToast } from '@/components/ui/toast'
 import { qk } from '@/lib/query-keys'
 import { errorMessage } from '@/lib/supabase'
-import { TASK_PRIORITIES, TASK_STATUSES, tasksRepo, type TaskWithAssignee } from '@/data/repositories/tasks.repo'
-import type { TaskStatus } from '@/data/types/database'
+import { TASK_PRIORITIES, tasksRepo, type TaskWithAssignee } from '@/data/repositories/tasks.repo'
+import { catalogsRepo } from '@/data/repositories/catalogs.repo'
+import {
+  columnKeyOf, groupCards, planCardMove, resolveBoard, type BoardColumn,
+} from '@/domain/plan/board'
 import type { WorkWithRelations } from '@/data/repositories/works.repo'
 import { taskFormSchema, type TaskFormValues } from '@/schemas/work'
 import { canUpdateTaskStatus, type WorkCapabilities } from '@/domain/permissions/work-capabilities'
@@ -64,12 +67,28 @@ export function TaskBoard({
 
   const tasks = useQuery({ queryKey: qk.tasks.byWork(work.id), queryFn: () => tasksRepo.byWork(work.id) })
 
+  /**
+   * Las columnas del tablero son un CATÁLOGO (migración 0024), no la lista de
+   * estados del código. Si la organización no ha configurado ninguna, se
+   * dibujan las cinco de siempre y nada cambia; lo decide `resolveBoard`.
+   */
+  const columnas = useQuery({
+    queryKey: qk.catalogs.boardColumns(work.organization_id),
+    queryFn: () => catalogsRepo.listBoardColumns(work.organization_id),
+  })
+
+  // Qué tarjeta se arrastra y dónde caería. Solo sirve para pintar la pista;
+  // el movimiento lo calcula `planCardMove` con los datos de la consulta, así
+  // que no hay copia local del tablero que pueda discrepar de la real.
+  const [arrastrada, setArrastrada] = React.useState<string | null>(null)
+  const [destino, setDestino] = React.useState<{ columna: string; antesDe: string | null } | null>(null)
+
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: qk.tasks.all })
   }
 
-  const setStatus = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: TaskStatus }) => tasksRepo.setStatus(id, status),
+  const mover = useMutation({
+    mutationFn: tasksRepo.applyBoardMoves,
     onSuccess: invalidate,
     onError: (e) => toast.push('error', errorMessage(e)),
   })
@@ -93,6 +112,31 @@ export function TaskBoard({
   // lo que se ve.
   const rows = all.filter((t) => t.parent_task_id === null)
   const subtasksOf = (id: string) => all.filter((t) => t.parent_task_id === id)
+
+  const tablero = resolveBoard(columnas.data ?? [], rows)
+  const porColumna = groupCards(rows, tablero)
+  const sinConfigurar = (columnas.data ?? []).length === 0
+
+  /** Suelta la tarjeta arrastrada en una columna, delante de `antesDe`. */
+  const soltar = (columna: string, antesDe: string | null) => {
+    if (arrastrada === null) return
+    const movimientos = planCardMove({
+      tarjetas: rows, columnas: tablero, arrastradaId: arrastrada, destinoKey: columna, antesDe,
+    })
+    setArrastrada(null)
+    setDestino(null)
+    // Ni petición ni invalidación si la tarjeta vuelve a su sitio: el tablero
+    // no debe parpadear por un arrastre que no cambia nada.
+    if (movimientos.length > 0) mover.mutate(movimientos)
+  }
+
+  /** Mover sin arrastrar: el desplegable de la tarjeta y de la lista. */
+  const moverA = (tareaId: string, columnaKey: string) => {
+    const movimientos = planCardMove({
+      tarjetas: rows, columnas: tablero, arrastradaId: tareaId, destinoKey: columnaKey, antesDe: null,
+    })
+    if (movimientos.length > 0) mover.mutate(movimientos)
+  }
   const openTask = rows.find((t) => t.id === openTaskId) ?? null
   const editTask = rows.find((t) => t.id === editTaskId) ?? null
 
@@ -128,33 +172,118 @@ export function TaskBoard({
           action={caps.canManagePlan && <Button size="sm" onClick={() => setDialogOpen(true)}><Plus /> Nueva tarea</Button>}
         />
       ) : view === 'kanban' ? (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-5">
-          {TASK_STATUSES.map((col) => {
-            const colTasks = rows.filter((t) => t.status === col.value)
-            return (
-              <div key={col.value} className="flex min-w-0 flex-col gap-2">
-                <div className="flex items-center justify-between px-1">
-                  <ToneBadge tone={col.tone}>{col.label}</ToneBadge>
-                  <span className="text-xs tabular-nums text-muted-foreground">{colTasks.length}</span>
+        <>
+          {/* UNA COLUMNA POR FILA DEL CATÁLOGO, en su orden. Antes era una por
+              valor del `check` de `tasks.status`, o sea que el tablero lo
+              decidía el código. Las tarjetas van en el orden guardado
+              (`order_index`), no agrupadas por estado: una pendiente puede
+              estar debajo de una en curso, porque el orden dentro de la
+              columna lo decide quien planifica. */}
+          <div
+            className={cn(
+              'grid gap-3',
+              // La columna base va en la MISMA línea que las de cada tamaño, no
+              // suelta arriba: `check:grids` lee línea a línea, y es la única
+              // forma de que la comprobación siga sirviendo. Sin columna base,
+              // la rejilla hereda una pista implícita cuyo mínimo es el texto
+              // más largo de dentro, y la página se ensancha en el móvil.
+              tablero.length <= 4
+                ? 'grid-cols-1 md:grid-cols-3 xl:grid-cols-4'
+                : 'grid-cols-1 md:grid-cols-3 xl:grid-cols-5',
+            )}
+          >
+            {tablero.map((col) => {
+              const colTasks = porColumna.get(col.key) ?? []
+              const esDestino = destino?.columna === col.key
+              return (
+                <div
+                  key={col.key}
+                  className={cn(
+                    'flex min-w-0 flex-col gap-2 rounded-lg p-1 transition-colors',
+                    esDestino && 'bg-primary/5 ring-1 ring-primary/40',
+                  )}
+                  // Soltar sobre el hueco de la columna = al final de la
+                  // columna. `onDragOver` con `preventDefault` es lo que
+                  // convierte un elemento en zona donde se puede soltar; sin
+                  // él, el navegador rechaza el gesto sin decir nada.
+                  onDragOver={(e) => {
+                    if (arrastrada === null) return
+                    e.preventDefault()
+                    setDestino({ columna: col.key, antesDe: null })
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    soltar(col.key, destino?.columna === col.key ? destino.antesDe : null)
+                  }}
+                >
+                  <div className="flex items-center justify-between gap-1 px-1">
+                    <ToneBadge tone={col.color}>{col.name}</ToneBadge>
+                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{colTasks.length}</span>
+                  </div>
+                  {!col.isActive && (
+                    <p className="px-1 text-[0.7rem] text-amber-600 dark:text-amber-400">
+                      Columna retirada. Mueve estas tarjetas a otra columna.
+                    </p>
+                  )}
+                  <div className="flex min-h-8 flex-col gap-2">
+                    {colTasks.map((t) => (
+                      <div
+                        key={t.id}
+                        draggable={caps.canManagePlan}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('text/plain', t.id)
+                          e.dataTransfer.effectAllowed = 'move'
+                          setArrastrada(t.id)
+                        }}
+                        onDragEnd={() => { setArrastrada(null); setDestino(null) }}
+                        onDragOver={(e) => {
+                          if (arrastrada === null) return
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setDestino({ columna: col.key, antesDe: t.id })
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          soltar(col.key, t.id)
+                        }}
+                        className={cn(
+                          'rounded-lg',
+                          arrastrada === t.id && 'opacity-50',
+                          // La barra de inserción: se verá por encima de la
+                          // tarjeta delante de la que se va a soltar.
+                          esDestino && destino?.antesDe === t.id && arrastrada !== t.id
+                            && 'border-t-2 border-primary pt-1',
+                        )}
+                      >
+                        <TaskCard
+                          task={t}
+                          subtasks={subtasksOf(t.id)}
+                          caps={caps}
+                          userId={userId}
+                          columnas={tablero}
+                          columnaActual={columnKeyOf(t, tablero)}
+                          onOpen={() => setOpenTaskId(t.id)}
+                          onMover={(key) => moverA(t.id, key)}
+                          onRemove={() => remove.mutate(t.id)}
+                          arrastrable={caps.canManagePlan}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex flex-col gap-2">
-                  {colTasks.map((t) => (
-                    <TaskCard
-                      key={t.id}
-                      task={t}
-                      subtasks={subtasksOf(t.id)}
-                      caps={caps}
-                      userId={userId}
-                      onOpen={() => setOpenTaskId(t.id)}
-                      onStatus={(status) => setStatus.mutate({ id: t.id, status })}
-                      onRemove={() => remove.mutate(t.id)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+
+          {caps.canManagePlan && (
+            <p className="text-xs text-muted-foreground">
+              {sinConfigurar
+                ? 'Estas son las columnas por defecto. En Administración → Catálogos puedes crear las tuyas, ponerles el nombre que quieras y ordenarlas.'
+                : 'Arrastra las tarjetas para ordenarlas o cambiarlas de columna. En un teléfono, usa el desplegable de cada tarjeta.'}
+            </p>
+          )}
+        </>
       ) : (
         <>
           {/* MÓVIL: tarjetas. Esta lista es la que más se mira desde el
@@ -215,11 +344,13 @@ export function TaskBoard({
                     )}
                   </div>
 
-                  <StatusSelect
+                  <ColumnSelect
                     task={t}
                     caps={caps}
                     userId={userId}
-                    onChange={(status) => setStatus.mutate({ id: t.id, status })}
+                    columnas={tablero}
+                    columnaActual={columnKeyOf(t, tablero)}
+                    onMover={(key) => moverA(t.id, key)}
                   />
                 </div>
               )
@@ -234,7 +365,7 @@ export function TaskBoard({
                 <TableHead>Responsable</TableHead>
                 <TableHead>Prioridad</TableHead>
                 <TableHead>Fecha límite</TableHead>
-                <TableHead>Estado</TableHead>
+                <TableHead>Columna</TableHead>
                 {caps.canManagePlan && <TableHead />}
               </TableRow>
             </TableHeader>
@@ -277,11 +408,14 @@ export function TaskBoard({
                       {t.due_date ? format(parseISO(t.due_date), 'd MMM yyyy', { locale: es }) : '—'}
                     </TableCell>
                     <TableCell>
-                      <StatusSelect
+                      <ColumnSelect
                         task={t}
                         caps={caps}
                         userId={userId}
-                        onChange={(status) => setStatus.mutate({ id: t.id, status })}
+                        columnas={tablero}
+                        columnaActual={columnKeyOf(t, tablero)}
+                        onMover={(key) => moverA(t.id, key)}
+                        ancho="w-[10.5rem]"
                       />
                     </TableCell>
                     {caps.canManagePlan && (
@@ -312,6 +446,7 @@ export function TaskBoard({
         userId={userId}
         workId={work.id}
         members={work.members.filter((m) => m.status === 'ACTIVE')}
+        columna={openTask ? (tablero.find((c) => c.key === columnKeyOf(openTask, tablero)) ?? null) : null}
       />
 
 
@@ -339,49 +474,70 @@ export function TaskBoard({
   )
 }
 
-function StatusSelect({
-  task, caps, userId, onChange,
+/**
+ * Mover una tarjeta SIN arrastrar.
+ *
+ * Arrastrar es cómodo con ratón y malo con el dedo: en un móvil compite con el
+ * gesto de desplazar la página, y con el teclado no existe. Este desplegable es
+ * la misma operación por la vía de siempre, y es además lo que ve quien solo
+ * puede informar del avance de su tarea.
+ *
+ * Quien no puede tocarla ve el nombre de su columna, que es lo que antes era
+ * la pastilla del estado.
+ */
+function ColumnSelect({
+  task, caps, userId, columnas, columnaActual, onMover, ancho,
 }: {
   task: TaskWithAssignee
   caps: WorkCapabilities
   userId: string | null
-  onChange: (status: TaskStatus) => void
+  columnas: BoardColumn[]
+  columnaActual: string
+  onMover: (columnaKey: string) => void
+  /** La tabla tiene sitio para un ancho fijo; la tarjeta del tablero, no. */
+  ancho?: string
 }) {
-  const allowed = canUpdateTaskStatus(caps, task, userId)
-  if (!allowed) {
-    const s = TASK_STATUSES.find((x) => x.value === task.status)
-    return <ToneBadge tone={s?.tone ?? null}>{s?.label}</ToneBadge>
+  const actual = columnas.find((c) => c.key === columnaActual)
+  if (!canUpdateTaskStatus(caps, task, userId)) {
+    return <ToneBadge tone={actual?.color ?? null}>{actual?.name ?? '—'}</ToneBadge>
   }
   return (
     <Select
-      value={task.status}
-      onChange={(e) => onChange(e.target.value as TaskStatus)}
-      className="h-8 w-[10.5rem] text-xs"
-      aria-label="Estado de la tarea"
+      value={columnaActual}
+      onChange={(e) => onMover(e.target.value)}
+      className={cn('h-8 min-w-0 text-xs', ancho ?? 'w-full')}
+      aria-label="Columna del tablero"
     >
-      {TASK_STATUSES.map((s) => (
-        <option key={s.value} value={s.value}>{s.label}</option>
+      {columnas.map((c) => (
+        <option key={c.key} value={c.key}>{c.name}</option>
       ))}
     </Select>
   )
 }
 
 function TaskCard({
-  task, subtasks, caps, userId, onOpen, onStatus, onRemove,
+  task, subtasks, caps, userId, columnas, columnaActual, onOpen, onMover, onRemove, arrastrable,
 }: {
   task: TaskWithAssignee
   subtasks: TaskWithAssignee[]
   caps: WorkCapabilities
   userId: string | null
   onOpen: () => void
-  onStatus: (status: TaskStatus) => void
+  columnas: BoardColumn[]
+  columnaActual: string
+  onMover: (columnaKey: string) => void
+  arrastrable: boolean
   onRemove: () => void
 }) {
   const late = task.due_date !== null && task.status !== 'COMPLETADA' && (daysUntil(task.due_date) ?? 0) < 0
   const priority = TASK_PRIORITIES.find((p) => p.value === task.priority)
 
   return (
-    <Card className="cursor-pointer active:bg-accent" {...propsDeApertura(onOpen)}>
+    <Card
+      className={cn('cursor-pointer active:bg-accent', arrastrable && 'cursor-grab active:cursor-grabbing')}
+      title={arrastrable ? 'Arrástrala para cambiarla de columna o de orden' : undefined}
+      {...propsDeApertura(onOpen)}
+    >
       <CardContent className="space-y-2 p-3">
         {/* La tarjeta ENTERA abre la ficha, pero el título sigue siendo un
             <button> de verdad: es la parada del tabulador y lo que anuncia un
@@ -433,7 +589,14 @@ function TaskCard({
           </div>
         )}
         <div className="flex items-center gap-1">
-          <StatusSelect task={task} caps={caps} userId={userId} onChange={onStatus} />
+          <ColumnSelect
+            task={task}
+            caps={caps}
+            userId={userId}
+            columnas={columnas}
+            columnaActual={columnaActual}
+            onMover={onMover}
+          />
           {caps.canManagePlan && (
             <Button variant="ghost" size="icon" className="size-8" onClick={onRemove} aria-label="Eliminar tarea">
               <Trash2 />

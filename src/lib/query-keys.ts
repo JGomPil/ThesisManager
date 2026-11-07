@@ -21,6 +21,9 @@ export const qk = {
     allWorkStatuses: ['catalogs', 'work-statuses', 'all'] as const,
     allWorkRoles: ['catalogs', 'work-roles', 'all'] as const,
     allDocumentTypes: ['catalogs', 'document-types', 'all'] as const,
+    /** Columnas del tablero de tareas (0024): por organización. */
+    boardColumns: (organizationId: string) => ['catalogs', 'board-columns', organizationId] as const,
+    boardColumnUsage: ['catalogs', 'usage', 'board-columns'] as const,
     documentTypeUsage: ['catalogs', 'usage', 'document-types'] as const,
     statusRoleUsage: ['catalogs', 'usage', 'statuses-roles'] as const,
     usage: ['catalogs', 'usage'] as const,

@@ -163,6 +163,36 @@ with comprobaciones as (
    )
 
   union all
+  -- 5.quinquies La 0024: las columnas del tablero de tareas. Se mira la tabla,
+  --             su RLS y que el disparador que deriva el estado sea
+  --             SECURITY DEFINER. Si no lo fuera, no podria leer la
+  --             organizacion de la columna y la comprobacion de que la columna
+  --             es del mismo grupo FALLARIA ABIERTA (SECURITY.md §5.2).
+  select 16, 'migracion 0024: columnas del tablero configurables',
+         case when (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
+                     where n.nspname = 'public' and c.relname = 'board_columns'
+                       and c.relrowsecurity) = 1
+                   and (select count(*) from pg_proc pr join pg_namespace n on n.oid = pr.pronamespace
+                         where n.nspname = 'app' and pr.proname = 'sync_task_board_column'
+                           and pr.prosecdef) = 1
+                   and (select count(*) from information_schema.columns
+                         where table_schema = 'public' and table_name = 'tasks'
+                           and column_name = 'board_column_id') = 1
+              then 'OK' else 'FALLO' end,
+         (select case when count(*) = 1 then 'tabla con RLS' else 'FALTA LA TABLA O SU RLS' end
+            from pg_class c join pg_namespace n on n.oid = c.relnamespace
+           where n.nspname = 'public' and c.relname = 'board_columns' and c.relrowsecurity)
+         || ' · ' ||
+         (select case when count(*) = 1 then 'disparador security definer'
+                      else 'EL DISPARADOR FALLA ABIERTO O FALTA' end
+            from pg_proc pr join pg_namespace n on n.oid = pr.pronamespace
+           where n.nspname = 'app' and pr.proname = 'sync_task_board_column' and pr.prosecdef)
+         || ' · ' ||
+         (select case when count(*) = 1 then 'tasks.board_column_id' else 'FALTA LA COLUMNA EN tasks' end
+            from information_schema.columns
+           where table_schema = 'public' and table_name = 'tasks' and column_name = 'board_column_id')
+
+  union all
   -- 6. Y que ningun rol tenga capacidades que no deba: el estudiante, ninguna.
   select 10, 'el rol de estudiante no tiene capacidades',
          case when count(*) = 0 then 'OK' else 'FALLO' end,

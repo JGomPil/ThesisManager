@@ -129,9 +129,40 @@ seguridad se comporta correctamente sin reescribir políticas.
   presentación, datos y resultados, documentación administrativa, otros.
 - `academic_years`: `2025/2026`, con `is_current`.
 - `research_lines`: líneas del grupo.
-- `task_statuses` y `task_priorities`: dado que el prompt los fija y son estables, se implementan
-  como columnas `text` con `CHECK`, no como tablas. Son el único punto donde renuncio al catálogo,
-  porque no hay indicio de que vayan a crecer y las tablas añadirían dos `JOIN` a la vista Kanban.
+- `task_priorities`: dado que el prompt las fija y son estables, se implementan como columna
+  `text` con `CHECK`, no como tabla.
+- `task_statuses` sigue siendo también una columna `text` con `CHECK` —`tasks.status`—, y lo
+  seguirá siendo: el dominio casa por valor (`domain/plan`), el cronograma colorea por valor y el
+  progreso del trabajo se calcula con él. Lo que se ha vuelto catálogo, en la `0024`, es otra
+  cosa: **las columnas del tablero** (§3.5). Son dos preguntas distintas que al principio parecían
+  una sola —«qué estados existen» y «cómo quiero organizar mi tablero»—, y por eso aquella
+  decisión no se deshace, se completa.
+
+### 3.5. `board_columns` — las columnas del tablero de tareas (`0024`)
+
+El tablero tenía una columna por valor del `CHECK` de `tasks.status`, es decir: lo decidía el
+código. Un grupo que trabaja con *papers* quiere columnas «Papers» y «Estudios», no «Pendiente» y
+«En curso», y las tarjetas en el orden que decide quien planifica —una pendiente puede ir debajo
+de una en curso— y no agrupadas por estado.
+
+| Columna | Notas |
+|---|---|
+| `organization_id` | uuid FK **NOT NULL**: no hay columnas globales. El tablero es del grupo |
+| `name` | Lo que se ve. Único por organización |
+| `color` | Uno de los tonos de la paleta, como los demás catálogos |
+| `maps_to` | **Qué significa la columna** para la aplicación: uno de los valores de `tasks.status`, con el mismo `CHECK`. Es el campo que hace que esto no sea solo decoración |
+| `display_order` | El orden de las columnas en el tablero, de izquierda a derecha |
+| `is_active` | Retirar sin borrar. Una columna retirada **se sigue dibujando mientras tenga tarjetas**: esconderla haría desaparecer tareas de la vista |
+
+`tasks.board_column_id` es FK **nullable** con `on delete restrict`: sin columna asignada, el
+tablero dibuja las cinco de siempre, así que la migración no obliga a nadie a configurar nada, y
+una columna con tarjetas dentro no se puede borrar.
+
+Las dos direcciones las mantiene un *trigger* `security definer`, `app.sync_task_board_column()`:
+mover una tarjeta a una columna **deriva** `status` de su `maps_to` (y pone o quita
+`completed_at`), y completar una tarea por otra vía recoloca su tarjeta en la primera columna que
+signifique «completada». Sin eso, el tablero y el resumen del trabajo contarían historias
+distintas sin que nada diera error. Por qué `security definer`, en `SECURITY.md` §5.2.sexvicies.
 
 ## 4. `academic_works`
 
@@ -188,7 +219,7 @@ del mismo trabajo.
 - `tasks`: `work_id`, `parent_task_id` (subtareas), `assignee_id`, `title`, `description`,
   `status` (`PENDIENTE`/`EN_CURSO`/`BLOQUEADA`/`EN_REVISION`/`COMPLETADA`), `priority`
   (`BAJA`/`MEDIA`/`ALTA`/`URGENTE`), `start_date`, `due_date`, `completed_at`, `order_index`,
-  `milestone_id`, `created_by`. `task_dependencies` (`task_id`, `depends_on_task_id`, `CHECK` de no
+  `milestone_id`, `board_column_id` (▸ `board_columns`, §3.5), `created_by`. `task_dependencies` (`task_id`, `depends_on_task_id`, `CHECK` de no
   autodependencia; los ciclos se validan en la aplicación).
 - `meetings` + `meeting_participants` + `meeting_agreements` (acuerdos, con posible `task_id`
   derivada) + `meeting_private_notes` (**tabla aparte, nunca columna**, para que RLS la proteja por

@@ -1,7 +1,8 @@
 import { supabase } from '@/lib/supabase'
 import { ordenarConOtrosAlFinal } from '@/domain/admin/catalog-order'
+import { ESTADOS_TAREA } from '@/domain/plan/board'
 import type {
-  AcademicLevelRow, AcademicYearRow, ProgramRow, ResearchLineRow,
+  AcademicLevelRow, AcademicYearRow, BoardColumnRow, ProgramRow, ResearchLineRow,
   DocumentTypeRow, WorkRoleRow, WorkStatusRow, WorkTypeRow, WorkTypeStatusRow,
 } from '@/data/types/database'
 import type { Database } from '@/data/types/database'
@@ -20,6 +21,8 @@ type RoleInsert = Database['public']['Tables']['work_roles']['Insert']
 type RoleUpdate = Database['public']['Tables']['work_roles']['Update']
 type DocTypeInsert = Database['public']['Tables']['document_types']['Insert']
 type DocTypeUpdate = Database['public']['Tables']['document_types']['Update']
+type BoardColumnInsert = Database['public']['Tables']['board_columns']['Insert']
+type BoardColumnUpdate = Database['public']['Tables']['board_columns']['Update']
 
 /**
  * Cuántos trabajos usan cada línea, titulación y curso.
@@ -336,4 +339,85 @@ export const catalogsRepo = {
 
   listDocumentTypes: async (): Promise<DocumentTypeRow[]> =>
     unwrap(await supabase.from('document_types').select('*').eq('is_active', true).order('display_order')),
+
+  // ---------------------------------------------------------------------------
+  // Columnas del tablero de tareas (migración 0024)
+  // ---------------------------------------------------------------------------
+  /**
+   * TODAS las columnas de la organización, retiradas incluidas.
+   *
+   * Las retiradas hacen falta en el tablero y no solo en Administración: una
+   * columna retirada que todavía tenga tarjetas se sigue dibujando, porque
+   * esconderla dejaría las tarjetas sin aparecer en ningún sitio sin haberlas
+   * borrado. Lo decide `resolveBoard`, en el dominio.
+   */
+  listBoardColumns: async (organizationId: string): Promise<BoardColumnRow[]> =>
+    unwrap(
+      await supabase
+        .from('board_columns')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .order('display_order')
+        .order('name'),
+    ),
+
+  /**
+   * Cuántas tarjetas hay en cada columna.
+   *
+   * Hace falta para dos cosas distintas: no ofrecer «Borrar» una columna con
+   * tarjetas —la clave ajena es `on delete restrict`, así que el botón solo
+   * serviría para dar un error— y avisar antes de retirar una, porque retirada
+   * sigue dibujándose mientras tenga tarjetas.
+   *
+   * Una consulta de una columna y el recuento en memoria, como `catalogUsage`:
+   * la alternativa es una consulta por fila del catálogo. RLS ya limita las
+   * tareas a las que quien pregunta puede ver, y quien administra las ve todas.
+   */
+  boardColumnUsage: async (): Promise<Record<string, number>> => {
+    const filas = unwrap(
+      await supabase.from('tasks').select('board_column_id').not('board_column_id', 'is', null),
+    )
+    const cuenta: Record<string, number> = {}
+    for (const f of filas) {
+      if (f.board_column_id) cuenta[f.board_column_id] = (cuenta[f.board_column_id] ?? 0) + 1
+    }
+    return cuenta
+  },
+
+  createBoardColumn: async (input: BoardColumnInsert): Promise<BoardColumnRow> =>
+    unwrap(await supabase.from('board_columns').insert(input).select('*').single()),
+
+  updateBoardColumn: async (id: string, patch: BoardColumnUpdate): Promise<BoardColumnRow> =>
+    unwrapUpdated(
+      await supabase.from('board_columns').update(patch).eq('id', id).select('*').maybeSingle(),
+      'esta columna del tablero',
+    ),
+
+  removeBoardColumn: async (id: string): Promise<void> => {
+    const { error } = await supabase.from('board_columns').delete().eq('id', id)
+    if (error) throw error
+  },
+
+  /**
+   * Crea las cinco columnas de siempre como filas editables.
+   *
+   * Es el primer paso de quien quiere columnas propias: en lugar de empezar con
+   * un tablero vacío, se parte de lo que ya se estaba viendo y se renombra, se
+   * reordena o se añade. La migración 0024 no siembra estas filas a propósito
+   * —obligaría a borrarlas a quien no las quiere—, así que la siembra es este
+   * botón, explícito y en una sola operación.
+   */
+  seedBoardColumns: async (organizationId: string): Promise<BoardColumnRow[]> =>
+    unwrap(
+      await supabase
+        .from('board_columns')
+        .insert(ESTADOS_TAREA.map((e, i) => ({
+          organization_id: organizationId,
+          name: e.label,
+          color: e.tone,
+          maps_to: e.value,
+          display_order: i,
+        })))
+        .select('*'),
+    ),
 }

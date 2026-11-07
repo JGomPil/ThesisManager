@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { ESTADOS_TAREA, type CardMove } from '@/domain/plan/board'
 import type {
   Database, TaskDependencyRow, TaskPriority, TaskRow, TaskStatus,
 } from '@/data/types/database'
@@ -129,6 +130,28 @@ export const tasksRepo = {
     if (fallo?.error) throw fallo.error
   },
 
+  /**
+   * Aplica un movimiento del tablero: lo que devuelve `planCardMove`.
+   *
+   * Una petición por fila, por lo mismo que `reorder`: PostgREST no sabe dar un
+   * valor distinto a cada fila en una sola llamada. Son pocas —la tarjeta
+   * movida y, si acaso, las de su columna de destino que cambian de sitio—,
+   * así que van en paralelo.
+   *
+   * El estado NO se manda cuando la columna destino es del catálogo: lo deriva
+   * el disparador `app.sync_task_board_column()` de la 0024, que es el único
+   * sitio donde se decide. Mandarlo también desde aquí sería tener dos
+   * opiniones sobre el mismo dato.
+   */
+  applyBoardMoves: async (movimientos: CardMove[]): Promise<void> => {
+    if (movimientos.length === 0) return
+    const respuestas = await Promise.all(
+      movimientos.map(({ id, ...patch }) => supabase.from('tasks').update(patch).eq('id', id)),
+    )
+    const fallo = respuestas.find((r) => r.error)
+    if (fallo?.error) throw fallo.error
+  },
+
   remove: async (id: string): Promise<void> => {
     const { error } = await supabase.from('tasks').delete().eq('id', id)
     if (error) throw error
@@ -174,13 +197,15 @@ export const tasksRepo = {
   },
 }
 
-export const TASK_STATUSES: { value: TaskStatus; label: string; tone: string }[] = [
-  { value: 'PENDIENTE', label: 'Pendiente', tone: 'slate' },
-  { value: 'EN_CURSO', label: 'En curso', tone: 'blue' },
-  { value: 'BLOQUEADA', label: 'Bloqueada', tone: 'red' },
-  { value: 'EN_REVISION', label: 'En revisión', tone: 'amber' },
-  { value: 'COMPLETADA', label: 'Completada', tone: 'green' },
-]
+/**
+ * Los cinco estados con su nombre y su color.
+ *
+ * La lista vive en el dominio (`domain/plan/board.ts`) porque desde la 0024 es
+ * también el tablero por defecto: una organización que no configura columnas ve
+ * una por estado. Se reexporta con el nombre de siempre para no renombrar los
+ * cuatro sitios que la usan para pintar una pastilla.
+ */
+export const TASK_STATUSES = ESTADOS_TAREA
 
 export const TASK_PRIORITIES: { value: TaskPriority; label: string; tone: string }[] = [
   { value: 'BAJA', label: 'Baja', tone: 'slate' },

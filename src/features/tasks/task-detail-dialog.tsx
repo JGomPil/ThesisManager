@@ -21,6 +21,7 @@ import {
 } from '@/data/repositories/tasks.repo'
 import { daysUntil } from '@/domain/works/progress'
 import { moveItem, reorderWrites } from '@/domain/plan/reorder'
+import type { BoardColumn } from '@/domain/plan/board'
 import { DocumentsCard } from '@/features/documents/documents-card'
 import { CommentsThread } from '@/features/comments/comments-thread'
 import { TaskDependencies } from '@/features/tasks/task-dependencies'
@@ -51,7 +52,7 @@ import type { WorkCapabilities } from '@/domain/permissions/work-capabilities'
  *    ningún campo que pueda quedar desincronizado.
  */
 export function TaskDetailDialog({
-  task, subtasks, tasks, open, onOpenChange, onEdit, caps, userId, workId, members,
+  task, subtasks, tasks, open, onOpenChange, onEdit, caps, userId, workId, members, columna,
 }: {
   task: TaskWithAssignee | null
   subtasks: TaskWithAssignee[]
@@ -71,6 +72,13 @@ export function TaskDetailDialog({
   workId: string
   /** Participantes activos del trabajo: hacen falta para elegir a quién mencionar. */
   members: WorkMemberWithRole[]
+  /**
+   * En qué columna del tablero está la tarjeta (migración 0024). Se recibe ya
+   * resuelta porque la resuelve el tablero: aquí no hay que volver a decidirlo
+   * —serían dos respuestas posibles a la misma pregunta— ni hace falta otra
+   * consulta del catálogo.
+   */
+  columna: BoardColumn | null
 }) {
   const qc = useQueryClient()
   const toast = useToast()
@@ -164,7 +172,17 @@ export function TaskDetailDialog({
         <DialogHeader>
           <DialogTitle>{task.title}</DialogTitle>
           <DialogDescription className="flex flex-wrap items-center gap-1.5">
-            <ToneBadge tone={status?.tone ?? null}>{status?.label}</ToneBadge>
+            {/* El nombre de la COLUMNA, que es lo que se ve en el tablero. El
+                estado interno solo se añade si la columna se llama de otra
+                manera: así «Papers» no obliga a adivinar que para la
+                aplicación eso es «En curso» —de donde salen el progreso y los
+                colores del cronograma—, y no se repite cuando coinciden. */}
+            <ToneBadge tone={columna?.color ?? status?.tone ?? null}>
+              {columna?.name ?? status?.label}
+            </ToneBadge>
+            {columna && status && columna.name !== status.label && (
+              <span className="text-xs text-muted-foreground">({status.label})</span>
+            )}
             <ToneBadge tone={priority?.tone ?? null}>{priority?.label}</ToneBadge>
             {task.assignee && <span className="text-xs">· {task.assignee.full_name}</span>}
           </DialogDescription>

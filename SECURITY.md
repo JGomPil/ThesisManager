@@ -1012,6 +1012,44 @@ comprobación vive en el formulario y en la ficha, como el máximo de directores
 seguridad —quien puede escribir esa fecha puede escribir el trabajo entero—, es evitar un dato
 absurdo escrito sin querer.
 
+### 5.2.sexvicies · Un dato que la interfaz enseña y otro que la aplicación entiende
+
+La `0024` hace configurables las columnas del tablero de tareas: nombre, color y orden los pone
+cada grupo, y pueden llamarse «Papers» o «Estudios». Pero `tasks.status` sigue siendo lo que lee
+todo lo demás —el progreso del trabajo, el color de la barra del cronograma, qué tarea bloquea a
+otra, los informes—, así que cada columna declara **qué significa** (`maps_to`, con el mismo
+`CHECK` que `tasks.status`) y un *trigger* mantiene las dos direcciones en su sitio.
+
+Tres decisiones que son de seguridad, y no de interfaz:
+
+- **El *trigger* es `security definer`**, por lo de §5.2.quinvicies: `app.sync_task_board_column()`
+  comprueba que la columna elegida sea del **mismo grupo** que el trabajo de la tarea, y para eso
+  tiene que leer `board_columns` y `academic_works`. Con los privilegios de quien escribe, a un
+  estudiante RLS le esconde la columna de otra organización, el `select` no devuelve fila y la
+  comprobación **se aparta sola**: fallaría abierta justo en el caso que viene a impedir. La
+  migración comprueba `prosecdef` antes de terminar, y la prueba `[168]` lo hace desde una sesión
+  que **sí** puede escribir la tarea, que es la única que distingue el fallo.
+- **Mover una tarjeta se le permite al estudiante a propósito.**
+  `app.enforce_task_update_scope()` deja pasar `board_column_id` —y por tanto el cambio de estado
+  que deriva de él— porque mover tarjetas es el trabajo diario de quien hace la tesis, no una
+  decisión de planificación. Lo que no puede es renombrar, crear ni reordenar columnas: eso es
+  `board_columns_write`, solo administración del grupo. Las dos mitades están en la prueba `[169]`;
+  la lista de campos que ese *trigger* deja pasar lleva escrito al lado por qué está cada uno,
+  porque es el sitio donde un permiso se amplía sin querer.
+- **Y la otra direccion tambien se vigila, que no es simetrica**: cambiar el `maps_to` de una
+  columna que ya tiene tarjetas dentro lo arrastra un segundo *trigger*,
+  `app.sync_board_column_meaning()`, igualmente `security definer` —tiene que alcanzar las tareas
+  de trabajos donde quien administra no es miembro, y con los permisos de quien escribe RLS le
+  dejaría fuera justo esas, corrigiendo a medias y en silencio—. Sin él, cambiar «Papers» de «en
+  curso» a «completada» se guardaba sin error y dejaba las tareas de dentro con el estado viejo:
+  el tablero decía una cosa y el progreso del trabajo otra, que es el fallo que esta migración
+  viene a impedir, colándose por la única vía que no se miraba. Prueba `[171]`.
+- **El nombre nunca decide nada.** Una columna llamada «Hecho» que signifique «en curso» deja el
+  progreso del trabajo mintiendo **sin dar ningún error**, y es un error de configuración que no
+  se puede impedir desde la base de datos: el significado es un dato legítimo. Por eso la pantalla
+  de administración lo dice al lado del desplegable, en lugar de esconderlo tras un valor por
+  omisión razonable.
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.
@@ -1091,7 +1129,7 @@ Cada una debe ejecutarse **contra la base de datos** con el JWT del usuario corr
 desde la interfaz.
 
 > **Ya verificadas.** Las migraciones de `supabase/migrations/` se han aplicado a un
-> PostgreSQL 16 real y se ejecutan **165 pruebas** de seguridad, todas correctas:
+> PostgreSQL 16 real y se ejecutan **171 pruebas** de seguridad, todas correctas:
 > `./scripts/test-rls.sh` (detalle en `supabase/tests/README.md`). Cubren los puntos 1–6, 12 y 13
 > de la lista siguiente. Los puntos 7, 10 y 11 dependen del frontend y del despliegue, y los 8 y 9
 > del proyecto real de Supabase; se validan en la Fase 1.
