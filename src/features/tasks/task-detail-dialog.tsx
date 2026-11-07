@@ -73,8 +73,7 @@ export function TaskDetailDialog({
   const [newItem, setNewItem] = React.useState('')
 
   const invalidate = () => {
-    void qc.invalidateQueries({ queryKey: qk.tasks.byWork(workId) })
-    void qc.invalidateQueries({ queryKey: qk.tasks.mine })
+    void qc.invalidateQueries({ queryKey: qk.tasks.all })
   }
 
   const addItem = useMutation({

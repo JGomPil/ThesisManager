@@ -35,6 +35,21 @@ export const qk = {
   },
 
   tasks: {
+    /**
+     * TODO lo que depende de las tareas, para invalidar de una vez.
+     *
+     * react-query casa por prefijo, así que esta clave alcanza a `byWork`, a
+     * `mine` y a `summary`. Se usa en los sitios que CAMBIAN tareas, y existe
+     * por un fallo concreto: al añadir `summary` para el resumen hubo que
+     * acordarse de invalidarla en los seis sitios que crean o mueven tareas, y
+     * no se acordó nadie. Resultado: se planificaba un trabajo, se volvía al
+     * resumen y seguía diciendo «Sin planificación» hasta recargar a mano.
+     *
+     * Con el prefijo, la próxima consulta de tareas que se añada queda cubierta
+     * sin tocar ninguna pantalla. Lo que se paga es marcar como caducadas las
+     * tareas de otros trabajos, que solo se vuelven a pedir si alguien las mira.
+     */
+    all: ['tasks'] as const,
     byWork: (workId: string) => ['tasks', 'work', workId] as const,
     mine: ['tasks', 'mine'] as const,
     summary: ['tasks', 'summary'] as const,

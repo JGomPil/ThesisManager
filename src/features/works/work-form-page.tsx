@@ -213,7 +213,7 @@ export function WorkFormPage() {
         work: { id: string }; failed: string[]; creadas: number
       }
       void qc.invalidateQueries({ queryKey: qk.works.detail(work.id) })
-      void qc.invalidateQueries({ queryKey: qk.tasks.byWork(work.id) })
+      void qc.invalidateQueries({ queryKey: qk.tasks.all })
       if (failed.length > 0) {
         toast.push(
           'error',

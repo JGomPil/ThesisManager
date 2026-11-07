@@ -61,7 +61,7 @@ export function ApplyTemplateDialog({
     // que la plantilla elegida tiene—. Se dice «hasta N» porque los documentos
     // que ya existieran con ese nombre no se duplican.
     onSuccess: (creadas) => {
-      void qc.invalidateQueries({ queryKey: qk.tasks.byWork(workId) })
+      void qc.invalidateQueries({ queryKey: qk.tasks.all })
       void qc.invalidateQueries({ queryKey: qk.works.detail(workId) })
       void qc.invalidateQueries({ queryKey: qk.documents.byWork(workId) })
       const previstos = elegida?.documents.length ?? 0

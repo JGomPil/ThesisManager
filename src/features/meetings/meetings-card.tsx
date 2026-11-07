@@ -238,7 +238,7 @@ function MeetingDetailDialog({
     },
     onSuccess: () => {
       void invalidate()
-      void qc.invalidateQueries({ queryKey: qk.tasks.byWork(work.id) })
+      void qc.invalidateQueries({ queryKey: qk.tasks.all })
       toast.push('success', 'Acuerdo convertido en tarea del plan.')
     },
     onError: (e) => toast.push('error', errorMessage(e)),

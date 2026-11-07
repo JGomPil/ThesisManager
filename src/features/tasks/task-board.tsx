@@ -65,8 +65,7 @@ export function TaskBoard({
   const tasks = useQuery({ queryKey: qk.tasks.byWork(work.id), queryFn: () => tasksRepo.byWork(work.id) })
 
   const invalidate = () => {
-    void qc.invalidateQueries({ queryKey: qk.tasks.byWork(work.id) })
-    void qc.invalidateQueries({ queryKey: qk.tasks.mine })
+    void qc.invalidateQueries({ queryKey: qk.tasks.all })
   }
 
   const setStatus = useMutation({
