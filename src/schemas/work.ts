@@ -11,6 +11,25 @@ export const workFormSchema = z
     research_line_id: z.string().uuid().or(z.literal('')).optional(),
     start_date: z.string().optional(),
     expected_end_date: z.string().optional(),
+    /**
+     * Fin REAL y progreso académico: las dos cosas que la ficha enseñaba y
+     * nadie podía cambiar.
+     *
+     * Estaban en la base de datos desde la 0002 (`actual_end_date date`,
+     * `progress_override smallint check (… between 0 and 100)`) y la ficha las
+     * mostraba —una con la pista «a juicio de la dirección»—, pero ningún
+     * formulario las escribía nunca: la dirección leía su propio juicio sin
+     * poder emitirlo. Van como texto porque vienen de un `<input>`: cadena
+     * vacía significa «sin valorar» / «sin fecha», que no es lo mismo que cero
+     * ni que hoy, y se traduce a `null` al guardar.
+     */
+    actual_end_date: z.string().optional(),
+    progress_override: z
+      .string()
+      .trim()
+      .regex(/^(100|\d{1,2})$/, 'Un número entero del 0 al 100')
+      .or(z.literal(''))
+      .optional(),
     description: z.string().max(5000).optional(),
     objectives: z.string().max(5000).optional(),
     methodology: z.string().max(5000).optional(),
@@ -27,6 +46,15 @@ export const workFormSchema = z
   .refine(
     (v) => !v.start_date || !v.expected_end_date || v.expected_end_date >= v.start_date,
     { message: 'La fecha prevista de fin no puede ser anterior al inicio', path: ['expected_end_date'] },
+  )
+  // El fin real tampoco puede ser anterior al inicio. La tabla solo tiene el
+  // `check` de la fecha PREVISTA (migración 0002), así que esta comprobación
+  // vive en el formulario, igual que el máximo de directores: no es una regla
+  // de seguridad —quien puede escribir la fecha puede escribir el trabajo
+  // entero—, es evitar una fecha absurda escrita sin querer.
+  .refine(
+    (v) => !v.start_date || !v.actual_end_date || v.actual_end_date >= v.start_date,
+    { message: 'La fecha de fin real no puede ser anterior al inicio', path: ['actual_end_date'] },
   )
 
 export type WorkFormValues = z.infer<typeof workFormSchema>

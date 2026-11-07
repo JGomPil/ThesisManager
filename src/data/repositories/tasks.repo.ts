@@ -101,6 +101,34 @@ export const tasksRepo = {
     return data
   },
 
+  /**
+   * Guarda un orden nuevo en un conjunto de tareas hermanas.
+   *
+   * Recibe YA calculado lo que hay que escribir (`reorderWrites`, en
+   * `domain/plan/reorder.ts`), que son solo las filas cuya posición cambia:
+   * mover un punto una fila arriba son dos escrituras, no la lista entera.
+   *
+   * UNA PETICIÓN POR FILA, y no es un descuido. PostgREST no sabe dar un valor
+   * distinto a cada fila en una sola llamada, y `upsert` —que sí lo haría— es
+   * un `insert ... on conflict do update`: habría que reenviar las columnas
+   * obligatorias de cada tarea (`work_id`, `title`) solo para cambiarle un
+   * número, y un identificador equivocado insertaría una tarea nueva en lugar
+   * de fallar. Como son unas pocas filas y van en paralelo, se queda así.
+   *
+   * Si alguna falla, se lanza el primer error: el orden puede quedar a medias y
+   * eso es aceptable —es presentación, no datos—, pero quien lo pidió tiene que
+   * enterarse de que no se ha guardado todo.
+   */
+  reorder: async (cambios: { id: string; order_index: number }[]): Promise<void> => {
+    if (cambios.length === 0) return
+    const respuestas = await Promise.all(
+      cambios.map(({ id, order_index }) =>
+        supabase.from('tasks').update({ order_index }).eq('id', id)),
+    )
+    const fallo = respuestas.find((r) => r.error)
+    if (fallo?.error) throw fallo.error
+  },
+
   remove: async (id: string): Promise<void> => {
     const { error } = await supabase.from('tasks').delete().eq('id', id)
     if (error) throw error

@@ -160,6 +160,8 @@ usuarios). **Es solo para pruebas**: nunca se aplica a un proyecto real.
 161 | **El último administrador no se puede degradar, ni desactivar, ni borrar.** Tumbó la primera versión del *trigger*, que no era `security definer`: al desactivarse, el administrador dejaba de ver su propia organización y la comprobación se apartaba sola. Fallaba **abierto** |
 162 | **Con dos administradores, uno sí puede dejar de serlo.** Igual de importante que la 161: un *trigger* que protegiera de más cerraría el relevo, y se vería igual de poco |
 163 | Un miembro normal se desactiva y se reactiva sin problema: no es un *trigger* que bloquee todo |
+164 | **La dirección registra su propio juicio**: un director que no es administrador del grupo escribe el progreso académico y el fin real, y puede dejar el progreso «sin valorar» otra vez. No hace falta ninguna migración —`works_update` ya admitía a los directores desde la `0003`—; lo que faltaba era un sitio donde escribirlo. La prueba exige antes que ese director sea `MEMBER`: si fuese administrador pasaría por la otra rama de la política y no comprobaría nada de lo que dice comprobar
+165 | El **estudiante** no puede tocar ni el progreso ni el fin real de su trabajo —se comprueba el dato, no la ausencia de error— y el **rango 0–100** lo rechaza la base de datos aunque lo escriba quien tiene permiso
 
 La prueba 33 ha vuelto a ganarse el sueldo con la migración `0020`: los dos disparadores nuevos
 (`enforce_status_code_inmutable`, `enforce_role_solo_descriptivo`) nacieron ejecutables por `anon`

@@ -1,6 +1,9 @@
 import * as React from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Check, ListChecks, MessageSquare, Paperclip, Pencil, Plus, Trash2, X } from 'lucide-react'
+import {
+  Check, ChevronDown, ChevronUp, GripVertical, ListChecks, MessageSquare, Paperclip, Pencil,
+  Plus, Trash2, X,
+} from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
@@ -17,6 +20,7 @@ import {
   TASK_PRIORITIES, TASK_STATUSES, tasksRepo, type TaskWithAssignee,
 } from '@/data/repositories/tasks.repo'
 import { daysUntil } from '@/domain/works/progress'
+import { moveItem, reorderWrites } from '@/domain/plan/reorder'
 import { DocumentsCard } from '@/features/documents/documents-card'
 import { CommentsThread } from '@/features/comments/comments-thread'
 import { TaskDependencies } from '@/features/tasks/task-dependencies'
@@ -71,6 +75,12 @@ export function TaskDetailDialog({
   const qc = useQueryClient()
   const toast = useToast()
   const [newItem, setNewItem] = React.useState('')
+  // Arrastre: qué punto se está moviendo y sobre cuál está ahora mismo. Solo
+  // sirve para pintar la pista mientras se arrastra; el orden de verdad lo
+  // decide `mover`, y por eso no hay copia local de la lista que pueda
+  // discrepar de la que devuelve la consulta.
+  const [arrastrando, setArrastrando] = React.useState<number | null>(null)
+  const [encima, setEncima] = React.useState<number | null>(null)
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: qk.tasks.all })
@@ -78,8 +88,38 @@ export function TaskDetailDialog({
 
   const addItem = useMutation({
     mutationFn: (title: string) =>
-      tasksRepo.create({ work_id: workId, parent_task_id: task!.id, title, created_by: userId }),
+      tasksRepo.create({
+        work_id: workId,
+        parent_task_id: task!.id,
+        title,
+        created_by: userId,
+        // AL FINAL de la lista, que es donde se espera que aparezca lo que
+        // acabas de escribir. Los puntos se creaban con el `order_index` por
+        // defecto de la tabla —0, todos— y se veían en orden de llegada
+        // gracias al `order by order_index, created_at`. En cuanto la lista se
+        // ordena a mano eso deja de funcionar: un punto nuevo con 0 se
+        // colocaría el primero.
+        order_index: subtasks.reduce((max, s) => Math.max(max, s.order_index), -1) + 1,
+      }),
     onSuccess: () => { invalidate(); setNewItem('') },
+    onError: (e) => toast.push('error', errorMessage(e)),
+  })
+
+  /**
+   * Cambiar de sitio un punto de la lista.
+   *
+   * Se guarda en `tasks.order_index`, que ya existía: lo escribía la
+   * aplicación de plantillas y nadie más, así que las listas escritas a mano
+   * quedaban congeladas en el orden en que se habían ido ocurriendo. Y una
+   * lista de comprobación se piensa escribiéndola; casi nunca sale ordenada.
+   *
+   * Las dos operaciones de verdad —mover y decidir qué filas hay que
+   * escribir— son funciones puras del dominio, probadas aparte.
+   */
+  const reordenar = useMutation({
+    mutationFn: (orden: TaskWithAssignee[]) =>
+      tasksRepo.reorder(reorderWrites(orden.map((s) => ({ id: s.id, order_index: s.order_index })))),
+    onSuccess: invalidate,
     onError: (e) => toast.push('error', errorMessage(e)),
   })
 
@@ -109,6 +149,14 @@ export function TaskDetailDialog({
   const late = task.due_date !== null && task.status !== 'COMPLETADA' && (daysUntil(task.due_date) ?? 0) < 0
   const done = subtasks.filter((s) => s.status === 'COMPLETADA').length
   const canTick = canUpdateTaskStatus(caps, task, userId)
+  // Con un solo punto no hay nada que ordenar, y marcar puntos no da derecho a
+  // reordenarlos: eso es definir el plan, o sea `canManagePlan`.
+  const puedeOrdenar = caps.canManagePlan && subtasks.length > 1
+
+  const mover = (desde: number, hasta: number) => {
+    const orden = moveItem(subtasks, desde, hasta)
+    if (orden !== subtasks) reordenar.mutate(orden)
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -179,13 +227,59 @@ export function TaskDetailDialog({
                   />
                 </div>
                 <ul className="space-y-1">
-                  {subtasks.map((s) => {
+                  {subtasks.map((s, i) => {
                     const checked = s.status === 'COMPLETADA'
                     return (
                       // `items-start` y no `items-center`: un punto de dos
                       // líneas tiene que dejar su casilla arriba, junto a la
                       // primera, y no centrada a media altura del texto.
-                      <li key={s.id} className="flex items-start gap-2">
+                      //
+                      // ARRASTRAR usa el arrastre nativo del navegador, sin
+                      // librería: son cuatro manejadores y no añade nada al
+                      // peso de la página, que la paga quien la visita. Las
+                      // flechas no son el plan B de esto: son el plan A en un
+                      // teléfono —donde arrastrar compite con el desplazamiento
+                      // de la página— y la única manera de hacerlo con el
+                      // teclado.
+                      <li
+                        key={s.id}
+                        draggable={puedeOrdenar}
+                        onDragStart={(e) => {
+                          // `setData` hace falta de verdad: sin datos en el
+                          // portapapeles del arrastre, Firefox no empieza el
+                          // arrastre y la función se quedaría solo para
+                          // Chrome y Safari.
+                          e.dataTransfer.setData('text/plain', s.id)
+                          e.dataTransfer.effectAllowed = 'move'
+                          setArrastrando(i)
+                        }}
+                        onDragEnd={() => { setArrastrando(null); setEncima(null) }}
+                        onDragOver={(e) => {
+                          if (arrastrando === null) return
+                          e.preventDefault()
+                          e.dataTransfer.dropEffect = 'move'
+                          setEncima(i)
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          if (arrastrando !== null) mover(arrastrando, i)
+                          setArrastrando(null)
+                          setEncima(null)
+                        }}
+                        className={cn(
+                          'flex items-start gap-2 rounded',
+                          puedeOrdenar && 'cursor-grab',
+                          arrastrando === i && 'opacity-50',
+                          encima === i && arrastrando !== null && arrastrando !== i
+                            && 'ring-1 ring-primary',
+                        )}
+                      >
+                        {puedeOrdenar && (
+                          <GripVertical
+                            className="mt-0.5 hidden size-3.5 shrink-0 text-muted-foreground sm:block"
+                            aria-hidden
+                          />
+                        )}
                         <button
                           type="button"
                           disabled={!canTick || toggleItem.isPending}
@@ -213,6 +307,26 @@ export function TaskDetailDialog({
                         >
                           {s.title}
                         </span>
+                        {puedeOrdenar && (
+                          <span className="flex shrink-0 items-start">
+                            <Button
+                              variant="ghost" size="icon" className="mt-0.5 size-6"
+                              disabled={i === 0 || reordenar.isPending}
+                              onClick={() => mover(i, i - 1)}
+                              aria-label={`Subir «${s.title}»`}
+                            >
+                              <ChevronUp className="size-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost" size="icon" className="mt-0.5 size-6"
+                              disabled={i === subtasks.length - 1 || reordenar.isPending}
+                              onClick={() => mover(i, i + 1)}
+                              aria-label={`Bajar «${s.title}»`}
+                            >
+                              <ChevronDown className="size-3.5" />
+                            </Button>
+                          </span>
+                        )}
                         {caps.canManagePlan && (
                           <Button
                             variant="ghost" size="icon" className="mt-0.5 size-6 shrink-0"
@@ -226,6 +340,11 @@ export function TaskDetailDialog({
                     )
                   })}
                 </ul>
+                {puedeOrdenar && (
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    El orden se cambia con las flechas, o arrastrando el punto a su sitio.
+                  </p>
+                )}
               </>
             )}
 

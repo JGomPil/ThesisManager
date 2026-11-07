@@ -981,6 +981,37 @@ una prueba que solo comprobara que «salta un error», este fallo habría pasado
 **un *trigger* que lee tablas para validar algo va con los privilegios del propietario**, como el
 resto de `app.*`, y la propia migración comprueba `prosecdef` antes de terminar.
 
+### 5.2.quinvicies · Una capacidad que la política ya daba y la interfaz no usaba
+
+No todo lo que falta es un permiso que falta. La ficha del trabajo mostraba «Progreso académico ·
+a juicio de la dirección» y «Fin real», los dos campos existen en la tabla desde la `0002`, y
+`works_update` admite desde la `0003` a la administración **y** a los directores del trabajo
+(`app.is_work_supervisor`). Lo único que faltaba era un sitio donde escribirlos: la dirección leía
+su propio juicio sin poder emitirlo, y para poner la fecha real de fin había que hacer un `UPDATE`
+en el panel de Supabase.
+
+Por eso este cambio no lleva migración: la frontera ya estaba donde tenía que estar. Lo que sí
+lleva son dos pruebas, `[164]` y `[165]`, que fijan la promesa de la que dependen los dos campos
+nuevos de la ficha:
+
+- `[164]` un director que **no** es administrador del grupo registra el progreso y el fin real, y
+  puede volver a dejar el progreso «sin valorar» (`null`, que no es un 0 %). La prueba comprueba
+  antes que ese director sea `MEMBER`: si fuese administrador pasaría por la otra rama de la
+  política y no comprobaría nada de lo que dice comprobar.
+- `[165]` el **estudiante** del trabajo no los puede tocar —y se comprueba el dato, no la ausencia
+  de excepción, porque a un `UPDATE` sin permiso la política le descarta las filas y no falla
+  (§5.2.quatervicies)—, y el rango 0–100 lo rechaza la base de datos aunque lo escriba quien tiene
+  permiso.
+
+Si alguien estrechara `works_update` a `is_org_admin`, los dos botones de la ficha dejarían de
+guardar **sin decir nada**. Ahora eso sale en rojo en la suite.
+
+Lo que **no** impone la base de datos, y se dice para que no se dé por supuesto: que el fin real no
+sea anterior al inicio. El único `check` de fechas de `academic_works` es el del fin *previsto*. La
+comprobación vive en el formulario y en la ficha, como el máximo de directores: no es una regla de
+seguridad —quien puede escribir esa fecha puede escribir el trabajo entero—, es evitar un dato
+absurdo escrito sin querer.
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.
@@ -1060,7 +1091,7 @@ Cada una debe ejecutarse **contra la base de datos** con el JWT del usuario corr
 desde la interfaz.
 
 > **Ya verificadas.** Las migraciones de `supabase/migrations/` se han aplicado a un
-> PostgreSQL 16 real y se ejecutan **163 pruebas** de seguridad, todas correctas:
+> PostgreSQL 16 real y se ejecutan **165 pruebas** de seguridad, todas correctas:
 > `./scripts/test-rls.sh` (detalle en `supabase/tests/README.md`). Cubren los puntos 1–6, 12 y 13
 > de la lista siguiente. Los puntos 7, 10 y 11 dependen del frontend y del despliegue, y los 8 y 9
 > del proyecto real de Supabase; se validan en la Fase 1.

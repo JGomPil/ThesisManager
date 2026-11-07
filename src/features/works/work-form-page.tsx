@@ -58,6 +58,7 @@ export function WorkFormPage() {
     defaultValues: {
       title: '', work_type_id: '', status_id: '', program_id: '', academic_year_id: '',
       research_line_id: '', start_date: '', expected_end_date: '',
+      actual_end_date: '', progress_override: '',
       description: '', objectives: '', methodology: '', keywords: '',
       supervisor_id: '', student_id: '', template_id: '',
     },
@@ -83,6 +84,10 @@ export function WorkFormPage() {
       research_line_id: w.research_line_id ?? '',
       start_date: w.start_date ?? '',
       expected_end_date: w.expected_end_date ?? '',
+      actual_end_date: w.actual_end_date ?? '',
+      // `null` es «sin valorar» y `0` es «valorado en cero»: dos cosas
+      // distintas que un `?? ''` descuidado convertiría en la misma.
+      progress_override: w.progress_override === null ? '' : String(w.progress_override),
       description: w.description ?? '',
       objectives: w.objectives ?? '',
       methodology: w.methodology ?? '',
@@ -151,6 +156,12 @@ export function WorkFormPage() {
         research_line_id: values.research_line_id || null,
         start_date: values.start_date || null,
         expected_end_date: values.expected_end_date || null,
+        actual_end_date: values.actual_end_date || null,
+        // Esto funciona porque el valor es TEXTO: `'0'` es una cadena no
+        // vacía, así que un progreso de cero se guarda como 0. Si el campo
+        // fuese numérico, este mismo `? :` convertiría el cero en «sin
+        // valorar», que es una afirmación bien distinta.
+        progress_override: values.progress_override ? Number(values.progress_override) : null,
         description: values.description || null,
         objectives: values.objectives || null,
         methodology: values.methodology || null,
@@ -328,6 +339,46 @@ export function WorkFormPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Seguimiento. SOLO AL EDITAR, y no por capricho: al crear un trabajo
+            no hay nada que valorar todavía y una fecha de fin real recién
+            nacida solo puede ser un error. Al editar son justo los dos campos
+            que la ficha enseñaba sin dejar cambiarlos. El progreso se puede
+            tocar además desde la propia ficha, que es donde se mira. */}
+        {isEdit && (
+          <Card>
+            <CardHeader className="pb-3"><CardTitle className="text-sm">Seguimiento</CardTitle></CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="progress_override">Progreso académico (%)</Label>
+                <Input
+                  id="progress_override"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  inputMode="numeric"
+                  className="mt-1.5"
+                  {...form.register('progress_override')}
+                />
+                <FieldError>{form.formState.errors.progress_override?.message}</FieldError>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  A juicio de la dirección, con independencia de las tareas completadas. Déjalo
+                  vacío para dejarlo «sin valorar»: no es lo mismo que un 0 %.
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="actual_end_date">Fecha de fin real</Label>
+                <Input id="actual_end_date" type="date" className="mt-1.5" {...form.register('actual_end_date')} />
+                <FieldError>{form.formState.errors.actual_end_date?.message}</FieldError>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Cuándo terminó de verdad, que casi nunca coincide con la fecha prevista.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Participantes iniciales. Solo al crear: en la edición los gestiona la
             tarjeta de la ficha, que admite funciones múltiples y permisos por

@@ -1,11 +1,13 @@
 import * as React from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Archive, Pencil } from 'lucide-react'
+import { AlertTriangle, Archive, Check, Pencil } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { PageHeader } from '@/app/layout/app-shell'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -13,6 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { ToneBadge } from '@/components/ui/badge'
 import { EmptyState, ErrorPanel, LoadingPanel } from '@/components/common/states'
+import { EnPantallaCompleta, ExpandButton, FullscreenPanel } from '@/components/common/fullscreen'
 import { useToast } from '@/components/ui/toast'
 import { qk } from '@/lib/query-keys'
 import { errorMessage } from '@/lib/supabase'
@@ -43,6 +46,7 @@ export function WorkDetailPage() {
   const typeStatuses = useWorkTypeStatuses()
 
   const [archiveOpen, setArchiveOpen] = React.useState(false)
+  const [planExpandido, setPlanExpandido] = React.useState(false)
   const navigate = useNavigate()
 
   const archive = useMutation({
@@ -66,6 +70,39 @@ export function WorkDetailPage() {
     onError: (e) => toast.push('error', errorMessage(e)),
   })
 
+  /**
+   * Las dos valoraciones de la dirección, cada una donde se mira.
+   *
+   * Comparten la invalidación con el cambio de estado: `works.detail` para esta
+   * pantalla y `works.all` porque el progreso académico sale también en los
+   * listados y en el resumen. Si se cambiaran solo desde el formulario de
+   * edición, para subir un 10 % habría que entrar a editar el trabajo entero,
+   * guardar y volver; la pista «a juicio de la dirección» está escrita aquí, y
+   * aquí tiene que poder emitirse ese juicio.
+   */
+  const setProgreso = useMutation({
+    mutationFn: (valor: number | null) => worksRepo.update(id!, { progress_override: valor }),
+    onSuccess: (_row, valor) => {
+      void qc.invalidateQueries({ queryKey: qk.works.detail(id!) })
+      void qc.invalidateQueries({ queryKey: qk.works.all })
+      toast.push(
+        'success',
+        valor === null ? 'Progreso académico: sin valorar.' : `Progreso académico: ${valor} %.`,
+      )
+    },
+    onError: (e) => toast.push('error', errorMessage(e)),
+  })
+
+  const setFinReal = useMutation({
+    mutationFn: (valor: string | null) => worksRepo.update(id!, { actual_end_date: valor }),
+    onSuccess: (_row, valor) => {
+      void qc.invalidateQueries({ queryKey: qk.works.detail(id!) })
+      void qc.invalidateQueries({ queryKey: qk.works.all })
+      toast.push('success', valor === null ? 'Fecha de fin real borrada.' : 'Fecha de fin real guardada.')
+    },
+    onError: (e) => toast.push('error', errorMessage(e)),
+  })
+
   if (work.isLoading) return <LoadingPanel />
   if (work.isError) return <ErrorPanel error={work.error} />
   if (!work.data) {
@@ -84,6 +121,7 @@ export function WorkDetailPage() {
   const reasons = attentionReasons(progress, w.expected_end_date, w.status?.is_terminal ?? false)
   const availableStatuses = statusesForWorkType(w.work_type_id, statuses.data ?? [], typeStatuses.data ?? [])
   const days = daysUntil(w.expected_end_date)
+  const tablero = <TaskBoard work={w} caps={caps} userId={userId} />
 
   return (
     <div className="space-y-4">
@@ -125,12 +163,30 @@ export function WorkDetailPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Columna principal */}
         <div className="space-y-4 lg:col-span-2">
+          {/* El tablero se construye UNA vez (`tablero`) y se enseña en un
+              sitio o en el otro, nunca en los dos: tiene estado propio
+              —diálogos abiertos, tarea seleccionada— y dos copias vivas a la
+              vez son dos tableros que se contradicen. */}
           <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-sm">Plan de trabajo</CardTitle></CardHeader>
+            <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
+              <CardTitle className="text-sm">Plan de trabajo</CardTitle>
+              <ExpandButton
+                label="Ver el plan de trabajo a pantalla completa"
+                onClick={() => setPlanExpandido(true)}
+              />
+            </CardHeader>
             <CardContent className="pt-0">
-              <TaskBoard work={w} caps={caps} userId={userId} />
+              {planExpandido ? <EnPantallaCompleta /> : tablero}
             </CardContent>
           </Card>
+
+          <FullscreenPanel
+            open={planExpandido}
+            onOpenChange={setPlanExpandido}
+            title={`Plan de trabajo · ${w.title}`}
+          >
+            {planExpandido && tablero}
+          </FullscreenPanel>
 
           <ScheduleCard
             workId={w.id}
@@ -200,10 +256,11 @@ export function WorkDetailPage() {
 
               {/* Las DOS cifras, separadas y etiquetadas. Nunca una sola. */}
               <div className="grid grid-cols-2 gap-3">
-                <Metric
-                  label="Progreso académico"
-                  hint="a juicio de la dirección"
-                  value={progress.academicProgress === null ? '—' : `${progress.academicProgress} %`}
+                <ProgresoAcademico
+                  valor={w.progress_override}
+                  puedeEditar={caps.canEditWork}
+                  guardando={setProgreso.isPending}
+                  onGuardar={(v) => setProgreso.mutate(v)}
                 />
                 <Metric
                   label="Tareas completadas"
@@ -240,7 +297,13 @@ export function WorkDetailPage() {
                 danger={days !== null && days < 0 && !w.status?.is_terminal}
               />
               {w.work_type?.requires_defense && <DateRow label="Defensa" value={w.defense_date} />}
-              <DateRow label="Fin real" value={w.actual_end_date} />
+              <FinReal
+                valor={w.actual_end_date}
+                inicio={w.start_date}
+                puedeEditar={caps.canEditWork}
+                guardando={setFinReal.isPending}
+                onGuardar={(v) => setFinReal.mutate(v)}
+              />
             </CardContent>
           </Card>
 
@@ -306,6 +369,160 @@ function Metric({ label, value, hint }: { label: string; value: string; hint?: s
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-0.5 text-lg font-semibold tabular-nums">{value}</p>
       {hint && <p className="text-[0.7rem] text-muted-foreground">{hint}</p>}
+    </div>
+  )
+}
+
+/**
+ * Progreso académico: la valoración de la dirección, editable aquí mismo.
+ *
+ * Quien no puede editar el trabajo ve la cifra tal cual (`Metric`), que es lo
+ * que había antes. Quien puede, ve un campo con el número y un botón que
+ * APARECE SOLO CUANDO HAY ALGO QUE GUARDAR. No se guarda al teclear: un
+ * `onChange` que escribe en la base de datos manda una petición por pulsación
+ * —«40» pasa por «4»— y encima deja guardado el número a medias si uno se
+ * distrae a mitad de camino.
+ *
+ * Vaciar el campo guarda `null`, que es «sin valorar»: distinto de 0 %, que es
+ * una valoración de cero. La pista lo dice, porque desde el campo vacío no hay
+ * manera de adivinarlo.
+ */
+function ProgresoAcademico({
+  valor, puedeEditar, guardando, onGuardar,
+}: {
+  valor: number | null
+  puedeEditar: boolean
+  guardando: boolean
+  onGuardar: (v: number | null) => void
+}) {
+  const [texto, setTexto] = React.useState(valor === null ? '' : String(valor))
+
+  // Si el valor cambia por fuera (otra pestaña, el formulario de edición), el
+  // campo se pone al día. La dependencia es `valor`, no `texto`: lo que se
+  // está escribiendo no se pisa.
+  React.useEffect(() => { setTexto(valor === null ? '' : String(valor)) }, [valor])
+
+  if (!puedeEditar) {
+    return (
+      <Metric
+        label="Progreso académico"
+        hint="a juicio de la dirección"
+        value={valor === null ? '—' : `${valor} %`}
+      />
+    )
+  }
+
+  const limpio = texto.trim()
+  const numero = limpio === '' ? null : Number(limpio)
+  const valido = limpio === '' || (/^\d{1,3}$/.test(limpio) && numero! <= 100)
+  const cambiado = valido && numero !== valor
+
+  return (
+    <div className="rounded-md border p-2.5">
+      <Label htmlFor="progreso-academico" className="text-xs font-normal text-muted-foreground">
+        Progreso académico
+      </Label>
+      <div className="mt-0.5 flex items-baseline gap-1">
+        <Input
+          id="progreso-academico"
+          type="number"
+          min={0}
+          max={100}
+          step={1}
+          inputMode="numeric"
+          className="h-8 w-16 px-2 text-base font-semibold tabular-nums"
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && cambiado) {
+              e.preventDefault()
+              onGuardar(numero)
+            }
+          }}
+        />
+        <span className="text-sm text-muted-foreground">%</span>
+      </div>
+      <p className="mt-0.5 text-[0.7rem] text-muted-foreground">
+        a juicio de la dirección; vacío = sin valorar
+      </p>
+      {!valido && (
+        <p className="mt-1 text-[0.7rem] font-medium text-destructive">Un número entero del 0 al 100.</p>
+      )}
+      {cambiado && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="mt-1.5 h-7 w-full"
+          loading={guardando}
+          onClick={() => onGuardar(numero)}
+        >
+          <Check /> Guardar
+        </Button>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Fin real: la fecha en que el trabajo terminó de verdad.
+ *
+ * Mismo reparto que el progreso —se lee si no se puede editar, se escribe si
+ * sí— y mismo botón que solo sale cuando la fecha ha cambiado: un
+ * `<input type="date">` emite cambios mientras se teclea el día, y el valor
+ * intermedio es la cadena vacía, así que guardar al vuelo borraría la fecha
+ * cada vez que alguien la escribe a mano en lugar de elegirla del calendario.
+ *
+ * La comprobación contra la fecha de inicio es la misma que hace el formulario
+ * (`workFormSchema`). No la impone la base de datos —su único `check` de
+ * fechas es el del fin PREVISTO—, así que se repite aquí a propósito: este es
+ * el otro sitio por donde se escribe esta fecha.
+ */
+function FinReal({
+  valor, inicio, puedeEditar, guardando, onGuardar,
+}: {
+  valor: string | null
+  inicio: string | null
+  puedeEditar: boolean
+  guardando: boolean
+  onGuardar: (v: string | null) => void
+}) {
+  const [texto, setTexto] = React.useState(valor ?? '')
+  React.useEffect(() => { setTexto(valor ?? '') }, [valor])
+
+  if (!puedeEditar) return <DateRow label="Fin real" value={valor} />
+
+  const anterior = texto !== '' && inicio !== null && texto < inicio
+  const cambiado = !anterior && (texto === '' ? null : texto) !== valor
+
+  return (
+    <div className="space-y-1.5 border-t pt-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Label htmlFor="fin-real" className="font-normal text-muted-foreground">Fin real</Label>
+        <Input
+          id="fin-real"
+          type="date"
+          min={inicio ?? undefined}
+          className="h-8 w-auto"
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+        />
+      </div>
+      {anterior && (
+        <p className="text-xs font-medium text-destructive">
+          No puede ser anterior al inicio ({format(parseISO(inicio!), 'd MMM yyyy', { locale: es })}).
+        </p>
+      )}
+      {cambiado && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 w-full"
+          loading={guardando}
+          onClick={() => onGuardar(texto === '' ? null : texto)}
+        >
+          <Check /> {texto === '' ? 'Borrar la fecha' : 'Guardar el fin real'}
+        </Button>
+      )}
     </div>
   )
 }

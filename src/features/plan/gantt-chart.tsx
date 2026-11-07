@@ -49,11 +49,18 @@ const NOMBRES = 200
 const NOMBRES_MOVIL = 104
 
 export function GanttChart({
-  tasks, milestones, dependencies, estados,
+  tasks, milestones, dependencies, estados, anchoNombres: anchoPedido,
 }: {
   tasks: GanttInput[]
   milestones: MilestoneRow[]
   dependencies: Dep[]
+  /**
+   * Ancho de la columna de nombres, en píxeles. Lo usa la vista a pantalla
+   * completa: con el ancho de la ventana entera, 200 px recortan títulos que
+   * ya caben de sobra. En el móvil se ignora, que es donde el recorte tiene
+   * sentido.
+   */
+  anchoNombres?: number
   /**
    * Estados de TODAS las tareas del trabajo, subtareas incluidas.
    *
@@ -65,7 +72,7 @@ export function GanttChart({
    */
   estados?: { id: string; status: string }[]
 }) {
-  const anchoNombres = useIsPhone() ? NOMBRES_MOVIL : NOMBRES
+  const anchoNombres = useIsPhone() ? NOMBRES_MOVIL : (anchoPedido ?? NOMBRES)
   const [escala, setEscala] = React.useState(1)
   const pxPerDay = ESCALAS[escala]!.pxPerDay
 
