@@ -273,7 +273,7 @@ function WeekView({ date, porDia }: { date: Date; porDia: Map<string, CalendarEv
   const hoy = new Date()
 
   return (
-    <div className="grid gap-2 sm:grid-cols-7">
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-7">
       {dias.map((d) => {
         const fecha = parseISO(d)
         return (

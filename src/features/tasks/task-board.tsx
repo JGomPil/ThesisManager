@@ -128,7 +128,7 @@ export function TaskBoard({
           action={caps.canManagePlan && <Button size="sm" onClick={() => setDialogOpen(true)}><Plus /> Nueva tarea</Button>}
         />
       ) : view === 'kanban' ? (
-        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-5">
           {TASK_STATUSES.map((col) => {
             const colTasks = rows.filter((t) => t.status === col.value)
             return (
@@ -425,7 +425,11 @@ function TaskCard({
         {task.assignee && (
           <div className="flex min-w-0 items-center gap-1.5">
             <Avatar name={task.assignee.full_name} src={task.assignee.avatar_url} size="xs" />
-            <p className="truncate text-xs text-muted-foreground">{task.assignee.full_name}</p>
+            {/* `min-w-0` además de `truncate`: sin él, un elemento `flex` con
+                `white-space: nowrap` NO se encoge por debajo de su texto —su
+                `min-width` vale `auto`— y el nombre se sale de la tarjeta por
+                la derecha en lugar de recortarse. */}
+            <p className="min-w-0 truncate text-xs text-muted-foreground">{task.assignee.full_name}</p>
           </div>
         )}
         <div className="flex items-center gap-1">
@@ -541,7 +545,7 @@ function TaskDialog({
             <Label htmlFor="task-desc">Descripción</Label>
             <Textarea id="task-desc" rows={2} className="mt-1.5" {...form.register('description')} />
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="task-assignee">Responsable</Label>
               <Select id="task-assignee" className="mt-1.5" {...form.register('assignee_id')}>

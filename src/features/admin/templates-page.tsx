@@ -108,7 +108,7 @@ export function TemplatesPage() {
         </CardHeader>
         <CardContent className="pt-0">
           <form
-            className="grid gap-3 sm:grid-cols-2"
+            className="grid grid-cols-1 gap-3 sm:grid-cols-2"
             onSubmit={(e) => {
               e.preventDefault()
               if (nombre.trim().length >= 3 && organizationId) crear.mutate()
@@ -459,7 +459,7 @@ function TemplateTaskDialog({
 
         <form
           id="ficha-tarea-plantilla"
-          className="grid gap-3 sm:grid-cols-2"
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2"
           onSubmit={(e) => {
             e.preventDefault()
             if (titulo.trim().length >= 2) guardar.mutate()

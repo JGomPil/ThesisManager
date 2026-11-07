@@ -116,7 +116,7 @@ export function ProfilePage() {
         avatarUrl={profile?.avatar_url ?? null}
       />
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm">Datos personales</CardTitle>
@@ -133,7 +133,7 @@ export function ProfilePage() {
                 <FieldError>{form.formState.errors.full_name?.message}</FieldError>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="department">Departamento</Label>
                   <Input id="department" className="mt-1.5" {...form.register('department')} />

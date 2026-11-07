@@ -160,7 +160,7 @@ export function WorkDetailPage() {
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Columna principal */}
         <div className="space-y-4 lg:col-span-2">
           {/* El tablero se construye UNA vez (`tablero`) y se enseña en un

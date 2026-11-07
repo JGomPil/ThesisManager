@@ -124,7 +124,7 @@ export function PersonPage() {
         breadcrumb={[{ label: 'Personas', to: '/personas' }]}
       />
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardContent className="pt-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start">

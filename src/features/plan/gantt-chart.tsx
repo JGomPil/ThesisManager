@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { CalendarRange, Flag } from 'lucide-react'
+import { CalendarRange, ChevronLeft, ChevronRight, Flag } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
@@ -76,6 +76,42 @@ export function GanttChart({
   const [escala, setEscala] = React.useState(1)
   const pxPerDay = ESCALAS[escala]!.pxPerDay
 
+  /**
+   * EL PANEL DEL TIEMPO SE DESLIZA, Y HAY QUE DECIRLO.
+   *
+   * Un plan de más de un año no cabe en ninguna pantalla: a 8 px por día, doce
+   * meses son casi tres mil píxeles. El panel siempre tuvo `overflow-x-auto`,
+   * o sea que se podía arrastrar, pero no había ni un indicio de que se
+   * pudiera, así que el cronograma «se veía incompleto»: lo que no entraba no
+   * existía. Ahora hay dos flechas y un «Hoy», y un aviso que solo sale cuando
+   * de verdad sobra cronograma por los lados.
+   *
+   * `desbordado` se MIDE, no se calcula: comparar `layout.width` con un ancho
+   * supuesto sería adivinar, y este dibujo se usa en la tarjeta (un tercio de
+   * la ficha) y a pantalla completa. `ResizeObserver` lo vuelve a medir cuando
+   * la ventana cambia o cuando se pasa a pantalla completa.
+   */
+  const panel = React.useRef<HTMLDivElement>(null)
+  const [desbordado, setDesbordado] = React.useState(false)
+
+  React.useEffect(() => {
+    const el = panel.current
+    if (!el) return
+    // El margen de 4 px evita que un redondeo de medio píxel anuncie un
+    // desplazamiento que no existe.
+    const medir = () => setDesbordado(el.scrollWidth > el.clientWidth + 4)
+    medir()
+    const ro = new ResizeObserver(medir)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [pxPerDay, tasks.length, milestones.length])
+
+  const deslizar = (sentido: 1 | -1) => {
+    const el = panel.current
+    if (!el) return
+    el.scrollBy({ left: sentido * el.clientWidth * 0.8, behavior: 'smooth' })
+  }
+
   // Orden topológico: lo que hay que hacer antes aparece antes, aunque la
   // dirección haya introducido las tareas en otro orden.
   const ordenadas = React.useMemo(() => {
@@ -100,6 +136,16 @@ export function GanttChart({
     [ordenadas, milestones, pxPerDay],
   )
 
+  // Al entrar, el cronograma se coloca en HOY y no en el principio: en un plan
+  // de año y medio el extremo izquierdo es el pasado, y lo que se viene a ver
+  // es esta semana. Se recoloca también al cambiar de escala, porque con otros
+  // píxeles por día la posición anterior ya no significa lo mismo.
+  React.useEffect(() => {
+    const el = panel.current
+    if (!el || layout.todayX === null) return
+    el.scrollLeft = Math.max(0, layout.todayX - el.clientWidth / 2)
+  }, [layout.todayX])
+
   if (tasks.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -117,18 +163,48 @@ export function GanttChart({
           <CalendarRange className="size-3.5" />
           {format(layout.from, 'd MMM yyyy', { locale: es })} – {format(layout.to, 'd MMM yyyy', { locale: es })}
         </p>
-        <div className="flex gap-1" role="group" aria-label="Escala del cronograma">
-          {ESCALAS.map((e, i) => (
-            <Button
-              key={e.label}
-              size="sm"
-              variant={i === escala ? 'secondary' : 'ghost'}
-              aria-pressed={i === escala}
-              onClick={() => setEscala(i)}
-            >
-              {e.label}
-            </Button>
-          ))}
+        <div className="flex flex-wrap items-center gap-1">
+          {/* Deslizar por los lados. Solo aparece si hay algo fuera de la
+              vista: un par de flechas que no llevan a ninguna parte son peor
+              que no tenerlas. En un móvil son además la única forma cómoda,
+              porque arrastrar dentro del panel compite con el gesto de
+              desplazar la página. */}
+          {desbordado && (
+            <div className="flex items-center gap-1" role="group" aria-label="Desplazar el cronograma">
+              <Button size="icon" variant="ghost" className="size-7" onClick={() => deslizar(-1)} aria-label="Ver antes">
+                <ChevronLeft className="size-4" />
+              </Button>
+              <Button size="icon" variant="ghost" className="size-7" onClick={() => deslizar(1)} aria-label="Ver después">
+                <ChevronRight className="size-4" />
+              </Button>
+              {layout.todayX !== null && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    const el = panel.current
+                    if (!el || layout.todayX === null) return
+                    el.scrollTo({ left: Math.max(0, layout.todayX - el.clientWidth / 2), behavior: 'smooth' })
+                  }}
+                >
+                  Hoy
+                </Button>
+              )}
+            </div>
+          )}
+          <div className="flex gap-1" role="group" aria-label="Escala del cronograma">
+            {ESCALAS.map((e, i) => (
+              <Button
+                key={e.label}
+                size="sm"
+                variant={i === escala ? 'secondary' : 'ghost'}
+                aria-pressed={i === escala}
+                onClick={() => setEscala(i)}
+              >
+                {e.label}
+              </Button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -152,7 +228,7 @@ export function GanttChart({
         </div>
 
         {/* Escala temporal */}
-        <div className="min-w-0 flex-1 overflow-x-auto">
+        <div ref={panel} className="min-w-0 flex-1 overflow-x-auto">
           <svg
             width={Math.max(layout.width, 320)}
             height={layout.height}
@@ -245,6 +321,11 @@ export function GanttChart({
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        {desbordado && (
+          <span>
+            El plan no cabe de una vez: desliza el cronograma o usa las flechas. «Año» lo comprime.
+          </span>
+        )}
         <span className="flex items-center gap-1">
           <span className="inline-block h-2 w-4 rounded-sm bg-primary" /> hoy
         </span>

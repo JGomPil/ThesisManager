@@ -647,7 +647,7 @@ function MeetingFormDialog({
             <FieldError>{form.formState.errors.title?.message}</FieldError>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="sm:col-span-2">
               <Label htmlFor="m-when">Fecha y hora</Label>
               <Input id="m-when" type="datetime-local" className="mt-1.5" {...form.register('scheduled_at')} />
@@ -659,7 +659,7 @@ function MeetingFormDialog({
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="m-mod">Modalidad</Label>
               <Select id="m-mod" className="mt-1.5" {...form.register('modality')}>

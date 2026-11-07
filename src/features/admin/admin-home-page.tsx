@@ -71,7 +71,7 @@ export function AdminHomePage() {
           nadie hasta que se autoriza. */}
       <PendingAccountsCard />
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {SECTIONS.map(({ to, icon: Icon, title, description }) => (
           <Link key={to} to={to} className="group">
             <Card className="h-full transition-colors group-hover:border-primary/40">

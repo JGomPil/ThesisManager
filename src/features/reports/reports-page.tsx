@@ -114,7 +114,7 @@ export function ReportsPage() {
       />
 
       <Card className="p-3 print:hidden">
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <Select value={tipo} onChange={(e) => setParam('tipo', e.target.value)} aria-label="Tipo de trabajo">
             <option value="">Todos los tipos</option>
             {(workTypes.data ?? []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -164,7 +164,7 @@ export function ReportsPage() {
 
       {filas.length > 0 && (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <Indicador etiqueta="Trabajos" valor={indicadores.total} icono={FileText} />
             <Indicador etiqueta="En curso" valor={indicadores.active} icono={Clock} />
             <Indicador etiqueta="Terminados" valor={indicadores.finished} icono={CheckCircle2} />
@@ -180,7 +180,7 @@ export function ReportsPage() {
           </div>
 
           <React.Suspense fallback={<LoadingPanel label="Cargando gráficos…" />}>
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <Card>
                 <CardHeader className="pb-2"><CardTitle className="text-sm">Por tipo de trabajo</CardTitle></CardHeader>
                 <CardContent className="pt-0">
@@ -355,7 +355,7 @@ export function ReportsPage() {
             </CardContent>
           </Card>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <PersonasCard titulo="Por estudiante" filas={estudiantes} />
             <PersonasCard titulo="Por dirección" filas={direccion} />
           </div>

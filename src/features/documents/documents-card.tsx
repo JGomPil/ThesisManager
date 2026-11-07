@@ -425,7 +425,7 @@ function NewDocumentDialog({
             <FieldError>{form.formState.errors.name?.message}</FieldError>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="doc-type">Tipo</Label>
               <Select id="doc-type" className="mt-1.5" {...form.register('document_type_id')}>
@@ -617,7 +617,7 @@ function NewVersionDialog({
         </DialogHeader>
 
         <form onSubmit={form.handleSubmit((v) => save.mutate(v))} className="space-y-3" noValidate>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="ver-source">Origen</Label>
               <Select id="ver-source" className="mt-1.5" {...form.register('source')}>

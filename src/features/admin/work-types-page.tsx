@@ -324,7 +324,7 @@ function WorkTypeDialog({
         )}
 
         <form onSubmit={form.handleSubmit((v) => save.mutate(v))} className="space-y-4" noValidate>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="wt-name">Nombre completo</Label>
               <Input id="wt-name" className="mt-1.5" placeholder="Academia de Alumnos Internos" {...form.register('name')} />

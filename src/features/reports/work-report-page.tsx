@@ -80,7 +80,7 @@ export function WorkReportPage() {
 
       <Card>
         <CardHeader className="pb-2"><CardTitle className="text-sm">Datos del trabajo</CardTitle></CardHeader>
-        <CardContent className="grid gap-x-6 gap-y-2 pt-0 text-sm sm:grid-cols-2">
+        <CardContent className="grid grid-cols-1 gap-x-6 gap-y-2 pt-0 text-sm sm:grid-cols-2">
           <Dato etiqueta="Título" valor={w.title} />
           <Dato etiqueta="Tipo" valor={fila!.typeName} />
           <Dato etiqueta="Estado" valor={<ToneBadge tone={fila!.statusColor}>{fila!.statusName}</ToneBadge>} />
@@ -99,7 +99,7 @@ export function WorkReportPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm">Progreso</CardTitle></CardHeader>
           <CardContent className="pt-0">
@@ -193,7 +193,7 @@ export function WorkReportPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm">Reuniones y actas</CardTitle></CardHeader>
           <CardContent className="pt-0">

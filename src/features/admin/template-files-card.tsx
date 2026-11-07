@@ -140,7 +140,7 @@ export function TemplateFilesCard({
       )}
 
       <form
-        className="grid gap-2 border-t pt-2 sm:grid-cols-2"
+        className="grid grid-cols-1 gap-2 border-t pt-2 sm:grid-cols-2"
         onSubmit={(e) => {
           e.preventDefault()
           anadir.mutate()

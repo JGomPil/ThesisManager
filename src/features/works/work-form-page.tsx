@@ -256,7 +256,7 @@ export function WorkFormPage() {
       <form onSubmit={form.handleSubmit((v) => save.mutate(v))} className="space-y-4" noValidate>
         <Card>
           <CardHeader className="pb-3"><CardTitle className="text-sm">Datos principales</CardTitle></CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
+          <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <Label htmlFor="title">Título</Label>
               <Input id="title" className="mt-1.5" {...form.register('title')} />
@@ -349,7 +349,7 @@ export function WorkFormPage() {
         {isEdit && (
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-sm">Seguimiento</CardTitle></CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2">
+            <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="progress_override">Progreso académico (%)</Label>
                 <Input
@@ -390,7 +390,7 @@ export function WorkFormPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm">Participantes</CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2">
+            <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="supervisor_id">Dirección</Label>
                 <Select id="supervisor_id" className="mt-1.5" {...form.register('supervisor_id')}>
