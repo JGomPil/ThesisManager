@@ -1,7 +1,6 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { GanttChartSquare, ListPlus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { GanttChartSquare } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ErrorPanel, Spinner } from '@/components/common/states'
 import { EnPantallaCompleta, ExpandButton, FullscreenPanel } from '@/components/common/fullscreen'
@@ -9,8 +8,6 @@ import { qk } from '@/lib/query-keys'
 import { milestonesRepo } from '@/data/repositories/milestones.repo'
 import { tasksRepo, type TaskWithAssignee } from '@/data/repositories/tasks.repo'
 import { GanttChart } from '@/features/plan/gantt-chart'
-import { ApplyTemplateDialog } from '@/features/plan/apply-template-dialog'
-import type { WorkCapabilities } from '@/domain/permissions/work-capabilities'
 
 /**
  * Cronograma del trabajo: el Gantt con sus hitos y sus dependencias.
@@ -19,17 +16,16 @@ import type { WorkCapabilities } from '@/domain/permissions/work-capabilities'
  * trabajo no cargue con ellas. Las tareas se reciben ya cargadas desde la
  * ficha: pedirlas otra vez daría dos listas que pueden discrepar durante unos
  * milisegundos, y el progreso del trabajo se calcula con la primera.
+ *
+ * AQUÍ YA NO SE APLICAN PLANTILLAS. Había un botón «Aplicar plantilla», y
+ * sobraba: una plantilla se elige al crear el trabajo —el formulario de alta
+ * la ofrece y la aplica con las fechas contadas desde el inicio— o no se
+ * aplica. Aplicarla encima de un plan que ya existe SUMA tareas en lugar de
+ * sustituirlas, que no es lo que espera nadie, y era además la única acción de
+ * esta tarjeta, que es para mirar. Por eso la tarjeta ya no necesita saber de
+ * qué tipo es el trabajo, cuándo empieza ni qué puede hacer quien la mira.
  */
-export function ScheduleCard({
-  workId, workTypeId, workStartDate, tasks, caps,
-}: {
-  workId: string
-  workTypeId: string
-  workStartDate: string | null
-  tasks: TaskWithAssignee[]
-  caps: WorkCapabilities
-}) {
-  const [plantillaAbierta, setPlantillaAbierta] = React.useState(false)
+export function ScheduleCard({ workId, tasks }: { workId: string; tasks: TaskWithAssignee[] }) {
   const [expandido, setExpandido] = React.useState(false)
 
   const principales = React.useMemo(() => tasks.filter((t) => t.parent_task_id === null), [tasks])
@@ -83,17 +79,10 @@ export function ScheduleCard({
         <CardTitle className="flex items-center gap-2 text-sm">
           <GanttChartSquare className="size-4 text-muted-foreground" /> Cronograma
         </CardTitle>
-        <div className="flex shrink-0 items-center gap-2">
-          <ExpandButton
-            label="Ver el cronograma a pantalla completa"
-            onClick={() => setExpandido(true)}
-          />
-          {caps.canManagePlan && (
-            <Button size="sm" variant="outline" onClick={() => setPlantillaAbierta(true)}>
-              <ListPlus /> Aplicar plantilla
-            </Button>
-          )}
-        </div>
+        <ExpandButton
+          label="Ver el cronograma a pantalla completa"
+          onClick={() => setExpandido(true)}
+        />
       </CardHeader>
       <CardContent className="pt-0">
         {expandido ? <EnPantallaCompleta /> : grafico}
@@ -102,14 +91,6 @@ export function ScheduleCard({
       <FullscreenPanel open={expandido} onOpenChange={setExpandido} title="Cronograma del trabajo">
         {expandido && grafico}
       </FullscreenPanel>
-
-      <ApplyTemplateDialog
-        open={plantillaAbierta}
-        onOpenChange={setPlantillaAbierta}
-        workId={workId}
-        workTypeId={workTypeId}
-        workStartDate={workStartDate}
-      />
     </Card>
   )
 }

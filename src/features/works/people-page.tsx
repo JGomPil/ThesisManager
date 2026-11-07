@@ -109,7 +109,10 @@ export function PeoplePage() {
                     <Badge variant="secondary" className="ml-1.5 align-middle">Administración</Badge>
                   )}
                 </p>
-                <p className="truncate text-sm text-muted-foreground">
+                {/* El correo, entero: recortado no se puede ni leer ni copiar,
+                    y `break-words` parte también una palabra larga sin
+                    espacios, que es exactamente lo que es un correo. */}
+                <p className="break-words text-sm text-muted-foreground">
                   <a href={`mailto:${p.email}`} className="hover:underline">{p.email}</a>
                 </p>
                 {p.department && <p className="text-sm text-muted-foreground">{p.department}</p>}

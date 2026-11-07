@@ -139,7 +139,7 @@ export function WorkReportPage() {
               <ul className="divide-y text-sm">
                 {(hitos.data ?? []).map((m) => (
                   <li key={m.id} className="flex items-center gap-2 py-1.5">
-                    <span className="min-w-0 flex-1 truncate">{m.name}</span>
+                    <span className="min-w-0 flex-1 break-words">{m.name}</span>
                     <span className="shrink-0 text-xs text-muted-foreground">{fecha(m.due_date)}</span>
                     {m.is_met
                       ? <ToneBadge tone="green">cumplido</ToneBadge>
@@ -231,7 +231,7 @@ export function WorkReportPage() {
                   const estado = REVIEW_STATUSES.find((s) => s.value === ultima?.review_status)
                   return (
                     <li key={d.id} className="flex items-center gap-2 py-1.5">
-                      <span className="min-w-0 flex-1 truncate">{d.name}</span>
+                      <span className="min-w-0 flex-1 break-words">{d.name}</span>
                       {ultima && (
                         <span className="shrink-0 text-xs text-muted-foreground">{ultima.version_label}</span>
                       )}

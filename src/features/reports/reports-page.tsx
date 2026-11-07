@@ -247,7 +247,7 @@ export function ReportsPage() {
                     <ToneBadge tone={f.statusColor}>{f.statusName}</ToneBadge>
                     <span className="text-xs text-muted-foreground">{f.typeShort}</span>
                   </div>
-                  <p className="mt-1.5 truncate text-sm text-muted-foreground">
+                  <p className="mt-1.5 break-words text-sm text-muted-foreground">
                     {f.students.map((s) => s.name).join(', ') || 'Sin estudiante asignado'}
                   </p>
 

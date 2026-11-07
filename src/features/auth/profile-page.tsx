@@ -234,7 +234,7 @@ function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-2">
       <span className="shrink-0 text-muted-foreground">{label}</span>
-      <span className="truncate text-right">{value}</span>
+      <span className="break-words text-right">{value}</span>
     </div>
   )
 }

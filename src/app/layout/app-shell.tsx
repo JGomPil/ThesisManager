@@ -200,7 +200,10 @@ export function PageHeader({
             ))}
           </nav>
         )}
-        <h1 className="truncate text-xl font-semibold tracking-tight">{title}</h1>
+        {/* `break-words` y no `truncate`: este título es casi siempre el
+            nombre de un trabajo, y en un teléfono no cabe en una línea. Antes
+            se cortaba justo donde empieza lo que distingue un TFG de otro. */}
+        <h1 className="break-words text-xl font-semibold tracking-tight">{title}</h1>
         {description && <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>}
       </div>
       {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}

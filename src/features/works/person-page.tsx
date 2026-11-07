@@ -313,7 +313,7 @@ function Dato({ label, valor }: { label: string; valor: string | null }) {
   return (
     <div className="flex items-baseline justify-between gap-2">
       <span className="shrink-0 text-muted-foreground">{label}</span>
-      <span className="truncate text-right">{valor || '—'}</span>
+      <span className="break-words text-right">{valor || '—'}</span>
     </div>
   )
 }

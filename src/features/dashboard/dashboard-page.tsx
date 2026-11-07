@@ -157,10 +157,21 @@ export function DashboardPage() {
               {(myTasks.data ?? []).slice(0, 8).map((t) => {
                 const late = t.due_date !== null && (daysUntil(t.due_date) ?? 0) < 0
                 return (
-                  <li key={t.id} className="flex cursor-pointer items-center gap-3 py-2 text-sm" {...rowLink(`/trabajos/${t.work_id}`)}>
+                  // `items-start`, porque el título puede ocupar dos líneas y la
+                  // fecha tiene que quedarse arriba, a la altura de la primera.
+                  <li key={t.id} className="flex cursor-pointer items-start gap-3 py-2 text-sm" {...rowLink(`/trabajos/${t.work_id}`)}>
+                    {/* EL TÍTULO PARTE EN VARIAS LÍNEAS, no se recorta.
+                        `truncate` dejaba «TFG: Analisis de la variabilidad…» y
+                        el resto no había forma de leerlo: en un teléfono no se
+                        puede pasar el ratón por encima, y ampliar con los
+                        dedos no revela nada porque el recorte lo hace el CSS,
+                        no la pantalla. Lo único que conseguía era que el
+                        navegador ofreciera «ver la versión de escritorio».
+                        Una fila de dos líneas es más alta; un título que no se
+                        puede leer no sirve de nada. */}
                     <Link to={`/trabajos/${t.work_id}`} className="min-w-0 flex-1 hover:underline">
-                      <span className="block truncate font-medium">{t.title}</span>
-                      <span className="block truncate text-xs text-muted-foreground">{t.work?.title}</span>
+                      <span className="block break-words font-medium">{t.title}</span>
+                      <span className="block break-words text-xs text-muted-foreground">{t.work?.title}</span>
                     </Link>
                     {t.due_date && (
                       <span className={late ? 'shrink-0 text-xs font-medium text-destructive' : 'shrink-0 text-xs text-muted-foreground'}>
@@ -204,14 +215,20 @@ export function DashboardPage() {
                 {needAttention.map(({ work, reasons }) => (
                   <li key={work.id} className="flex cursor-pointer items-start gap-3 py-2 text-sm" {...rowLink(`/trabajos/${work.id}`)}>
                     <Link to={`/trabajos/${work.id}`} className="min-w-0 flex-1 hover:underline">
-                      <span className="block truncate font-medium">{work.title}</span>
+                      {/* Igual que arriba: el título entero, en varias líneas. */}
+                      <span className="block break-words font-medium">{work.title}</span>
                       <span className="mt-0.5 flex flex-wrap gap-1">
                         {reasons.slice(0, 2).map((r) => (
                           <span key={r} className="text-xs text-muted-foreground">{ATTENTION_LABELS[r]}</span>
                         ))}
                       </span>
                     </Link>
-                    <ToneBadge tone={work.work_type?.color ?? null}>{work.work_type?.short_name}</ToneBadge>
+                    {/* `shrink-0`: la pastilla del tipo no se estrecha para
+                        hacer sitio al título; es el título el que baja de
+                        línea. */}
+                    <ToneBadge tone={work.work_type?.color ?? null} className="shrink-0">
+                      {work.work_type?.short_name}
+                    </ToneBadge>
                   </li>
                 ))}
               </ul>
@@ -238,8 +255,8 @@ export function DashboardPage() {
             ) : (
               <ul className="divide-y">
                 {upcoming.map(({ work, days }) => (
-                  <li key={work.id} className="flex cursor-pointer items-center gap-3 py-2 text-sm" {...rowLink(`/trabajos/${work.id}`)}>
-                    <Link to={`/trabajos/${work.id}`} className="min-w-0 flex-1 truncate font-medium hover:underline">
+                  <li key={work.id} className="flex cursor-pointer items-start gap-3 py-2 text-sm" {...rowLink(`/trabajos/${work.id}`)}>
+                    <Link to={`/trabajos/${work.id}`} className="min-w-0 flex-1 break-words font-medium hover:underline">
                       {work.title}
                     </Link>
                     <span className={days < 0 ? 'shrink-0 text-xs font-medium text-destructive' : 'shrink-0 text-xs text-muted-foreground'}>

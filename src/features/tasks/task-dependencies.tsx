@@ -146,7 +146,7 @@ export function TaskDependencies({
                 return (
                   <li key={d.depends_on_task_id} className="flex items-center gap-2 text-sm">
                     <span className="text-muted-foreground">Espera a</span>
-                    <span className="min-w-0 flex-1 truncate">
+                    <span className="min-w-0 flex-1 break-words">
                       {otra ? etiqueta(otra) : '(tarea no visible)'}
                     </span>
                     {estado && <ToneBadge tone={estado.tone}>{estado.label}</ToneBadge>}

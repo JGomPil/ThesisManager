@@ -245,11 +245,11 @@ export function WorksListPage() {
                 <dl className="mt-2 space-y-0.5 text-sm text-muted-foreground">
                   <div className="flex gap-1.5">
                     <dt className="shrink-0">Estudiante:</dt>
-                    <dd className="min-w-0 truncate text-foreground">{estudiantes}</dd>
+                    <dd className="min-w-0 break-words text-foreground">{estudiantes}</dd>
                   </div>
                   <div className="flex gap-1.5">
                     <dt className="shrink-0">Dirección:</dt>
-                    <dd className="min-w-0 truncate">{direccion}</dd>
+                    <dd className="min-w-0 break-words">{direccion}</dd>
                   </div>
                   <div className="flex gap-1.5">
                     <dt className="shrink-0">Fin previsto:</dt>

@@ -121,10 +121,11 @@ export function WorkFormPage() {
   }, [selectedType, startDate, isEdit, form])
 
   // Plantillas aplicables al tipo que está elegido ahora mismo en el
-  // formulario. Se piden solo al crear: en la edición el plan ya existe y
-  // aplicar una plantilla encima sumaría tareas en lugar de sustituirlas, que
-  // no es lo que esperaría nadie desde un formulario de edición. Para eso está
-  // el botón del cronograma, donde se ve lo que ya hay.
+  // formulario. Se piden solo al crear, y ESTE ES EL ÚNICO SITIO donde se
+  // aplica una plantilla: en la edición el plan ya existe y aplicar una
+  // encima sumaría tareas en lugar de sustituirlas, que no es lo que esperaría
+  // nadie. El cronograma de la ficha tuvo un botón para hacerlo y se quitó por
+  // eso mismo: o se aplica al crear el trabajo, o se planifica a mano.
   const plantillas = useQuery({
     queryKey: qk.templates.forWorkType(selectedTypeId),
     queryFn: () => templatesRepo.forWorkType(selectedTypeId),
@@ -465,7 +466,7 @@ export function WorkFormPage() {
                               ? `el ${format(parseISO(startDate), 'd/MM/yyyy')}`
                               : 'hoy, porque el trabajo no tiene fecha de inicio'
                           }. Puedes cambiarlas después una a una.`
-                        : 'Si eliges una, el plan se crea con el trabajo. También puedes aplicarla más tarde desde el cronograma de la ficha.'}
+                        : 'Si eliges una, el plan se crea con el trabajo. Es el único momento en que se aplica una plantilla: después, las tareas se añaden a mano desde el plan de trabajo.'}
               </p>
 
               {plantillaElegida && plantillaElegida.tasks.length > 0 && (

@@ -188,13 +188,7 @@ export function WorkDetailPage() {
             {planExpandido && tablero}
           </FullscreenPanel>
 
-          <ScheduleCard
-            workId={w.id}
-            workTypeId={w.work_type_id}
-            workStartDate={w.start_date}
-            tasks={tasks.data ?? []}
-            caps={caps}
-          />
+          <ScheduleCard workId={w.id} tasks={tasks.data ?? []} />
 
           <MeetingsCard work={w} caps={caps} userId={userId} />
 
