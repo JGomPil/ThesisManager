@@ -285,6 +285,26 @@ with comprobaciones as (
            where t.tgname = 'enforce_profile_email' and p.prosecdef)
 
   union all
+  -- 5.nonies La 0029: un comentario lo edita su autor, y solo en su texto. Si
+  --          faltara, editar seguiria funcionando —la politica es de la 0003—
+  --          pero sin dejar rastro y sin impedir que el comentario se mude al
+  --          hilo de otro trabajo. Las dos cosas se callan.
+  select 20, 'migracion 0029: los comentarios se editan, y solo en su texto',
+         case when (select count(*) from pg_trigger
+                     where tgrelid = 'public.comments'::regclass
+                       and tgname in ('comments_updated_at', 'enforce_comment_immutable')) = 2
+              then 'OK' else 'FALLO' end,
+         (select case when count(*) = 1 then 'la fecha de edicion es verdad'
+                      else 'SE PODRIA EDITAR SIN DEJAR RASTRO' end
+            from pg_trigger where tgrelid = 'public.comments'::regclass
+             and tgname = 'comments_updated_at')
+         || ' · ' ||
+         (select case when count(*) = 1 then 'no se muda de sitio ni de autor'
+                      else 'UN COMENTARIO PODRIA APARECER EN OTRO TRABAJO' end
+            from pg_trigger where tgrelid = 'public.comments'::regclass
+             and tgname = 'enforce_comment_immutable')
+
+  union all
   -- 6. Y que ningun rol tenga capacidades que no deba: el estudiante, ninguna.
   select 10, 'el rol de estudiante no tiene capacidades',
          case when count(*) = 0 then 'OK' else 'FALLO' end,

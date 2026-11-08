@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AtSign, Send, Trash2 } from 'lucide-react'
+import { AtSign, Check, Pencil, Send, Trash2, X } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
@@ -48,6 +48,8 @@ export function CommentsThread({
   const toast = useToast()
   const [text, setText] = React.useState('')
   const [mentions, setMentions] = React.useState<string[]>([])
+  /** Qué comentario se está editando, y con qué texto. */
+  const [editando, setEditando] = React.useState<{ id: string; texto: string } | null>(null)
 
   const comments = useQuery({
     queryKey: qk.comments(workId, entityType, entityId),
@@ -68,6 +70,15 @@ export function CommentsThread({
       void qc.invalidateQueries({ queryKey: qk.comments(workId, entityType, entityId) })
       setText('')
       setMentions([])
+    },
+    onError: (e) => toast.push('error', errorMessage(e)),
+  })
+
+  const editar = useMutation({
+    mutationFn: ({ id, texto }: { id: string; texto: string }) => commentsRepo.update(id, texto),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: qk.comments(workId, entityType, entityId) })
+      setEditando(null)
     },
     onError: (e) => toast.push('error', errorMessage(e)),
   })
@@ -107,27 +118,102 @@ export function CommentsThread({
                 <p className="flex flex-wrap items-baseline gap-x-2 text-xs text-muted-foreground">
                   <span className="font-medium text-foreground">{c.author?.full_name ?? '—'}</span>
                   <span>{format(parseISO(c.created_at), "d MMM yyyy 'a las' HH:mm", { locale: es })}</span>
+                  {/* «Editado», y CUÁNDO. Un hilo de seguimiento se cita en un
+                      informe y en una reunión: saber que una frase no es la
+                      que se leyó en su día importa más que el adorno. La fecha
+                      la pone la base de datos (disparador de la 0029), no esta
+                      pantalla. */}
+                  {c.updated_at !== c.created_at && (
+                    <span title={format(parseISO(c.updated_at), "d MMM yyyy 'a las' HH:mm", { locale: es })}>
+                      · editado
+                    </span>
+                  )}
                 </p>
-                {/* Con formato: negrita, cursiva, subrayado y listas. Lo que
-                    se guardó es texto con marcas (`**así**`), y lo de antes de
-                    que esto existiera es texto sin ninguna marca, que sale
-                    igual que salía. Aquí no se monta HTML en ningún momento:
-                    ver `rich-text.tsx`. */}
-                <TextoConFormato texto={c.content} className="mt-0.5" />
-                {c.mentions.length > 0 && (
-                  <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                    <AtSign className="size-3" />
-                    avisó a {c.mentions.map(nameOf).join(', ')}
-                  </p>
+
+                {editando?.id === c.id ? (
+                  /* Se edita EN SU SITIO, con la misma barra de formato con la
+                     que se escribió. Un diálogo aparte sacaría el texto de la
+                     conversación justo cuando se está corrigiendo por lo que
+                     dice el resto del hilo. */
+                  <form
+                    className="mt-1 space-y-2"
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      const texto = editando.texto.trim()
+                      if (texto.length >= 2 && texto !== c.content) {
+                        editar.mutate({ id: c.id, texto })
+                      } else {
+                        setEditando(null)
+                      }
+                    }}
+                  >
+                    <MarkupEditor
+                      rows={4}
+                      value={editando.texto}
+                      onChange={(texto) => setEditando({ id: c.id, texto })}
+                      aria-label="Editar el comentario"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                          e.preventDefault()
+                          e.currentTarget.form?.requestSubmit()
+                        }
+                        // `Esc` cancela. Dentro de un diálogo hay que pararlo:
+                        // si no, el que se cierra es el diálogo entero y se
+                        // pierde la edición sin preguntar.
+                        if (e.key === 'Escape') {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setEditando(null)
+                        }
+                      }}
+                    />
+                    <div className="flex items-center gap-2">
+                      <Button type="submit" size="sm" loading={editar.isPending}>
+                        <Check /> Guardar
+                      </Button>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setEditando(null)}>
+                        <X /> Cancelar
+                      </Button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    {/* Con formato: negrita, cursiva, subrayado y listas. Lo
+                        que se guardó es texto con marcas (`**así**`), y lo de
+                        antes de que esto existiera es texto sin ninguna marca,
+                        que sale igual que salía. Aquí no se monta HTML en
+                        ningún momento: ver `rich-text.tsx`. */}
+                    <TextoConFormato texto={c.content} className="mt-0.5" />
+                    {c.mentions.length > 0 && (
+                      <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                        <AtSign className="size-3" />
+                        avisó a {c.mentions.map(nameOf).join(', ')}
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
-              {c.author_id === userId && (
-                <Button
-                  variant="ghost" size="icon" className="size-7 shrink-0"
-                  onClick={() => remove.mutate(c.id)} aria-label="Borrar comentario"
-                >
-                  <Trash2 className="size-3.5" />
-                </Button>
+              {/* SOLO EL AUTOR, y no es esta comprobación la que manda: la
+                  política `comments_update` y el disparador de la 0029 lo
+                  impiden en la base de datos. Esconder los botones a quien no
+                  puede es cortesía; quien lo prohíbe está más abajo. */}
+              {c.author_id === userId && editando === null && (
+                <div className="flex shrink-0 gap-0.5">
+                  <Button
+                    variant="ghost" size="icon" className="size-7"
+                    onClick={() => setEditando({ id: c.id, texto: c.content })}
+                    aria-label="Editar mi comentario"
+                  >
+                    <Pencil className="size-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost" size="icon" className="size-7"
+                    onClick={() => remove.mutate(c.id)} aria-label="Borrar comentario"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </div>
               )}
             </li>
           ))}

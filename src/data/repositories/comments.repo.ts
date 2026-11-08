@@ -42,6 +42,24 @@ export const commentsRepo = {
     return data
   },
 
+  /**
+   * Cambiar el texto de un comentario ya publicado.
+   *
+   * SOLO EL AUTOR, Y SOLO EL TEXTO, y ninguna de las dos cosas la decide esta
+   * función: la política `comments_update` exige `author_id = app.uid()` y el
+   * disparador `enforce_comment_immutable` (0029) congela el trabajo, la
+   * entidad, el autor y la fecha de creación. Que aquí se mande únicamente
+   * `content` es comodidad, no la garantía.
+   *
+   * `updated_at` NO se manda: lo pone el disparador `comments_updated_at`. Una
+   * marca de «editado» que dependa del cliente es una marca que se puede
+   * omitir hablando con la API directamente.
+   */
+  update: async (id: string, content: string): Promise<void> => {
+    const { error } = await supabase.from('comments').update({ content }).eq('id', id)
+    if (error) throw error
+  },
+
   /** Borrado lógico: deja el hueco en la conversación sin romper las respuestas. */
   remove: async (id: string): Promise<void> => {
     const { error } = await supabase

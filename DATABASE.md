@@ -216,6 +216,15 @@ del mismo trabajo.
 - `comments` polimórfico controlado: `work_id` obligatorio + `entity_type` (`WORK`/`TASK`/`DOCUMENT`/
   `MEETING`) + `entity_id`, `parent_comment_id`, `mentions uuid[]`. `work_id` siempre presente es lo
   que permite una política RLS única y eficiente para todos los comentarios.
+  **Un comentario lo edita su autor, y solo el texto** (`0029`): `comments_update` ya exigía
+  `author_id = app.uid()` desde la `0003` —ni la dirección ni la administración reescriben lo que
+  dijo otro—, pero una política decide *qué filas*, no *qué columnas*. Un disparador congela
+  `work_id`, `entity_type`, `entity_id`, `author_id` y `created_at`, porque sin él el autor podía
+  mudar su comentario al hilo de un trabajo del que no es miembro; y otro pone `updated_at`, que
+  es la marca de «editado» y no puede depender de que el cliente se acuerde de mandarla. Las
+  menciones no se repiten al editar: `comments_notify_mentions` es `after insert`.
+  El contenido es **texto con marcas** (`**negrita**`, `- punto`), nunca HTML: ver
+  `src/domain/comments/markup.ts`.
 - `notifications`: `user_id`, `work_id`, `type`, `title`, `body`, `link`, `read_at`.
 - `activity_logs`: `work_id`, `actor_id`, `action`, `entity_type`, `entity_id`, `diff jsonb`.
   Alimentado por *triggers* en las tablas relevantes.

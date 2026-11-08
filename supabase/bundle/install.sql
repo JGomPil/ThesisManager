@@ -5103,6 +5103,794 @@ end $$;
 
 
 -- #############################################################################
+-- ### supabase/migrations/0024_board_columns.sql
+-- #############################################################################
+
+-- =============================================================================
+-- 0024 · Las columnas del tablero son del TRABAJO, y solo tienen nombre
+--
+-- QUE RESUELVE
+-- El tablero dibujaba una columna por cada valor del `check` de `tasks.status`
+-- —Pendiente, En curso, Bloqueada, En revision, Completada— y agrupaba las
+-- tarjetas por ese estado. Es decir: el tablero lo decidia el codigo, y el
+-- orden dentro de cada columna no lo decidia nadie.
+--
+-- Esto se parece a Trello, que es lo que se ha pedido: un tablero por trabajo,
+-- con las LISTAS que quiera quien lo dirige —«Papers», «Estudios», «Enviado a
+-- revision»— y las tarjetas arrastrandose entre ellas y dentro de ellas.
+--
+-- TRES DECISIONES, Y LAS TRES SE PUEDEN LEER EN LA TABLA
+--
+-- 1. LAS COLUMNAS SON DEL TRABAJO, no de la organizacion: `work_id`. Un
+--    tablero es de un trabajo igual que una lista de Trello es de su tablero.
+--    Por eso quien las administra es quien dirige ese trabajo —la politica usa
+--    `app.can_manage_plan`, la misma que los hitos y las fases—, y no la
+--    administracion del grupo: la direccion de una tesis no tiene por que
+--    pedirle a nadie que le cambie el nombre de una columna.
+--
+-- 2. UNA COLUMNA NO SIGNIFICA NADA. No hay `maps_to`: la columna tiene nombre,
+--    color y orden, y ya. El estado de la tarea —`tasks.status`— sigue siendo
+--    un dato suyo, independiente, que se ve y se cambia en la propia tarjeta.
+--    Mover una tarjeta NO cambia el estado, y cambiar el estado NO mueve la
+--    tarjeta. Son dos clasificaciones a la vez, que es justo lo que hace falta:
+--    «Papers» no es un estado, y una tarjeta de «Papers» puede estar pendiente
+--    o en curso.
+--
+--    La primera version de esta migracion hacia que cada columna declarase su
+--    significado y derivaba `tasks.status` de ella. Sobraba: obligaba a elegir
+--    un significado para cada nombre que se inventara, y el significado ya esta
+--    en la tarjeta. Lo que si hay que mantener es que el progreso del trabajo,
+--    los colores del cronograma, los bloqueos por dependencia y los informes
+--    siguen leyendo `tasks.status`, que es lo que hacen desde la 0002: esta
+--    migracion no toca ese campo.
+--
+-- 3. SIN COLUMNAS, EL TABLERO ES EL DE ANTES. Ningun trabajo nace con
+--    columnas, y la migracion no siembra ninguna: mientras un trabajo no tenga
+--    las suyas, el tablero agrupa por estado exactamente como hasta ahora. Es
+--    la unica forma de que esto no sea un cambio obligatorio para quien no lo
+--    ha pedido.
+-- =============================================================================
+
+-- -----------------------------------------------------------------------------
+-- Si estaba aplicada la PRIMERA version de esta misma migracion
+-- -----------------------------------------------------------------------------
+-- Aquella tenia las columnas por organizacion y con `maps_to`. Entre una y
+-- otra no hay conversion posible —ni sensata: una columna del grupo no se
+-- reparte entre trabajos—, asi que se tira y se vuelve a empezar. Lo que se
+-- pierde son las columnas que se hubieran creado, no las tareas: las tarjetas
+-- se quedan sin columna, y sin columna el tablero las agrupa por estado, que es
+-- el comportamiento de siempre.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'board_columns'
+       and column_name = 'organization_id'
+  ) then
+    update tasks set board_column_id = null where board_column_id is not null;
+    drop table board_columns cascade;
+    raise notice 'AVISO: se descarta la version anterior de board_columns (columnas por organizacion)';
+  end if;
+end $$;
+
+drop trigger if exists sync_task_board_column on tasks;
+drop function if exists app.sync_task_board_column();
+drop function if exists app.sync_board_column_meaning();
+
+-- -----------------------------------------------------------------------------
+-- Las columnas
+-- -----------------------------------------------------------------------------
+create table if not exists board_columns (
+  id            uuid primary key default gen_random_uuid(),
+  work_id       uuid not null references academic_works(id) on delete cascade,
+  name          text not null,
+  color         text,
+  display_order int  not null default 0,
+  created_at    timestamptz not null default now(),
+  -- Dos columnas con el mismo nombre en el mismo tablero no se distinguen, y
+  -- arrastrar una tarjeta a «la de Papers» dejaria de querer decir algo.
+  constraint board_columns_nombre_unico unique (work_id, name),
+  constraint board_columns_nombre_no_vacio check (char_length(btrim(name)) between 1 and 60)
+);
+
+create index if not exists board_columns_work_idx on board_columns (work_id, display_order);
+
+alter table board_columns enable row level security;
+
+-- Las ve cualquiera que vea el trabajo: sin las columnas no se puede dibujar el
+-- tablero, y el nombre de una columna no es un dato de nadie.
+drop policy if exists board_columns_select on board_columns;
+create policy board_columns_select on board_columns for select to authenticated
+  using (work_id in (select app.accessible_work_ids()));
+
+-- Y las administra quien planifica ESE trabajo: la direccion, y la
+-- administracion del grupo por la via de `app.is_admin_of_work`. La misma
+-- politica que los hitos y las fases de la 0003, que es la frase que ya
+-- significaba «esto es el plan de trabajo».
+drop policy if exists board_columns_write on board_columns;
+create policy board_columns_write on board_columns for all to authenticated
+  using (app.can_manage_plan(work_id)) with check (app.can_manage_plan(work_id));
+
+-- -----------------------------------------------------------------------------
+-- En que columna esta cada tarjeta
+-- -----------------------------------------------------------------------------
+-- NULL = sin columna. No es un hueco a rellenar: es lo que tienen todas las
+-- tareas hasta que alguien crea columnas, y lo que vuelven a tener si se borra
+-- la suya.
+alter table tasks add column if not exists board_column_id uuid;
+alter table tasks drop constraint if exists tasks_board_column_id_fkey;
+-- `restrict` y no `set null`: borrar una columna con tarjetas dentro las
+-- esparciria sin que nadie lo haya pedido. La aplicacion solo ofrece borrar las
+-- vacias, y la base de datos lo garantiza aunque la peticion venga de otro
+-- sitio.
+alter table tasks add constraint tasks_board_column_id_fkey
+  foreign key (board_column_id) references board_columns(id) on delete restrict;
+
+create index if not exists tasks_board_column_idx on tasks (board_column_id);
+
+-- -----------------------------------------------------------------------------
+-- La columna tiene que ser del MISMO trabajo que la tarea
+-- -----------------------------------------------------------------------------
+-- Es lo unico que la clave ajena no puede comprobar, y sin esto una tarjeta
+-- podria acabar en el tablero de otro trabajo: invisible donde estaba y
+-- apareciendo donde no es.
+--
+-- `security definer`, y es imprescindible: esta funcion LEE `board_columns`
+-- para saber de que trabajo es la columna. Con los permisos de quien escribe,
+-- RLS le esconderia precisamente la columna de otro trabajo —la que hay que
+-- rechazar—, el `select` no devolveria fila y la comprobacion se apartaria
+-- sola. Es el fallo ABIERTO que tumbo la primera version de la 0023
+-- (SECURITY.md §5.2.quatervicies.bis): una comprobacion que se desactiva en el
+-- unico caso que importa.
+create or replace function app.assert_task_board_column_same_work()
+returns trigger language plpgsql security definer
+set search_path = public, pg_temp
+as $$
+declare v_work uuid;
+begin
+  if new.board_column_id is not null
+     and (tg_op = 'INSERT' or new.board_column_id is distinct from old.board_column_id)
+  then
+    select work_id into v_work from board_columns where id = new.board_column_id;
+    if not found then
+      raise exception 'La columna del tablero no existe' using errcode = 'foreign_key_violation';
+    end if;
+    if v_work is distinct from new.work_id then
+      raise exception 'Esa columna es de otro trabajo' using errcode = 'check_violation';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+revoke all on function app.assert_task_board_column_same_work() from public;
+
+drop trigger if exists assert_task_board_column_same_work on tasks;
+create trigger assert_task_board_column_same_work
+  before insert or update on tasks
+  for each row execute function app.assert_task_board_column_same_work();
+
+-- -----------------------------------------------------------------------------
+-- De paso: la marca de completado, en un solo sitio
+-- -----------------------------------------------------------------------------
+-- `completed_at` la ponia el cliente al cambiar el estado desde el desplegable.
+-- Cualquier otra via de cambiar el estado —la lista de comprobacion, una
+-- peticion a PostgREST— dejaba una tarea COMPLETADA sin `completed_at`, y una
+-- tarea asi no aparece en ningun recuento por fechas: no da error, falta de los
+-- informes. Aqui se decide una vez y para todas las vias.
+--
+-- Solo rellena lo que falta: una fecha de completado puesta a mano —poner al
+-- dia una tarea que se termino la semana pasada— se respeta.
+create or replace function app.sync_task_completed_at()
+returns trigger language plpgsql
+set search_path = public, pg_temp
+as $$
+begin
+  if new.status = 'COMPLETADA' and new.completed_at is null then
+    new.completed_at := now();
+  elsif new.status <> 'COMPLETADA' and new.completed_at is not null then
+    new.completed_at := null;
+  end if;
+  return new;
+end;
+$$;
+revoke all on function app.sync_task_completed_at() from public;
+
+drop trigger if exists sync_task_completed_at on tasks;
+create trigger sync_task_completed_at
+  before insert or update on tasks
+  for each row execute function app.sync_task_completed_at();
+
+-- -----------------------------------------------------------------------------
+-- Lo que puede tocar quien no planifica: su columna y su sitio
+-- -----------------------------------------------------------------------------
+-- `app.enforce_task_update_scope()` (0003) enumeraba lo que NO puede cambiar
+-- quien no tiene `can_manage_plan`, y en esa lista estaba `order_index`, con el
+-- argumento de que ordenar el tablero es planificar.
+--
+-- Con un tablero que se arrastra, ese argumento se vuelve contra si mismo:
+-- soltar una tarjeta ESCRIBE una posicion, siempre. Si se permite cambiar de
+-- columna pero no la posicion, el gesto falla con «Solo puede actualizarse el
+-- estado de la tarea», que no le dice nada a quien acaba de arrastrar su propia
+-- tarea. Y RLS ya limita el daño: `tasks_update` solo le deja escribir las
+-- filas donde es responsable, asi que mueve SUS tarjetas y ninguna otra.
+--
+-- Lo que sigue prohibido es lo que cambia el plan: titulo, descripcion,
+-- responsable, prioridad, fechas, trabajo, tarea padre e hito.
+create or replace function app.enforce_task_update_scope()
+returns trigger language plpgsql security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if app.can_manage_plan(new.work_id) then
+    return new;
+  end if;
+  if (new.title, new.description, new.assignee_id, new.priority, new.start_date,
+      new.due_date, new.work_id, new.parent_task_id, new.milestone_id)
+     is distinct from
+     (old.title, old.description, old.assignee_id, old.priority, old.start_date,
+      old.due_date, old.work_id, old.parent_task_id, old.milestone_id)
+  then
+    raise exception 'Solo puede actualizarse el estado de la tarea y su sitio en el tablero';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function app.enforce_task_update_scope() from public;
+
+-- -----------------------------------------------------------------------------
+-- Autocomprobaciones
+-- -----------------------------------------------------------------------------
+do $$
+begin
+  if not exists (select 1 from pg_policy where polname = 'board_columns_write') then
+    raise exception '0024: falta la politica board_columns_write';
+  end if;
+  -- Que las columnas sean del TRABAJO no es un detalle de forma: de ahi sale
+  -- que las administre la direccion y no la administracion del grupo.
+  if not exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'board_columns' and column_name = 'work_id'
+  ) then
+    raise exception '0024: board_columns tiene que ser del trabajo (falta work_id)';
+  end if;
+  if exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'board_columns' and column_name = 'maps_to'
+  ) then
+    raise exception '0024: board_columns.maps_to sigue ahi; una columna solo tiene nombre';
+  end if;
+  if not exists (
+    select 1 from pg_trigger t join pg_proc p on p.oid = t.tgfoid
+     where t.tgname = 'assert_task_board_column_same_work' and p.prosecdef
+  ) then
+    raise exception '0024: el disparador assert_task_board_column_same_work no existe o no es security definer (fallaria ABIERTO)';
+  end if;
+  if not exists (
+    select 1 from pg_trigger where tgname = 'sync_task_completed_at'
+  ) then
+    raise exception '0024: falta el disparador sync_task_completed_at';
+  end if;
+  if not exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'tasks' and column_name = 'board_column_id'
+  ) then
+    raise exception '0024: falta tasks.board_column_id';
+  end if;
+  raise notice 'CORRECTO: 0024 columnas del tablero, del trabajo y con nombre libre';
+end $$;
+
+
+-- #############################################################################
+-- ### supabase/migrations/0025_tasks_papelera.sql
+-- #############################################################################
+
+-- =============================================================================
+-- 0025 · Borrar una tarea deja de ser definitivo
+--
+-- QUE PASO
+-- La papelera del icono de la tarjeta hacia `delete from tasks`: borrado real,
+-- en cascada sobre sus subtareas, de un solo clic y sin preguntar nada. Una
+-- tarea borrada sin querer NO SE PODIA RECUPERAR de ninguna manera desde la
+-- aplicacion: `tasks` no tenia `deleted_at`, y ningun disparador registraba el
+-- contenido de lo borrado en `activity_logs`. Paso de verdad, el 8 de noviembre
+-- de 2026.
+--
+-- Y era una incoherencia dentro del propio modelo: los trabajos se archivan
+-- desde la 0008 (`deleted_at` + pantalla de archivados), los documentos y los
+-- comentarios tambien. Lo mas fragil del plan de trabajo —una tarea, que se
+-- borra con un icono que esta al lado de todo lo demas— era lo unico sin vuelta
+-- atras.
+--
+-- QUE HACE ESTA MIGRACION
+--   1. `tasks.deleted_at`: borrar es archivar.
+--   2. La politica de SELECT deja ver lo archivado a quien puede planificar, y
+--      solo a quien puede planificar. Esto NO es un detalle: PostgreSQL exige
+--      que la fila resultante de un UPDATE siga siendo visible para quien lo
+--      ejecuta, asi que sin esto archivar fallaria; y un archivado invisible
+--      para todos seria un borrado con otro nombre. Es la leccion de la 0008
+--      (SECURITY.md §5.2.quinquies), aplicada aqui desde el principio.
+--   3. Archivar una tarea se lleva sus SUBTAREAS, y restaurarla las devuelve.
+--      Sin eso, los puntos de la lista de comprobacion de una tarea archivada
+--      se quedarian sueltos: sin padre visible no los ve nadie, pero siguen
+--      contando en cualquier consulta que los sume.
+--   4. Quien solo informa de lo suyo no archiva ni restaura: `deleted_at` entra
+--      en la lista de campos que `app.enforce_task_update_scope` protege.
+--
+-- El borrado definitivo sigue existiendo (`tasks_delete`, para quien
+-- planifica), pero ahora es una segunda decision que se toma mirando la
+-- papelera, y no el efecto de pulsar un icono.
+-- =============================================================================
+
+alter table tasks add column if not exists deleted_at timestamptz;
+
+-- Las listas normales lo filtran en el repositorio (`.is('deleted_at', null)`),
+-- igual que los trabajos archivados. Este indice es para la papelera.
+create index if not exists tasks_papelera_idx on tasks (work_id, deleted_at)
+  where deleted_at is not null;
+
+-- -----------------------------------------------------------------------------
+-- Ver lo archivado: quien planifica, y nadie mas
+-- -----------------------------------------------------------------------------
+drop policy if exists tasks_select on tasks;
+create policy tasks_select on tasks for select to authenticated
+  using (
+    work_id in (select app.accessible_work_ids())
+    and (deleted_at is null or app.can_manage_plan(work_id))
+  );
+
+-- -----------------------------------------------------------------------------
+-- Archivar una tarea se lleva sus subtareas; restaurarla, las devuelve
+-- -----------------------------------------------------------------------------
+-- `security definer` porque tiene que alcanzarlas TODAS. Con los permisos de
+-- quien escribe, la politica de UPDATE de `tasks` podria descartarle alguna
+-- fila —y un UPDATE con filas descartadas no da error—, dejando media lista de
+-- comprobacion archivada y la otra media no, en silencio.
+--
+-- La recursion termina sola: el `where` exige que la subtarea tenga un
+-- `deleted_at` distinto del que se le va a poner, asi que la segunda vuelta no
+-- encuentra nada que escribir.
+create or replace function app.cascade_task_soft_delete()
+returns trigger language plpgsql security definer
+set search_path = public, pg_temp
+as $$
+begin
+  update tasks set deleted_at = new.deleted_at
+   where parent_task_id = new.id
+     and deleted_at is distinct from new.deleted_at;
+  return null;
+end;
+$$;
+revoke all on function app.cascade_task_soft_delete() from public;
+
+drop trigger if exists cascade_task_soft_delete on tasks;
+create trigger cascade_task_soft_delete
+  after update of deleted_at on tasks
+  for each row when (new.deleted_at is distinct from old.deleted_at)
+  execute function app.cascade_task_soft_delete();
+
+-- -----------------------------------------------------------------------------
+-- Quien no planifica no archiva
+-- -----------------------------------------------------------------------------
+-- Se reescribe entera (venia de la 0024) para añadir `deleted_at` a la lista.
+-- Mover su tarjeta y cambiar su estado, si; hacer desaparecer la tarea del plan
+-- de trabajo, no: eso es planificar.
+create or replace function app.enforce_task_update_scope()
+returns trigger language plpgsql security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if app.can_manage_plan(new.work_id) then
+    return new;
+  end if;
+  if (new.title, new.description, new.assignee_id, new.priority, new.start_date,
+      new.due_date, new.work_id, new.parent_task_id, new.milestone_id, new.deleted_at)
+     is distinct from
+     (old.title, old.description, old.assignee_id, old.priority, old.start_date,
+      old.due_date, old.work_id, old.parent_task_id, old.milestone_id, old.deleted_at)
+  then
+    raise exception 'Solo puede actualizarse el estado de la tarea y su sitio en el tablero';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function app.enforce_task_update_scope() from public;
+
+-- -----------------------------------------------------------------------------
+-- Autocomprobaciones
+-- -----------------------------------------------------------------------------
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'tasks' and column_name = 'deleted_at'
+  ) then
+    raise exception '0025: falta tasks.deleted_at';
+  end if;
+  -- Que la politica de SELECT mencione `deleted_at`: sin eso, o no se puede
+  -- archivar, o lo archivado no lo ve nadie.
+  if not exists (
+    select 1 from pg_policies
+     where schemaname = 'public' and tablename = 'tasks' and policyname = 'tasks_select'
+       and qual like '%deleted_at%'
+  ) then
+    raise exception '0025: tasks_select no mira deleted_at; archivar seria imposible o irreversible';
+  end if;
+  if not exists (
+    select 1 from pg_trigger t join pg_proc p on p.oid = t.tgfoid
+     where t.tgname = 'cascade_task_soft_delete' and p.prosecdef
+  ) then
+    raise exception '0025: falta cascade_task_soft_delete (o no es security definer): las subtareas se quedarian sueltas';
+  end if;
+  if (select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'app' and p.proname = 'enforce_task_update_scope') not like '%deleted_at%' then
+    raise exception '0025: enforce_task_update_scope no protege deleted_at; cualquiera podria archivar su tarea';
+  end if;
+  raise notice 'CORRECTO: 0025 la papelera de tareas, con vuelta atras';
+end $$;
+
+
+-- #############################################################################
+-- ### supabase/migrations/0026_task_color.sql
+-- #############################################################################
+
+-- =============================================================================
+-- 0026 · Un color por tarea
+--
+-- QUE RESUELVE
+-- Con las columnas libres de la 0024, el tablero contesta «¿donde esta esto?».
+-- Falta la otra pregunta, la que cruza con esa: «¿de que es?». En un plan con
+-- treinta tareas repartidas en «Papers», «Estudios» y «Escritura», lo que no se
+-- ve de un vistazo es cuales son del mismo asunto, o cuales son las dos que hay
+-- que sacar esta semana.
+--
+-- Es la etiqueta de color de Trello, con una diferencia deliberada: NO LLEVA
+-- NOMBRE NI SIGNIFICADO. Un color no declara nada, igual que una columna no
+-- declara nada (0024): quien planifica decide que quiere decir el violeta, y la
+-- aplicacion no tiene ninguna opinion. Lo unico que hace con el color es
+-- pintarlo y dejar filtrar por el.
+--
+-- `color` es `text` nullable y sin `check`: el catalogo de tonos vive en
+-- `src/lib/utils.ts` y lo comprueba `scripts/check-tones.sh` sobre el CSS
+-- compilado. Un `check` aqui obligaria a una migracion para añadir un color, y
+-- un tono que no exista pinta gris por `toneClass`, que es la degradacion
+-- correcta: una tarjeta con un color viejo se sigue leyendo.
+--
+-- NULL es «sin color», y es el valor de todas las tareas que ya existen: esto
+-- no cambia ni una pantalla hasta que alguien pinte algo.
+-- =============================================================================
+
+alter table tasks add column if not exists color text;
+
+-- -----------------------------------------------------------------------------
+-- El color lo pone quien planifica
+-- -----------------------------------------------------------------------------
+-- Se reescribe `app.enforce_task_update_scope` (venia de la 0025) para añadir
+-- `color` a la lista de campos protegidos.
+--
+-- POR QUE AQUI SI Y EN `board_column_id` NO: mover una tarjeta es informar de
+-- por donde va lo tuyo, y el gesto es de quien hace el trabajo. Pintarla es
+-- clasificar el plan entero con un criterio que solo conoce quien lo hizo —el
+-- color no significa nada por si mismo—, asi que si cada cual pintara el suyo,
+-- el criterio dejaria de existir y nadie veria un error: solo colores que no
+-- quieren decir nada.
+--
+-- Si no se añadiera a la lista, el estudiante podria pintar su tarea y esto no
+-- daria ningun aviso: la columna no esta protegida por defecto, lo esta por
+-- figurar aqui.
+create or replace function app.enforce_task_update_scope()
+returns trigger language plpgsql security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if app.can_manage_plan(new.work_id) then
+    return new;
+  end if;
+  if (new.title, new.description, new.assignee_id, new.priority, new.start_date,
+      new.due_date, new.work_id, new.parent_task_id, new.milestone_id,
+      new.deleted_at, new.color)
+     is distinct from
+     (old.title, old.description, old.assignee_id, old.priority, old.start_date,
+      old.due_date, old.work_id, old.parent_task_id, old.milestone_id,
+      old.deleted_at, old.color)
+  then
+    raise exception 'Solo puede actualizarse el estado de la tarea y su sitio en el tablero';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function app.enforce_task_update_scope() from public;
+
+-- -----------------------------------------------------------------------------
+-- Autocomprobaciones
+-- -----------------------------------------------------------------------------
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'tasks' and column_name = 'color'
+  ) then
+    raise exception '0026: falta tasks.color';
+  end if;
+  -- La lista de campos protegidos es lo unico que impide que cualquiera repinte
+  -- el plan, y es una lista escrita a mano: se comprueba que `color` este.
+  if (select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'app' and p.proname = 'enforce_task_update_scope') not like '%color%' then
+    raise exception '0026: enforce_task_update_scope no protege color; cualquiera podria repintar el plan';
+  end if;
+  -- Y que no se haya perdido lo que protegia antes, que es el riesgo de
+  -- reescribir una funcion entera en cada migracion.
+  if (select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'app' and p.proname = 'enforce_task_update_scope') not like '%deleted_at%' then
+    raise exception '0026: la reescritura ha perdido la proteccion de deleted_at (0025)';
+  end if;
+  raise notice 'CORRECTO: 0026 un color por tarea, sin significado';
+end $$;
+
+
+-- #############################################################################
+-- ### supabase/migrations/0027_cambio_de_correo.sql
+-- #############################################################################
+
+-- =============================================================================
+-- 0027 · El correo se cambia, y el perfil sigue siendo el mismo
+--
+-- POR QUE
+-- Quien pierde su correo institucional —cambia de centro, se le acaba el
+-- contrato, le renombran el dominio— no puede entrar. La salida que quedaba era
+-- crear otra cuenta, y eso ROMPE EL HISTORIAL: la identidad de esta aplicacion
+-- es el perfil (`profiles.id`), y de el cuelgan las relaciones academicas, las
+-- tareas, los comentarios, las actas y el registro de actividad. Una cuenta
+-- nueva es otra persona para la base de datos, y el trabajo de la anterior se
+-- queda a nombre de un perfil que ya no usa nadie.
+--
+-- Asi que el correo tiene que poder cambiar SIN cambiar el perfil. El cambio de
+-- verdad lo hace Supabase Auth (`auth.updateUser({ email })`, con confirmacion
+-- por enlace), que es quien manda sobre las credenciales. Lo que falta, y es lo
+-- que hace esta migracion, son las dos mitades que no estaban:
+--
+--   1. QUE EL PERFIL SIGA A LA CUENTA. `profiles.email` es la copia que lee la
+--      aplicacion —el directorio, la ficha de la persona, los avisos—. Nadie la
+--      actualizaba al cambiar el correo en auth: la persona entraba con el
+--      nuevo y el grupo seguia viendo el viejo. Sin ningun error.
+--
+--   2. QUE EL PERFIL NO PUEDA DESVIARSE. `profiles_update_self` (0003) deja a
+--      cada cual escribir su propia fila ENTERA, columna de correo incluida. O
+--      sea que cualquiera podia poner en su perfil un correo que no es el de su
+--      cuenta: seguiria entrando con el suyo, y en el directorio del grupo
+--      apareceria el de otra persona. Es una suplantacion barata y silenciosa.
+--
+-- Las dos se resuelven con el mismo criterio: el correo del perfil NO es un dato
+-- editable, es el reflejo de `auth.users.email`.
+-- =============================================================================
+
+-- -----------------------------------------------------------------------------
+-- 1. El perfil sigue a la cuenta
+-- -----------------------------------------------------------------------------
+-- `security definer` porque escribe `public.profiles` desde un disparador de
+-- `auth.users`: la sesion que confirma un cambio de correo no es la de nadie que
+-- tenga permiso sobre esa fila.
+--
+-- Vale para las dos vias, y eso es justamente lo que se busca: la persona lo
+-- cambia desde «Mi perfil», o la administracion se lo cambia desde el panel de
+-- Supabase cuando el enlace no llega. En los dos casos el perfil se entera.
+create or replace function app.sync_profile_email()
+returns trigger language plpgsql security definer
+set search_path = public, pg_temp
+as $$
+begin
+  update public.profiles
+     set email = new.email, updated_at = now()
+   where id = new.id;
+  return new;
+end;
+$$;
+revoke all on function app.sync_profile_email() from public;
+
+drop trigger if exists on_auth_user_email_changed on auth.users;
+create trigger on_auth_user_email_changed
+  after update of email on auth.users
+  for each row when (new.email is distinct from old.email)
+  execute function app.sync_profile_email();
+
+-- -----------------------------------------------------------------------------
+-- 2. El perfil no se desvia de la cuenta
+-- -----------------------------------------------------------------------------
+-- Un cambio de `profiles.email` solo se admite si deja la fila diciendo lo que
+-- dice `auth.users`. El disparador de arriba cumple la condicion —escribe
+-- exactamente el correo nuevo de la cuenta—; una peticion a PostgREST con otro
+-- valor, no.
+--
+-- `security definer` para poder leer `auth.users`, que no es legible para
+-- `authenticated`. Si no lo fuera, el `select` no devolveria fila, el correo de
+-- la cuenta se leeria como nulo y la comprobacion rechazaria TODO cambio,
+-- incluido el legitimo: fallaria cerrada, que es menos grave que lo contrario
+-- pero deja el cambio de correo sin funcionar y sin motivo visible.
+create or replace function app.enforce_profile_email_matches_auth()
+returns trigger language plpgsql security definer
+set search_path = public, pg_temp
+as $$
+declare v_cuenta text;
+begin
+  if new.email is distinct from old.email then
+    select email into v_cuenta from auth.users where id = new.id;
+    if new.email is distinct from v_cuenta then
+      raise exception 'El correo del perfil es el de la cuenta: se cambia desde «Mi perfil» y se confirma por correo'
+        using errcode = 'insufficient_privilege';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+revoke all on function app.enforce_profile_email_matches_auth() from public;
+
+drop trigger if exists enforce_profile_email on profiles;
+create trigger enforce_profile_email
+  before update of email on profiles
+  for each row execute function app.enforce_profile_email_matches_auth();
+
+-- -----------------------------------------------------------------------------
+-- Autocomprobaciones
+-- -----------------------------------------------------------------------------
+do $$
+begin
+  if not exists (
+    select 1 from pg_trigger t join pg_proc p on p.oid = t.tgfoid
+     where t.tgname = 'on_auth_user_email_changed' and p.prosecdef
+  ) then
+    raise exception '0027: falta on_auth_user_email_changed (o no es security definer): el perfil seguiria diciendo el correo viejo';
+  end if;
+  if not exists (
+    select 1 from pg_trigger t join pg_proc p on p.oid = t.tgfoid
+     where t.tgname = 'enforce_profile_email' and p.prosecdef
+  ) then
+    raise exception '0027: falta enforce_profile_email (o no es security definer): cualquiera podria poner en su perfil el correo de otro';
+  end if;
+  raise notice 'CORRECTO: 0027 el correo se cambia en la cuenta y el perfil lo sigue';
+end $$;
+
+
+-- #############################################################################
+-- ### supabase/migrations/0028_perfil_linkedin.sql
+-- #############################################################################
+
+-- =============================================================================
+-- 0028 · LinkedIn en el perfil
+--
+-- Un campo mas en `profiles`, al lado de ORCID y por el mismo motivo: en un
+-- grupo de investigacion la identidad profesional de cada cual vive fuera, y la
+-- ficha de una persona sirve para llegar a ella. ORCID lleva a su produccion
+-- cientifica; LinkedIn, a su trayectoria, que es lo que miran los estudiantes
+-- que acaban y la gente de fuera del mundo academico.
+--
+-- SIN `check` DE FORMATO, a proposito. El formato se valida en el formulario
+-- (`src/schemas` y la pantalla del perfil), no aqui, por lo mismo que el maximo
+-- de directores: un `check` sobre una direccion de un sitio ajeno es una regla
+-- que caduca cuando ese sitio cambia de URL, y cambiarla pide una migracion. Lo
+-- que si hace la aplicacion es no fabricar enlaces: guarda la direccion
+-- completa y la pinta tal cual, asi que un valor raro es un enlace que no
+-- lleva a ningun sitio y no una pantalla rota.
+--
+-- NO HACE FALTA NINGUNA POLITICA NUEVA, y conviene decir por que: la
+-- visibilidad de `profiles` es POR FILA (`app.can_see_profile`, 0016 y 0017),
+-- de modo que una columna nueva hereda exactamente la misma regla —solo la ve
+-- quien tiene relacion academica con esa persona, o quien la administra—. Es la
+-- cara buena de lo que la 0027 descubrio por el lado malo: una politica decide
+-- que filas, no que columnas. Aqui es justo lo que se quiere; alli hizo falta un
+-- disparador porque habia una columna que no debia ser editable.
+-- =============================================================================
+
+alter table profiles add column if not exists linkedin_url text;
+
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'profiles' and column_name = 'linkedin_url'
+  ) then
+    raise exception '0028: falta profiles.linkedin_url';
+  end if;
+  raise notice 'CORRECTO: 0028 LinkedIn en el perfil';
+end $$;
+
+
+-- #############################################################################
+-- ### supabase/migrations/0029_comentarios_editables.sql
+-- #############################################################################
+
+-- =============================================================================
+-- 0029 · Un comentario lo edita quien lo escribio, y solo el texto
+--
+-- Hasta ahora un comentario solo se podia borrar. Eso convierte cualquier
+-- errata en «borrar y volver a escribir», que en un hilo de seguimiento no es
+-- lo mismo: el comentario cambia de sitio, pierde su fecha y las respuestas
+-- que colgaran de el se quedan sin padre.
+--
+-- QUIEN PUEDE: solo el autor. Eso NO ES NUEVO y conviene decirlo, porque es la
+-- razon de que esta migracion sea corta: `comments_update` (0003) ya exige
+-- `author_id = app.uid()` en el `using` y en el `with check`. La direccion del
+-- trabajo no puede reescribir lo que dijo otro, y un administrador de la
+-- organizacion tampoco. Lo que falta aqui son las dos cosas que esa politica
+-- no puede dar.
+--
+-- 1. QUE LA FECHA DE EDICION SEA VERDAD
+-- `comments.updated_at` existe desde la 0002 pero nadie la tocaba: la tabla se
+-- quedo sin el disparador `set_updated_at` que si tienen `academic_works`,
+-- `work_members` y `tasks`. La pantalla marca los comentarios editados con esa
+-- fecha, y una marca que depende de que el cliente se acuerde de mandarla es
+-- una marca en la que no se puede confiar: cualquiera que hable con la API
+-- directamente edita sin dejar rastro. Con el disparador, el rastro lo pone la
+-- base de datos.
+--
+-- 2. QUE EDITAR SEA CAMBIAR EL TEXTO, Y NADA MAS
+-- Una politica de RLS decide QUE FILAS se pueden tocar, no QUE COLUMNAS: es la
+-- misma limitacion que encontro la 0027 con el correo del perfil, y se resuelve
+-- igual, con un disparador. Sin el, el autor de un comentario podia cambiarle
+-- el `work_id` —el `using` solo mira el autor, no la pertenencia al trabajo— y
+-- plantar su comentario en el hilo de un trabajo del que no es miembro. No lo
+-- veria (`comments_select` si comprueba el acceso), pero los miembros de ese
+-- trabajo si verian aparecer el comentario de un desconocido.
+--
+-- Se congelan `work_id`, `entity_type`, `entity_id`, `author_id` y
+-- `created_at`. Quedan editables `content`, `mentions` y `deleted_at`, que es
+-- por donde pasa el borrado logico.
+--
+-- LAS MENCIONES NO SE REPITEN AL EDITAR, y no hace falta tocar nada para eso:
+-- `comments_notify_mentions` (0011) es `after insert`, no `after update`. Si
+-- algun dia se pasa a avisar tambien al editar, habra que decidir antes que
+-- pasa con quien ya recibio el aviso.
+-- =============================================================================
+
+-- -----------------------------------------------------------------------------
+-- 1. La fecha de edicion la pone la base de datos
+-- -----------------------------------------------------------------------------
+drop trigger if exists comments_updated_at on comments;
+create trigger comments_updated_at
+  before update on comments
+  for each row execute function app.set_updated_at();
+
+-- -----------------------------------------------------------------------------
+-- 2. Un comentario no se muda de sitio ni cambia de autor
+-- -----------------------------------------------------------------------------
+create or replace function app.enforce_comment_immutable_columns()
+returns trigger language plpgsql
+set search_path = public, pg_temp
+as $$
+begin
+  if new.work_id     is distinct from old.work_id
+  or new.entity_type is distinct from old.entity_type
+  or new.entity_id   is distinct from old.entity_id
+  or new.author_id   is distinct from old.author_id
+  or new.created_at  is distinct from old.created_at then
+    raise exception 'De un comentario solo se puede cambiar el texto'
+      using errcode = 'insufficient_privilege';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function app.enforce_comment_immutable_columns() from public;
+
+drop trigger if exists enforce_comment_immutable on comments;
+create trigger enforce_comment_immutable
+  before update on comments
+  for each row execute function app.enforce_comment_immutable_columns();
+
+-- -----------------------------------------------------------------------------
+-- 3. Comprobacion
+-- -----------------------------------------------------------------------------
+do $$
+declare n int;
+begin
+  select count(*) into n from pg_trigger
+   where tgrelid = 'public.comments'::regclass
+     and tgname in ('comments_updated_at', 'enforce_comment_immutable');
+  if n <> 2 then
+    raise exception '0029: faltan disparadores en comments (hay %, se esperaban 2)', n;
+  end if;
+  raise notice '0029 OK: los comentarios se editan, y solo en su texto.';
+end $$;
+
+
+-- #############################################################################
 -- ### supabase/seed/0001_catalogs.sql
 -- #############################################################################
 
