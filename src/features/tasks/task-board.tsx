@@ -453,8 +453,23 @@ export function TaskBoard({
                   className={cn(
                     // Ancho fijo: una columna que se encoge con el número de
                     // columnas acaba sin sitio para el título de una tarjeta.
-                    'flex w-[17.5rem] shrink-0 flex-col gap-2 rounded-lg p-1 transition-colors',
-                    esDestino && 'bg-primary/5 ring-1 ring-primary/40',
+                    //
+                    // EL FONDO DE LA COLUMNA NO ES ADORNO. El tablero se dibuja
+                    // dentro de una tarjeta blanca (`bg-card`) y cada tarea es
+                    // otra tarjeta blanca: sin este escalón de tono son blanco
+                    // sobre blanco separados por un borde de 1 px al 91 % de
+                    // luminosidad. En un teléfono apenas se nota —una tarjeta
+                    // llena la pantalla—, pero en un monitor se ven quince a la
+                    // vez y el tablero entero parece translúcido, «poco nítido».
+                    // Con la columna en `muted` la jerarquía se lee de un
+                    // vistazo: página → columna → tarjeta, que es lo que hacen
+                    // Trello y Jira por el mismo motivo. Y funciona en los dos
+                    // temas: en claro la columna es más oscura que la tarjeta y
+                    // en oscuro más clara, pero en ambos hay un escalón.
+                    'flex w-[17.5rem] shrink-0 flex-col gap-2 rounded-lg bg-muted p-2 transition-colors',
+                    // Sobre un fondo que ya tiene tono, el 5 % no se distinguía:
+                    // la columna de destino tiene que cantar mientras se arrastra.
+                    esDestino && 'bg-primary/10 ring-1 ring-primary/40',
                     colArrastrada === col.id && 'opacity-50',
                     // La columna entera se va a colocar aquí: la barra va en el
                     // lado, porque el tablero se lee de izquierda a derecha.
