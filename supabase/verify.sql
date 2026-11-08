@@ -265,6 +265,26 @@ with comprobaciones as (
              and pg_get_functiondef(p.oid) like '%new.color%')
 
   union all
+  -- 5.octies La 0027: cambiar de correo sin cambiar de perfil. Las dos mitades
+  --          que, si faltan, no dan ningun error: que el perfil siga a la
+  --          cuenta, y que no pueda decir un correo que no es el de la cuenta.
+  select 19, 'migracion 0027: el correo se cambia y el perfil lo sigue',
+         case when (select count(*) from pg_trigger t join pg_proc p on p.oid = t.tgfoid
+                     where t.tgname = 'on_auth_user_email_changed' and p.prosecdef) = 1
+                   and (select count(*) from pg_trigger t join pg_proc p on p.oid = t.tgfoid
+                         where t.tgname = 'enforce_profile_email' and p.prosecdef) = 1
+              then 'OK' else 'FALLO' end,
+         (select case when count(*) = 1 then 'el perfil sigue a la cuenta'
+                      else 'EL PERFIL SE QUEDARIA CON EL CORREO VIEJO' end
+            from pg_trigger t join pg_proc p on p.oid = t.tgfoid
+           where t.tgname = 'on_auth_user_email_changed' and p.prosecdef)
+         || ' · ' ||
+         (select case when count(*) = 1 then 'el perfil no se desvia'
+                      else 'CUALQUIERA PODRIA PONERSE EL CORREO DE OTRO' end
+            from pg_trigger t join pg_proc p on p.oid = t.tgfoid
+           where t.tgname = 'enforce_profile_email' and p.prosecdef)
+
+  union all
   -- 6. Y que ningun rol tenga capacidades que no deba: el estudiante, ninguna.
   select 10, 'el rol de estudiante no tiene capacidades',
          case when count(*) = 0 then 'OK' else 'FALLO' end,

@@ -1117,9 +1117,46 @@ error, solo abre un permiso. Así que desde la `0026` cada migración que la ree
 terminar que siguen ahí los campos que protegía antes, y `supabase/verify.sql` (comprobación 18)
 lo verifica en el proyecto real.
 
+### 5.2.novodevicies · Un correo editable que no era el correo de nadie
+
+La identidad de esta aplicación es el perfil (`profiles.id`): de él cuelgan las relaciones
+académicas, las tareas, los comentarios, las actas y el registro de actividad. Quien pierde su
+correo institucional tiene que poder cambiarlo **conservando ese perfil**; una cuenta nueva es otra
+persona para la base de datos, y el trabajo de la anterior se queda a nombre de un perfil que ya no
+usa nadie.
+
+El cambio lo hace Supabase Auth, con su enlace de confirmación. Lo que la `0027` arregla son las dos
+mitades que faltaban, y las dos son silenciosas:
+
+- **El perfil no seguía a la cuenta.** `profiles.email` es la copia que lee la aplicación —el
+  directorio, la ficha de la persona—, y nadie la actualizaba: la persona entraba con el correo
+  nuevo y el grupo seguía viendo el viejo. Lo arregla un *trigger* `security definer` sobre
+  `auth.users`, que vale para las dos vías: la persona desde «Mi perfil», o la administración desde
+  el panel de Supabase cuando el enlace no llega.
+- **El perfil podía desviarse, y eso era una suplantación barata.** `profiles_update_self` (`0003`)
+  deja a cada cual escribir su propia fila **entera**, columna `email` incluida. Es decir que
+  cualquiera podía poner en su perfil el correo de otra persona: seguiría entrando con el suyo, y en
+  el directorio del grupo aparecería el ajeno. Ninguna política lo impedía, porque la política
+  decide **qué filas**, no **qué columnas**. Ahora un `UPDATE` de `profiles.email` solo se admite si
+  deja la fila diciendo lo que dice `auth.users`, que es la condición que cumple el *trigger*
+  anterior y no cumple una petición a PostgREST. Prueba `[177]`, desde la sesión de quien sí puede
+  escribir esa fila.
+
+Las dos funciones son `security definer` porque leen o escriben fuera del alcance de
+`authenticated`. En la segunda, además, de no serlo **fallaría cerrada**: el `select` sobre
+`auth.users` no devolvería fila, el correo de la cuenta se leería como nulo y se rechazarían todos
+los cambios, incluido el legítimo. Es menos grave que lo contrario, pero deja el cambio de correo
+sin funcionar y sin motivo visible, que es la otra manera de que una pantalla no sirva para nada.
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.
+- **Cambio del propio correo** (`0027`, y «Mi perfil»): `auth.updateUser({ email })` manda un enlace
+  al correo nuevo y, con «Secure email change» —activado de serie—, otro al actual; hacen falta los
+  dos y hasta entonces se entra con el de siempre. Gasta de la misma cuota de 2–4 correos por hora
+  que las invitaciones, así que la vía alternativa es la de siempre: la administración lo cambia
+  desde el panel de Supabase, y el perfil se entera igual porque el *trigger* es sobre
+  `auth.users`. El perfil no cambia nunca de identificador, que es lo que conserva el historial.
 - **Registro público deshabilitado.** El alta es siempre por invitación de un `ADMIN`.
 - Un *trigger* `AFTER INSERT ON auth.users` crea la fila de `profiles`, pero **no** crea
   `organization_members`: sin esa fila, el usuario entra y no ve nada. La pertenencia es un acto
@@ -1196,7 +1233,7 @@ Cada una debe ejecutarse **contra la base de datos** con el JWT del usuario corr
 desde la interfaz.
 
 > **Ya verificadas.** Las migraciones de `supabase/migrations/` se han aplicado a un
-> PostgreSQL 16 real y se ejecutan **175 pruebas** de seguridad, todas correctas:
+> PostgreSQL 16 real y se ejecutan **177 pruebas** de seguridad, todas correctas:
 > `./scripts/test-rls.sh` (detalle en `supabase/tests/README.md`). Cubren los puntos 1–6, 12 y 13
 > de la lista siguiente. Los puntos 7, 10 y 11 dependen del frontend y del despliegue, y los 8 y 9
 > del proyecto real de Supabase; se validan en la Fase 1.

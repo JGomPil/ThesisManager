@@ -42,6 +42,20 @@ const profileSchema = z.object({
 })
 type ProfileValues = z.infer<typeof profileSchema>
 
+/**
+ * El correo nuevo.
+ *
+ * No se valida «que sea institucional» a propósito: hay doctorandos con cuenta
+ * de otra universidad y profesorado asociado con correo de su empresa, y una
+ * regla de dominio los dejaría fuera justo cuando más falta les hace poder
+ * cambiarlo. Lo único que se exige es que sea un correo y que no sea el que ya
+ * tiene, que es el error de verdad: mandar un enlace de confirmación a la misma
+ * dirección gasta uno de los 2–4 correos por hora del plan gratuito para nada.
+ */
+const emailSchema = z.object({
+  email: z.string().trim().toLowerCase().email('Escribe un correo válido'),
+})
+
 const passwordSchema = z
   .object({ password: z.string().min(10, 'Usa al menos 10 caracteres'), confirm: z.string() })
   .refine((v) => v.password === v.confirm, { message: 'No coinciden', path: ['confirm'] })
@@ -99,6 +113,43 @@ export function ProfilePage() {
       if (error) throw error
     },
     onSuccess: () => { toast.push('success', 'Contraseña actualizada.'); pwForm.reset() },
+    onError: (e) => toast.push('error', errorMessage(e)),
+  })
+
+  const emailForm = useForm<z.infer<typeof emailSchema>>({
+    resolver: zodResolver(emailSchema),
+    defaultValues: { email: '' },
+  })
+
+  /**
+   * CAMBIAR EL CORREO DE LA CUENTA.
+   *
+   * Lo hace Supabase Auth, que es quien manda sobre las credenciales: manda un
+   * enlace de confirmación al correo nuevo y —con «Secure email change», que
+   * está activado de serie— otro al actual, y hacen falta los dos. Hasta que se
+   * confirme, se sigue entrando con el de siempre.
+   *
+   * La aplicación NO escribe `profiles.email`: lo arrastra el disparador de la
+   * migración 0027 cuando el cambio se confirma. Escribirlo aquí daría un
+   * directorio que anuncia un correo con el que todavía no se puede entrar, y
+   * ningún error.
+   */
+  const changeEmail = useMutation({
+    mutationFn: async (values: z.infer<typeof emailSchema>) => {
+      if (values.email === (profile?.email ?? '').toLowerCase()) {
+        throw new Error('Ese ya es tu correo. No hace falta cambiar nada.')
+      }
+      const { error } = await supabase.auth.updateUser({ email: values.email })
+      if (error) throw error
+      return values.email
+    },
+    onSuccess: (nuevo) => {
+      toast.push(
+        'success',
+        `Te hemos mandado un enlace a ${nuevo} y otro a tu correo actual. Hay que abrir los dos; hasta entonces entras con el de siempre.`,
+      )
+      emailForm.reset()
+    },
     onError: (e) => toast.push('error', errorMessage(e)),
   })
 
@@ -198,9 +249,58 @@ export function ProfilePage() {
                 </Badge>
               </div>
               <p className="border-t pt-2 text-xs text-muted-foreground">
-                El correo no se cambia desde aquí: identifica la cuenta. Pídeselo al administrador
-                del grupo.
+                Tu cuenta es tu perfil, no tu correo: si cambias de correo conservas tus trabajos,
+                tus tareas y todo tu historial.
               </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Cambiar mi correo</CardTitle>
+              <CardDescription>
+                Para cuando cambias de centro o te cierran la cuenta institucional.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <form
+                onSubmit={emailForm.handleSubmit((v) => changeEmail.mutate(v))}
+                className="space-y-3"
+                noValidate
+              >
+                <div>
+                  <Label htmlFor="new-email">Correo nuevo</Label>
+                  <Input
+                    id="new-email" type="email" autoComplete="email" className="mt-1.5"
+                    placeholder="nombre@dominio.es"
+                    {...emailForm.register('email')}
+                  />
+                  <FieldError>{emailForm.formState.errors.email?.message}</FieldError>
+                </div>
+                <Button type="submit" variant="outline" className="w-full" loading={changeEmail.isPending}>
+                  Mandarme el enlace de confirmación
+                </Button>
+              </form>
+              {/* Lo que pasa después, escrito antes de que pase: este cambio se
+                  hace una vez en la vida y no se sabe qué esperar. Los tres
+                  párrafos contestan las tres preguntas que salen solas: ¿ya
+                  está?, ¿con cuál entro ahora?, ¿y si no llega el correo? */}
+              <div className="mt-3 space-y-1.5 border-t pt-2 text-xs text-muted-foreground">
+                <p>
+                  Se manda un enlace al correo nuevo y otro al actual, y <strong>hay que abrir los
+                  dos</strong>. Hasta entonces sigues entrando con el de siempre.
+                </p>
+                <p>
+                  Tu perfil no cambia: los trabajos, las tareas, los comentarios y las actas se
+                  quedan a tu nombre, porque lo que te identifica es el perfil y no el correo.
+                </p>
+                <p>
+                  Si no llega, es por la cuota del plan gratuito —de 2 a 4 correos por hora,
+                  compartidos con las invitaciones y las contraseñas—: espera un rato o pídele a la
+                  administración que te lo cambie desde el panel de Supabase, que llega al mismo
+                  sitio.
+                </p>
+              </div>
             </CardContent>
           </Card>
 

@@ -29,6 +29,12 @@ work_members    work_phases     tasks          meetings        documents      co
 transversales: notifications · activity_logs · system_settings · keepalive
 ```
 
+> **`profiles.email` no es un dato editable** (`0027`): es el reflejo de `auth.users.email`. Un
+> *trigger* lo actualiza cuando el correo de la cuenta cambia —desde «Mi perfil» o desde el panel de
+> Supabase— y otro rechaza cualquier `UPDATE` que lo deje diciendo algo distinto de lo que dice la
+> cuenta. Cambiar de correo **no cambia el perfil**, que es lo que conserva las relaciones
+> académicas, las tareas y el historial.
+
 ## 2. Separación deliberada de los dos sistemas de permisos
 
 | Tabla | Qué concede | Ámbito |
