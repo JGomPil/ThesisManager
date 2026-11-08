@@ -12,15 +12,13 @@ código.
 > - Aplicación publicada en **https://jgompil.github.io/ThesisManager/**, conectada a un proyecto
 >   de Supabase real. Sin las variables de entorno, la web explica cuáles faltan en lugar de
 >   quedarse en blanco.
-> - Migraciones `0001…0023` **aplicadas** en el proyecto real y verificadas el 2026-11-07 con
->   `supabase/verify.sql`: RLS en todas las tablas, `anon` sin acceso a ninguna función de `app`,
->   las 18 tablas del núcleo, las políticas y disparadores de la `0020` a la `0023`, que cada
->   organización tenga administración, y el rol de estudiante sin capacidades.
->   La **`0024`** (el tablero de tareas de cada trabajo, con columnas propias) y la **`0025`** (la
->   papelera de tareas: borrar una tarea deja de ser definitivo) están probadas contra PostgreSQL 16
->   y **pendientes de aplicar** en el proyecto real: hasta que se apliquen, las comprobaciones 16 y
->   17 de `supabase/verify.sql` —que ahora devuelve **17 filas**— dirán `FALLO`, que es justo para
->   lo que están.
+> - Migraciones `0001…0025` **aplicadas** en el proyecto real y verificadas el 2026-11-08 con
+>   `supabase/verify.sql`: **17 comprobaciones, todas `OK`** —RLS en todas las tablas, `anon` sin
+>   acceso a ninguna función de `app`, las 18 tablas del núcleo, las políticas y disparadores de la
+>   `0020` a la `0025`, que cada organización tenga administración, y el rol de estudiante sin
+>   capacidades—. Las dos últimas comprueban lo que no se vería de otra manera: que las columnas
+>   del tablero sean del trabajo y sin significado (`0024`), y que archivar una tarea tenga vuelta
+>   atrás (`0025`).
 >   174 pruebas de seguridad contra PostgreSQL 16 y 148 pruebas unitarias (dominio, y el
 >   recorrido de los cubos de Storage contra un cliente simulado).
 > - Progreso detallado en [`ROADMAP.md`](ROADMAP.md); decisiones técnicas en

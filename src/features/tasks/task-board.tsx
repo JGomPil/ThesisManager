@@ -94,6 +94,13 @@ export function TaskBoard({
     (columnas.data ?? []).length,
   )
 
+  // Qué COLUMNA se arrastra y sobre cuál está. Es un arrastre distinto del de
+  // las tarjetas y con su propio estado: los dos gestos conviven en el mismo
+  // sitio, y cada manejador comprueba cuál está en marcha antes de hacer nada.
+  // Si compartieran estado, soltar una tarjeta movería una columna.
+  const [colArrastrada, setColArrastrada] = React.useState<string | null>(null)
+  const [colDestino, setColDestino] = React.useState<string | null>(null)
+
   // Qué tarjeta se arrastra y dónde caería. Solo sirve para pintar la pista;
   // el movimiento lo calcula `planCardMove` con los datos de la consulta, así
   // que no hay copia local del tablero que pueda discrepar de la real.
@@ -270,6 +277,23 @@ export function TaskBoard({
     })
     if (movimientos.length > 0) mover.mutate(movimientos)
   }
+  /**
+   * Soltar la columna arrastrada sobre otra: se coloca en el sitio de esa.
+   *
+   * El cálculo es el mismo `moveItem` de la lista de comprobación, y las
+   * escrituras las mismas que las flechas: solo las columnas cuyo orden deja de
+   * coincidir con su posición.
+   */
+  const soltarColumna = (sobreId: string) => {
+    const desde = filasColumnas.findIndex((c) => c.id === colArrastrada)
+    const hasta = filasColumnas.findIndex((c) => c.id === sobreId)
+    setColArrastrada(null)
+    setColDestino(null)
+    if (desde < 0 || hasta < 0 || desde === hasta) return
+    const orden = moveItem(filasColumnas, desde, hasta)
+    if (orden !== filasColumnas) reordenarColumnas.mutate(orden)
+  }
+
   /** Mover una columna un puesto a la izquierda o a la derecha. */
   const moverColumna = (desde: number, hasta: number) => {
     const orden = moveItem(filasColumnas, desde, hasta)
@@ -381,18 +405,35 @@ export function TaskBoard({
                     // columnas acaba sin sitio para el título de una tarjeta.
                     'flex w-[17.5rem] shrink-0 flex-col gap-2 rounded-lg p-1 transition-colors',
                     esDestino && 'bg-primary/5 ring-1 ring-primary/40',
+                    colArrastrada === col.id && 'opacity-50',
+                    // La columna entera se va a colocar aquí: la barra va en el
+                    // lado, porque el tablero se lee de izquierda a derecha.
+                    colDestino === col.id && colArrastrada !== col.id
+                      && 'border-l-2 border-primary pl-1',
                   )}
                   // Soltar sobre el hueco de la columna = al final de la
                   // columna. `onDragOver` con `preventDefault` es lo que
                   // convierte un elemento en zona donde se puede soltar; sin
                   // él, el navegador rechaza el gesto sin decir nada.
                   onDragOver={(e) => {
+                    // Una columna arrastrada manda sobre una tarjeta: si no se
+                    // distinguieran, soltar la columna dejaría además una
+                    // tarjeta movida donde nadie la puso.
+                    if (colArrastrada !== null && col.id !== null) {
+                      e.preventDefault()
+                      setColDestino(col.id)
+                      return
+                    }
                     if (arrastrada === null) return
                     e.preventDefault()
                     setDestino({ columna: col.key, antesDe: null })
                   }}
                   onDrop={(e) => {
                     e.preventDefault()
+                    if (colArrastrada !== null && col.id !== null) {
+                      soltarColumna(col.id)
+                      return
+                    }
                     soltar(col.key, destino?.columna === col.key ? destino.antesDe : null)
                   }}
                 >
@@ -404,7 +445,29 @@ export function TaskBoard({
                       onSave={(campos) => editarColumna.mutate({ id: col.id!, ...campos })}
                     />
                   ) : (
-                    <div className="flex items-start gap-1 px-1">
+                    <div
+                      className={cn(
+                        'flex items-start gap-1 rounded px-1',
+                        // El asa es la CABECERA, como en Trello, y no la columna
+                        // entera: si lo fuera, empezar a arrastrar desde un hueco
+                        // movería la columna cuando se quería mover una tarjeta.
+                        caps.canManagePlan && col.id !== null && 'cursor-grab active:cursor-grabbing',
+                      )}
+                      draggable={caps.canManagePlan && col.id !== null}
+                      title={
+                        caps.canManagePlan && col.id !== null
+                          ? 'Arrastra la cabecera para mover la columna entera'
+                          : undefined
+                      }
+                      onDragStart={(e) => {
+                        if (col.id === null) return
+                        // Firefox no empieza ningún arrastre sin `setData`.
+                        e.dataTransfer.setData('text/plain', col.id)
+                        e.dataTransfer.effectAllowed = 'move'
+                        setColArrastrada(col.id)
+                      }}
+                      onDragEnd={() => { setColArrastrada(null); setColDestino(null) }}
+                    >
                       <ToneBadge tone={col.color}>{col.name}</ToneBadge>
                       <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                         {colTasks.length}
@@ -412,9 +475,13 @@ export function TaskBoard({
                       {/* Las acciones de la columna, en la columna: es donde se
                           buscan. Solo las tienen las columnas de verdad; el
                           tablero por estado no se puede renombrar porque esos
-                          cinco nombres los lee el resto de la aplicación. */}
+                          cinco nombres los lee el resto de la aplicación.
+
+                          Van con `draggable={false}`: la cabecera es el asa de
+                          la columna, y sin esto arrastrar desde un icono movería
+                          la columna en lugar de pulsarlo. */}
                       {caps.canManagePlan && col.id !== null && (
-                        <span className="ml-auto flex shrink-0 items-start">
+                        <span className="ml-auto flex shrink-0 items-start" draggable={false}>
                           <Button
                             variant="ghost" size="icon" className="size-7"
                             disabled={indice === 0 || reordenarColumnas.isPending}
@@ -530,9 +597,11 @@ export function TaskBoard({
 
           {caps.canManagePlan && !porEstado && (
             <p className="text-xs text-muted-foreground">
-              Arrastra las tarjetas para ordenarlas o cambiarlas de columna. En un teléfono, usa
-              el desplegable de cada tarjeta. El nombre de una columna es tuyo: no significa nada
-              para la aplicación, y el estado de cada tarea se ve y se cambia en su tarjeta.
+              Arrastra las tarjetas para ordenarlas o cambiarlas de columna, y la <strong>cabecera
+              de una columna</strong> para mover la columna entera con sus tarjetas. En un
+              teléfono, usa el desplegable de cada tarjeta y las flechas de cada columna. El nombre
+              de una columna es tuyo: no significa nada para la aplicación, y el estado de cada
+              tarea se ve y se cambia en su tarjeta.
             </p>
           )}
         </>
