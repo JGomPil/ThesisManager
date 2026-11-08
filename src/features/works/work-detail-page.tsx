@@ -33,6 +33,7 @@ import { ScheduleCard } from '@/features/plan/schedule-card'
 import { MilestonesCard } from '@/features/plan/milestones-card'
 import { CommentsThread } from '@/features/comments/comments-thread'
 import { TaskBoard } from '@/features/tasks/task-board'
+import { TextoConFormato } from '@/components/common/rich-text'
 import { DescargarIcs } from '@/features/calendar/ics-button'
 
 export function WorkDetailPage() {
@@ -380,7 +381,11 @@ function Section({ label, text }: { label: string; text: string }) {
   return (
     <div>
       <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="whitespace-pre-wrap break-words leading-relaxed">{text}</p>
+      {/* Con el mismo formato que los comentarios. La metodología de un
+          trabajo es una lista de pasos, y escrita de corrido hay que leerla
+          entera para contarlos. Lo que hay guardado sin marcas sale igual que
+          salía: ver `rich-text.tsx`. */}
+      <TextoConFormato texto={text} className="text-[0.925rem]" />
     </div>
   )
 }

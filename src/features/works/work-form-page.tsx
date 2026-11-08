@@ -1,12 +1,13 @@
 import * as React from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { addMonths, format, parseISO } from 'date-fns'
 import { PageHeader } from '@/app/layout/app-shell'
 import { Button } from '@/components/ui/button'
-import { Input, Textarea } from '@/components/ui/input'
+import { Input } from '@/components/ui/input'
+import { MarkupEditor } from '@/components/common/markup-editor'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -492,17 +493,64 @@ export function WorkFormPage() {
         <Card>
           <CardHeader className="pb-3"><CardTitle className="text-sm">Contenido académico</CardTitle></CardHeader>
           <CardContent className="space-y-4">
+            {/* CON BARRA DE FORMATO, como los comentarios: estos tres campos
+                son los únicos del formulario donde se escribe prosa larga, y
+                la metodología es casi siempre una lista de pasos.
+                `Controller` y no `register` porque `MarkupEditor` no expone
+                un `ref` de formulario: trabaja con `value`/`onChange` para
+                poder recolocar el cursor después de aplicar una marca. De
+                paso, aísla el repintado a este campo en vez de repintar el
+                formulario entero en cada tecla. */}
             <div>
               <Label htmlFor="description">Descripción</Label>
-              <Textarea id="description" className="mt-1.5" rows={3} {...form.register('description')} />
+            <Controller
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <MarkupEditor
+                  id="description"
+                  className="mt-1.5"
+                  rows={3}
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                />
+              )}
+            />
             </div>
             <div>
               <Label htmlFor="objectives">Objetivos</Label>
-              <Textarea id="objectives" className="mt-1.5" rows={3} {...form.register('objectives')} />
+            <Controller
+              control={form.control}
+              name="objectives"
+              render={({ field }) => (
+                <MarkupEditor
+                  id="objectives"
+                  className="mt-1.5"
+                  rows={3}
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                />
+              )}
+            />
             </div>
             <div>
               <Label htmlFor="methodology">Metodología</Label>
-              <Textarea id="methodology" className="mt-1.5" rows={3} {...form.register('methodology')} />
+            <Controller
+              control={form.control}
+              name="methodology"
+              render={({ field }) => (
+                <MarkupEditor
+                  id="methodology"
+                  className="mt-1.5"
+                  rows={3}
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                />
+              )}
+            />
             </div>
             <div>
               <Label htmlFor="keywords">Palabras clave</Label>

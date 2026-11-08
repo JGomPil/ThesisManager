@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -9,7 +9,8 @@ import {
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
-import { Input, Textarea } from '@/components/ui/input'
+import { Input } from '@/components/ui/input'
+import { MarkupEditor } from '@/components/common/markup-editor'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent } from '@/components/ui/card'
@@ -1311,7 +1312,23 @@ function TaskDialog({
           </div>
           <div>
             <Label htmlFor="task-desc">Descripción</Label>
-            <Textarea id="task-desc" rows={2} className="mt-1.5" {...form.register('description')} />
+            {/* Con barra de formato, igual que los comentarios y que los
+                campos académicos del trabajo: la descripción de una tarea
+                suele ser la lista de lo que hay que hacer. */}
+            <Controller
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <MarkupEditor
+                  id="task-desc"
+                  rows={3}
+                  className="mt-1.5"
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                />
+              )}
+            />
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>

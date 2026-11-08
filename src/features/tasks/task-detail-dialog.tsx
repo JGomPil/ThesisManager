@@ -24,6 +24,7 @@ import { moveItem, reorderWrites } from '@/domain/plan/reorder'
 import type { BoardColumn } from '@/domain/plan/board'
 import { DocumentsCard } from '@/features/documents/documents-card'
 import { CommentsThread } from '@/features/comments/comments-thread'
+import { TextoConFormato } from '@/components/common/rich-text'
 import { TaskDependencies } from '@/features/tasks/task-dependencies'
 import { TaskReferenceMaterial } from '@/features/tasks/task-reference-material'
 import type { WorkMemberWithRole } from '@/data/repositories/works.repo'
@@ -209,7 +210,7 @@ export function TaskDetailDialog({
               En qué consiste
             </h3>
             {task.description ? (
-              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{task.description}</p>
+              <TextoConFormato texto={task.description} />
             ) : (
               <p className="text-sm text-muted-foreground">
                 Sin descripción.{' '}
