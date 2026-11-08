@@ -163,3 +163,61 @@ describe('enTextoPlano: para donde no se puede pintar formato', () => {
     expect(enTextoPlano('uno\n\ndos')).toBe('uno\n\ndos')
   })
 })
+
+/**
+ * EL CASO QUE LO DESTAPÓ, con el texto real que se escribió: una lista de
+ * rótulos en negrita en la que unas veces el espacio quedaba fuera de la
+ * marca y otras dentro. Con la regla estricta de Markdown, las de la segunda
+ * forma enseñaban los asteriscos.
+ */
+describe('el espacio antes de cerrar la marca', () => {
+  it('`**rótulo: **valor` es negrita, con el espacio fuera', () => {
+    expect(analizaLinea('**3. Alumno: **Alejandra')).toEqual([
+      { tipo: 'negrita', hijos: [{ tipo: 'texto', texto: '3. Alumno:' }] },
+      { tipo: 'texto', texto: ' Alejandra' },
+    ])
+  })
+
+  it('…y `**rótulo:** valor` sigue siendo lo mismo', () => {
+    expect(analizaLinea('**3. Alumno:** Alejandra')).toEqual([
+      { tipo: 'negrita', hijos: [{ tipo: 'texto', texto: '3. Alumno:' }] },
+      { tipo: 'texto', texto: ' Alejandra' },
+    ])
+  })
+
+  it('vale igual para el subrayado, y la rayita no cuelga del espacio', () => {
+    expect(analizaLinea('__Enviado. __Luego')).toEqual([
+      { tipo: 'subrayado', hijos: [{ tipo: 'texto', texto: 'Enviado.' }] },
+      { tipo: 'texto', texto: ' Luego' },
+    ])
+  })
+
+  it('pero con UN asterisco se mantiene estricto: la multiplicación manda', () => {
+    expect(analizaLinea('2 * 3 * 4')).toEqual([{ tipo: 'texto', texto: '2 * 3 * 4' }])
+    expect(analizaLinea('*ojo: *mira')).toEqual([{ tipo: 'texto', texto: '*ojo: *mira' }])
+  })
+
+  it('una marca con solo espacios dentro no es formato', () => {
+    expect(analizaLinea('** **')).toEqual([{ tipo: 'texto', texto: '** **' }])
+    expect(analizaLinea('__  __')).toEqual([{ tipo: 'texto', texto: '__  __' }])
+  })
+
+  it('el bloque entero del comentario que lo destapó', () => {
+    const r = analiza([
+      '__Enviado a Carlos Gómez.__',
+      'Me pidió información adicional:',
+      '',
+      '**1. Código del TFG asignado por la titulación:** GIB-66',
+      '**2. Título del estudio:** Evaluación del impacto',
+      '**3. Alumno que realiza el TFG: **Alejandra Alonso Clemente',
+      '**4. Tutor o tutores del TFG: **Javier Gómez Pilar',
+    ].join('\n'))
+
+    const parrafos = r.filter((b) => b.tipo === 'parrafo')
+    expect(parrafos).toHaveLength(2)
+    // Las cuatro líneas del segundo párrafo empiezan en negrita, las cuatro.
+    const lineas = elParrafo(r[1]).lineas
+    expect(lineas).toHaveLength(4)
+    expect(lineas.map((l) => l[0]?.tipo)).toEqual(['negrita', 'negrita', 'negrita', 'negrita'])
+  })
+})

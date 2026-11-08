@@ -125,10 +125,27 @@ const MARCAS = [
 /**
  * Una línea → sus trozos con formato.
  *
- * LA REGLA DE LOS ESPACIOS, que es la que evita los falsos positivos: la marca
- * de apertura tiene que ir PEGADA al texto por la derecha, y la de cierre
- * pegada por la izquierda. Sin ella, «2 * 3 * 4» se pintaría con el 3 en
- * cursiva. Es la misma regla que usa Markdown, y por el mismo motivo.
+ * LA REGLA DE LOS ESPACIOS, Y POR QUÉ SOLO SE APLICA A `*`.
+ *
+ * Markdown exige que la marca de abrir vaya pegada al texto por la derecha y
+ * la de cerrar por la izquierda, de modo que `**así: **` no es negrita. Eso
+ * protege de un falso positivo real —«2 * 3 * 4» se pintaría con el 3 en
+ * cursiva— pero rompe algo que la gente escribe constantemente:
+ *
+ *     **1. Código del TFG:** GIB-66        ← el espacio queda fuera
+ *     **2. Título del estudio: **Evaluación ← y aquí, dentro
+ *
+ * Las dos son la misma intención y la segunda sale sola al poner en negrita
+ * un rótulo arrastrando el ratón, que se lleva el espacio de después. Con la
+ * regla estricta, la primera se pintaba y la segunda enseñaba los asteriscos.
+ *
+ * Así que la regla se aplica SOLO a la marca de un carácter, que es la única
+ * que colisiona con la prosa: un asterisco suelto es una multiplicación o una
+ * llamada a pie de página. Dos asteriscos seguidos, o dos guiones bajos, no
+ * aparecen por accidente en un comentario; son siempre intención.
+ *
+ * Y el espacio de sobra se saca FUERA del formato: subrayar un espacio final
+ * pinta una rayita suelta después de la palabra.
  */
 export function analizaLinea(linea: string): Inline[] {
   const salida: Inline[] = []
@@ -147,7 +164,17 @@ export function analizaLinea(linea: string): Inline[] {
       const cierre = linea.indexOf(encontrada.marca, desde)
       if (cierre > desde) {
         const dentro = linea.slice(desde, cierre)
-        if (!/^\s/.test(dentro) && !/\s$/.test(dentro)) {
+        const estricta = encontrada.marca.length === 1
+        const admitida = estricta
+          ? !/^\s/.test(dentro) && !/\s$/.test(dentro)
+          : dentro.trim() !== ''
+        if (admitida) {
+          // Los espacios de los extremos se quedan fuera del formato.
+          const izq = dentro.length - dentro.trimStart().length
+          const der = dentro.length - dentro.trimEnd().length
+          const nucleo = dentro.slice(izq, dentro.length - der)
+
+          suelto += dentro.slice(0, izq)
           vuelcaSuelto()
           // Recursivo: `**negrita con *cursiva* dentro**` funciona. Y termina,
           // porque lo de dentro siempre es más corto que lo de fuera.
@@ -155,9 +182,10 @@ export function analizaLinea(linea: string): Inline[] {
           salida.push(
             ...encontrada.tipos.reduceRight<Inline[]>(
               (dentroDe, tipo) => [{ tipo, hijos: dentroDe }],
-              analizaLinea(dentro),
+              analizaLinea(nucleo),
             ),
           )
+          suelto = der === 0 ? '' : dentro.slice(dentro.length - der)
           i = cierre + encontrada.marca.length
           continue
         }
