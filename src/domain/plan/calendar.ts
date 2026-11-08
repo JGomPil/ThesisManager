@@ -29,6 +29,19 @@ export type CalendarEvent = {
   workTitle: string | null
   /** Hora, solo cuando el evento la tiene (las reuniones). */
   time: string | null
+  /**
+   * El instante exacto, en UTC, de lo que tiene hora. Solo las reuniones.
+   *
+   * `day` y `time` ya están en la zona de quien mira, que es lo que necesita
+   * la rejilla; este campo guarda el original porque la exportación a
+   * iCalendar necesita el instante, no la hora local: escribir «15:30» sin
+   * zona deja una hora flotante que cada calendario interpreta en la suya.
+   */
+  at: string | null
+  /** Duración en minutos, cuando se sabe (reuniones). */
+  minutes: number | null
+  /** Dónde, cuando se sabe (reuniones). */
+  location: string | null
   done: boolean
   href: string
 }
@@ -40,6 +53,7 @@ type TaskLike = {
 }
 type MeetingLike = {
   id: string; title: string; work_id: string; scheduled_at: string
+  duration_min?: number | null; location?: string | null
   work?: { title: string } | null
 }
 type MilestoneLike = {
@@ -59,6 +73,9 @@ export function collectEvents(input: {
       workId: t.work_id,
       workTitle: t.work?.title ?? null,
       time: null,
+      at: null,
+      minutes: null,
+      location: null,
       href: `/trabajos/${t.work_id}`,
       done: t.status === 'COMPLETADA',
     }
@@ -82,6 +99,9 @@ export function collectEvents(input: {
       workId: m.work_id,
       workTitle: m.work?.title ?? null,
       time: format(fecha, 'HH:mm'),
+      at: m.scheduled_at,
+      minutes: m.duration_min ?? null,
+      location: m.location ?? null,
       done: false,
       href: `/trabajos/${m.work_id}`,
     })
@@ -96,6 +116,9 @@ export function collectEvents(input: {
       workId: h.work_id,
       workTitle: h.work?.title ?? null,
       time: null,
+      at: null,
+      minutes: null,
+      location: null,
       done: h.is_met,
       href: `/trabajos/${h.work_id}`,
     })

@@ -32,7 +32,7 @@ export const calendarRepo = {
         .limit(500),
       supabase
         .from('meetings')
-        .select('id, title, work_id, scheduled_at, work:academic_works(title)')
+        .select('id, title, work_id, scheduled_at, duration_min, location, work:academic_works(title)')
         .gte('scheduled_at', `${from}T00:00:00Z`)
         .lte('scheduled_at', `${to}T23:59:59Z`)
         .limit(300),

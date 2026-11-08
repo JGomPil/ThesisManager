@@ -20,6 +20,7 @@ import {
   type CalendarEvent, type EventKind,
 } from '@/domain/plan/calendar'
 import { calendarRepo } from '@/data/repositories/calendar.repo'
+import { DescargarIcs } from '@/features/calendar/ics-button'
 
 /**
  * Calendario de todo lo que tiene fecha: vencimientos e inicios de tarea,
@@ -91,10 +92,19 @@ export function CalendarPage() {
     return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], 'es'))
   }, [todos])
 
-  const visibles = todos.filter(
-    (e) => !ocultos.includes(e.kind) && (trabajo === '' || e.workId === trabajo),
+  // El mismo criterio para la pantalla y para la descarga: dos copias de esta
+  // condición acabarían diciendo cosas distintas.
+  const visible = React.useCallback(
+    (e: CalendarEvent) => !ocultos.includes(e.kind) && (trabajo === '' || e.workId === trabajo),
+    [ocultos, trabajo],
   )
+  const visibles = todos.filter(visible)
   const porDia = groupByDay(visibles)
+
+  const nombreCalendario =
+    trabajo === ''
+      ? 'Thesis Manager · mis fechas'
+      : `Thesis Manager · ${trabajos.find(([id]) => id === trabajo)?.[1] ?? 'trabajo'}`
 
   const mover = (paso: -1 | 1) =>
     setAncla((d) => (vista === 'semana' ? addWeeks(d, paso) : addMonths(d, paso)))
@@ -108,20 +118,30 @@ export function CalendarPage() {
     <div className="space-y-4">
       <PageHeader
         title="Calendario"
-        description="Vencimientos, reuniones e hitos de los trabajos a los que tienes acceso."
+        description="Vencimientos, reuniones e hitos de los trabajos a los que tienes acceso. Puedes descargarlas a tu propio calendario: el fichero es una foto del día de hoy, no una suscripción, así que si una fecha cambia hay que volver a descargarlo."
         actions={
-          <div className="flex gap-1" role="group" aria-label="Vista del calendario">
-            {VISTAS.map((v) => (
-              <Button
-                key={v.value}
-                size="sm"
-                variant={vista === v.value ? 'secondary' : 'ghost'}
-                aria-pressed={vista === v.value}
-                onClick={() => setVista(v.value)}
-              >
-                {v.label}
-              </Button>
-            ))}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex gap-1" role="group" aria-label="Vista del calendario">
+              {VISTAS.map((v) => (
+                <Button
+                  key={v.value}
+                  size="sm"
+                  variant={vista === v.value ? 'secondary' : 'ghost'}
+                  aria-pressed={vista === v.value}
+                  onClick={() => setVista(v.value)}
+                >
+                  {v.label}
+                </Button>
+              ))}
+            </div>
+            {/* Se lleva lo que se está viendo —los mismos filtros—, pero de una
+                ventana mucho más ancha que la del mes a la vista: quien baja
+                sus fechas las quiere todas, no las de esta pantalla. */}
+            <DescargarIcs
+              etiqueta={nombreCalendario}
+              nombre={nombreCalendario}
+              filtrar={visible}
+            />
           </div>
         }
       />

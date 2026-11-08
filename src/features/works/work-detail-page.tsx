@@ -33,6 +33,7 @@ import { ScheduleCard } from '@/features/plan/schedule-card'
 import { MilestonesCard } from '@/features/plan/milestones-card'
 import { CommentsThread } from '@/features/comments/comments-thread'
 import { TaskBoard } from '@/features/tasks/task-board'
+import { DescargarIcs } from '@/features/calendar/ics-button'
 
 export function WorkDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -309,6 +310,22 @@ export function WorkDetailPage() {
                 guardando={setFinReal.isPending}
                 onGuardar={(v) => setFinReal.mutate(v)}
               />
+
+              {/* Las fechas del PLAN —vencimientos, hitos y reuniones—, al
+                  calendario de cada cual. Está aquí, en la tarjeta de fechas,
+                  porque es donde se las busca; y se recorta a este trabajo,
+                  que es de lo que habla esta pantalla. */}
+              <div className="space-y-1.5 border-t pt-3">
+                <DescargarIcs
+                  etiqueta={w.title}
+                  nombre={`Thesis Manager · ${w.title}`}
+                  filtrar={(e) => e.workId === w.id}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Vencimientos, hitos y reuniones de este trabajo. Es una foto de hoy: si cambian
+                  las fechas, vuelve a descargarlo.
+                </p>
+              </div>
             </CardContent>
           </Card>
 
