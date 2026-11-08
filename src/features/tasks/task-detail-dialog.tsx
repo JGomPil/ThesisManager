@@ -139,8 +139,10 @@ export function TaskDetailDialog({
     onError: (e) => toast.push('error', errorMessage(e)),
   })
 
+  // Archivar, no borrar: un punto de la lista quitado sin querer se recupera
+  // desde la papelera del plan de trabajo (0025).
   const removeItem = useMutation({
-    mutationFn: (id: string) => tasksRepo.remove(id),
+    mutationFn: (id: string) => tasksRepo.archive(id),
     onSuccess: invalidate,
     onError: (e) => toast.push('error', errorMessage(e)),
   })
@@ -460,10 +462,13 @@ export function TaskDetailDialog({
               <Button
                 variant="ghost"
                 onClick={() => {
-                  if (confirm(`¿Eliminar la tarea «${task.title}»?${subtasks.length > 0 ? ` Se eliminarán también sus ${subtasks.length} punto(s) de la lista.` : ''}`)) {
-                    tasksRepo.remove(task.id).then(() => { invalidate(); onOpenChange(false) })
-                      .catch((e) => toast.push('error', errorMessage(e)))
-                  }
+                  tasksRepo.archive(task.id)
+                    .then(() => {
+                      invalidate()
+                      onOpenChange(false)
+                      toast.push('success', 'La tarea está en la papelera del plan de trabajo. Puedes restaurarla.')
+                    })
+                    .catch((e) => toast.push('error', errorMessage(e)))
                 }}
               >
                 <Trash2 /> Eliminar

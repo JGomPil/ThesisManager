@@ -3,7 +3,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Check, ChevronLeft, ChevronRight, KanbanSquare, List, ListChecks, Pencil, Plus, Trash2, X,
+  Check, ChevronLeft, ChevronRight, KanbanSquare, List, ListChecks, Pencil, Plus, RotateCcw,
+  Trash2, X,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -38,6 +39,7 @@ import { cn, TONES } from '@/lib/utils'
 import { TaskDetailDialog } from '@/features/tasks/task-detail-dialog'
 import { propsDeApertura } from '@/components/common/row-link'
 import { useIsPhone } from '@/hooks/use-media-query'
+import { useScrollX } from '@/hooks/use-scroll-x'
 
 export function TaskBoard({
   work,
@@ -85,6 +87,12 @@ export function TaskBoard({
   // Qué columna se está renombrando, y el formulario de la columna nueva.
   const [editando, setEditando] = React.useState<string | null>(null)
   const [anadiendo, setAnadiendo] = React.useState(false)
+
+  // El tablero se desliza a lo ancho: puede haber tantas columnas como haga
+  // falta. Mismo comportamiento —y mismo código— que el cronograma.
+  const { panel, desbordado, deslizar, acompanarArrastre } = useScrollX(
+    (columnas.data ?? []).length,
+  )
 
   // Qué tarjeta se arrastra y dónde caería. Solo sirve para pintar la pista;
   // el movimiento lo calcula `planCardMove` con los datos de la consulta, así
@@ -164,9 +172,50 @@ export function TaskBoard({
     onError: (e) => toast.push('error', errorMessage(e)),
   })
 
-  const remove = useMutation({
-    mutationFn: (id: string) => tasksRepo.remove(id),
-    onSuccess: () => { invalidate(); toast.push('success', 'Tarea eliminada.') },
+  /**
+   * LA PAPELERA DE LA TARJETA ARCHIVA, no borra (0025).
+   *
+   * Antes era `delete from tasks`: definitivo, en cascada sobre las subtareas,
+   * de un clic y sin preguntar. Una tarea borrada sin querer no se podía
+   * recuperar de ninguna manera. Y no basta con poner un «¿seguro?» delante:
+   * un icono que está al lado del resto se pulsa sin leer, y la pregunta
+   * acaba contestada sola. Así que lo que se pulsa es reversible, y el borrado
+   * de verdad se decide después, mirando la papelera.
+   */
+  const archivar = useMutation({
+    mutationFn: (id: string) => tasksRepo.archive(id),
+    onSuccess: () => {
+      invalidate()
+      void qc.invalidateQueries({ queryKey: qk.tasks.archived(work.id) })
+      toast.push('success', 'Tarea a la papelera. Está al final del plan de trabajo, con «Restaurar».')
+    },
+    onError: (e) => toast.push('error', errorMessage(e)),
+  })
+
+  const papelera = useQuery({
+    queryKey: qk.tasks.archived(work.id),
+    queryFn: () => tasksRepo.archived(work.id),
+    // Solo quien planifica ve lo archivado: a los demás la política de la 0025
+    // no les devuelve ni una fila, así que la consulta sobra.
+    enabled: caps.canManagePlan,
+  })
+
+  const restaurar = useMutation({
+    mutationFn: (id: string) => tasksRepo.restore(id),
+    onSuccess: () => {
+      invalidate()
+      void qc.invalidateQueries({ queryKey: qk.tasks.archived(work.id) })
+      toast.push('success', 'Tarea restaurada.')
+    },
+    onError: (e) => toast.push('error', errorMessage(e)),
+  })
+
+  const borrarDeVerdad = useMutation({
+    mutationFn: (id: string) => tasksRepo.destroy(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: qk.tasks.archived(work.id) })
+      toast.push('success', 'Tarea borrada definitivamente.')
+    },
     onError: (e) => toast.push('error', errorMessage(e)),
   })
 
@@ -284,22 +333,42 @@ export function TaskBoard({
             </div>
           )}
 
-          {/* UNA COLUMNA POR FILA DEL TRABAJO, en su orden. Las tarjetas van en
-              el orden guardado (`order_index`) y no agrupadas por estado: una
-              pendiente puede estar debajo de una en curso, porque el orden
-              dentro de la columna lo decide quien planifica. */}
+          {/* Deslizar el tablero por los lados, cuando sobra tablero. Lo mismo
+              que el cronograma, y por el mismo motivo: un panel que se puede
+              arrastrar y no lo dice es un panel que «está incompleto». */}
+          {desbordado && (
+            <div className="flex items-center justify-end gap-1" role="group" aria-label="Desplazar el tablero">
+              <span className="mr-auto text-xs text-muted-foreground">
+                {tablero.length} columnas: desliza el tablero o usa las flechas.
+              </span>
+              <Button size="icon" variant="ghost" className="size-7" onClick={() => deslizar(-1)} aria-label="Ver columnas anteriores">
+                <ChevronLeft className="size-4" />
+              </Button>
+              <Button size="icon" variant="ghost" className="size-7" onClick={() => deslizar(1)} aria-label="Ver columnas siguientes">
+                <ChevronRight className="size-4" />
+              </Button>
+            </div>
+          )}
+
+          {/* UNA COLUMNA POR FILA DEL TRABAJO, en su orden, EN UNA FILA QUE SE
+              DESLIZA. Antes era una rejilla, y una rejilla reparte el ancho
+              disponible: con seis columnas, las dos últimas caían a una segunda
+              fila y el tablero dejaba de ser un tablero. Columnas de ancho fijo
+              y desplazamiento horizontal es lo que hace Trello, y es lo único
+              que no pone un tope a cuántas puede haber.
+
+              Las tarjetas van en el orden guardado (`order_index`) y no
+              agrupadas por estado: una pendiente puede estar debajo de una en
+              curso, porque el orden dentro de la columna lo decide quien
+              planifica. */}
           <div
-            className={cn(
-              'grid gap-3',
-              // La columna base va en la MISMA línea que las de cada tamaño, no
-              // suelta arriba: `check:grids` lee línea a línea, y es la única
-              // forma de que la comprobación siga sirviendo. Sin columna base,
-              // la rejilla hereda una pista implícita cuyo mínimo es el texto
-              // más largo de dentro, y la página se ensancha en el móvil.
-              tablero.length <= 3
-                ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-4'
-                : 'grid-cols-1 md:grid-cols-3 xl:grid-cols-5',
-            )}
+            ref={panel}
+            className="flex min-w-0 gap-3 overflow-x-auto pb-2"
+            // Arrastrando una tarjeta cerca de un borde, el tablero acompaña:
+            // el navegador no desplaza un panel con `overflow` por su cuenta, y
+            // sin esto habría que soltar la tarjeta en medio, desplazar a mano y
+            // volver a cogerla.
+            onDragOver={(e) => { if (arrastrada !== null) acompanarArrastre(e.clientX) }}
           >
             {tablero.map((col, indice) => {
               const colTasks = porColumna.get(col.key) ?? []
@@ -308,7 +377,9 @@ export function TaskBoard({
                 <div
                   key={col.key}
                   className={cn(
-                    'flex min-w-0 flex-col gap-2 rounded-lg p-1 transition-colors',
+                    // Ancho fijo: una columna que se encoge con el número de
+                    // columnas acaba sin sitio para el título de una tarjeta.
+                    'flex w-[17.5rem] shrink-0 flex-col gap-2 rounded-lg p-1 transition-colors',
                     esDestino && 'bg-primary/5 ring-1 ring-primary/40',
                   )}
                   // Soltar sobre el hueco de la columna = al final de la
@@ -424,7 +495,7 @@ export function TaskBoard({
                           onOpen={() => setOpenTaskId(t.id)}
                           onStatus={(status) => setStatus.mutate({ id: t.id, status })}
                           onMover={(key) => moverA(t.id, key)}
-                          onRemove={() => remove.mutate(t.id)}
+                          onRemove={() => archivar.mutate(t.id)}
                           arrastrable={puedeArrastrar(t)}
                         />
                       </div>
@@ -437,7 +508,7 @@ export function TaskBoard({
             {/* La columna nueva va al final del tablero, como en Trello: es el
                 sitio donde se busca, y no un botón escondido en otra pantalla. */}
             {caps.canManagePlan && !porEstado && (
-              <div className="rounded-lg border border-dashed p-2">
+              <div className="w-[17.5rem] shrink-0 self-start rounded-lg border border-dashed p-2">
                 {anadiendo ? (
                   <ColumnForm
                     inicial={{ name: '', color: 'slate' }}
@@ -496,8 +567,8 @@ export function TaskBoard({
                         variant="ghost"
                         size="icon"
                         className="-mr-1 -mt-1 shrink-0"
-                        onClick={() => remove.mutate(t.id)}
-                        aria-label={`Eliminar ${t.title}`}
+                        onClick={() => archivar.mutate(t.id)}
+                        aria-label={`Mandar «${t.title}» a la papelera`}
                       >
                         <Trash2 />
                       </Button>
@@ -623,7 +694,7 @@ export function TaskBoard({
                     )}
                     {caps.canManagePlan && (
                       <TableCell>
-                        <Button variant="ghost" size="icon" onClick={() => remove.mutate(t.id)} aria-label="Eliminar tarea">
+                        <Button variant="ghost" size="icon" onClick={() => archivar.mutate(t.id)} aria-label="Mandar la tarea a la papelera">
                           <Trash2 />
                         </Button>
                       </TableCell>
@@ -636,6 +707,58 @@ export function TaskBoard({
           </Card>
         </>
       )}
+
+      {/* LA PAPELERA, al final del plan de trabajo y solo si hay algo dentro.
+          Aquí, y no en otra pantalla: lo que se busca después de borrar algo
+          sin querer es el sitio donde se borró. Vacía no ocupa ni una línea. */}
+      {caps.canManagePlan && (papelera.data ?? []).length > 0 && (
+        <details className="rounded-lg border bg-muted/30 p-3 text-sm">
+          <summary className="cursor-pointer font-medium">
+            Papelera ({(papelera.data ?? []).length})
+          </summary>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Lo que se borra del plan de trabajo espera aquí. Restaurar una tarea devuelve también
+            los puntos de su lista de comprobación. Borrar definitivamente no tiene vuelta atrás:
+            se lleva sus subtareas, sus dependencias y sus comentarios.
+          </p>
+          <ul className="mt-2 divide-y">
+            {(papelera.data ?? []).map((t) => (
+              <li key={t.id} className="flex flex-wrap items-center gap-2 py-2">
+                <span className="min-w-0 flex-1 break-words">
+                  {t.title}
+                  {t.parent_task_id !== null && (
+                    <span className="text-xs text-muted-foreground"> · punto de una lista</span>
+                  )}
+                  {t.deleted_at && (
+                    <span className="block text-xs text-muted-foreground">
+                      borrada el {format(parseISO(t.deleted_at), "d MMM yyyy 'a las' HH:mm", { locale: es })}
+                    </span>
+                  )}
+                </span>
+                <Button
+                  size="sm" variant="outline" className="shrink-0"
+                  loading={restaurar.isPending && restaurar.variables === t.id}
+                  onClick={() => restaurar.mutate(t.id)}
+                >
+                  <RotateCcw /> Restaurar
+                </Button>
+                <Button
+                  size="sm" variant="ghost" className="shrink-0 text-destructive"
+                  loading={borrarDeVerdad.isPending && borrarDeVerdad.variables === t.id}
+                  onClick={() => {
+                    if (confirm(`¿Borrar «${t.title}» definitivamente? Esto no se puede deshacer.`)) {
+                      borrarDeVerdad.mutate(t.id)
+                    }
+                  }}
+                >
+                  <Trash2 /> Borrar
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
       <TaskDetailDialog
         task={openTask}
         subtasks={openTask ? subtasksOf(openTask.id) : []}
@@ -898,7 +1021,7 @@ function TaskCard({
         <div className="flex items-center gap-1">
           <StatusSelect task={task} caps={caps} userId={userId} onChange={onStatus} />
           {caps.canManagePlan && (
-            <Button variant="ghost" size="icon" className="size-8" onClick={onRemove} aria-label="Eliminar tarea">
+            <Button variant="ghost" size="icon" className="size-8" onClick={onRemove} aria-label="Mandar la tarea a la papelera">
               <Trash2 />
             </Button>
           )}

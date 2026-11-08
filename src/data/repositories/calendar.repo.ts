@@ -23,6 +23,8 @@ export const calendarRepo = {
         .from('tasks')
         .select('id, title, work_id, status, start_date, due_date, work:academic_works(title)')
         .is('parent_task_id', null)
+        // Lo archivado no es un evento: una tarea en la papelera no vence.
+        .is('deleted_at', null)
         .or(
           `and(due_date.gte.${from},due_date.lte.${to}),` +
             `and(start_date.gte.${from},start_date.lte.${to})`,

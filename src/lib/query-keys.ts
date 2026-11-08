@@ -59,6 +59,8 @@ export const qk = {
      * invalida al mover una tarjeta— también las alcanza.
      */
     boardColumns: (workId: string) => ['tasks', 'board-columns', workId] as const,
+    /** La papelera de un trabajo (0025): lo archivado, que no sale en `byWork`. */
+    archived: (workId: string) => ['tasks', 'archived', workId] as const,
   },
 
   people: {

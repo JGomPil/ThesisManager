@@ -4,6 +4,7 @@ import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import { useIsPhone } from '@/hooks/use-media-query'
+import { useScrollX } from '@/hooks/use-scroll-x'
 import { Button } from '@/components/ui/button'
 import {
   buildGantt, HEADER_HEIGHT, ROW_HEIGHT, type GanttInput,
@@ -86,31 +87,14 @@ export function GanttChart({
    * existía. Ahora hay dos flechas y un «Hoy», y un aviso que solo sale cuando
    * de verdad sobra cronograma por los lados.
    *
-   * `desbordado` se MIDE, no se calcula: comparar `layout.width` con un ancho
-   * supuesto sería adivinar, y este dibujo se usa en la tarjeta (un tercio de
-   * la ficha) y a pantalla completa. `ResizeObserver` lo vuelve a medir cuando
-   * la ventana cambia o cuando se pasa a pantalla completa.
+   * Cómo se mide y cómo se desliza está en `useScrollX`.
    */
-  const panel = React.useRef<HTMLDivElement>(null)
-  const [desbordado, setDesbordado] = React.useState(false)
-
-  React.useEffect(() => {
-    const el = panel.current
-    if (!el) return
-    // El margen de 4 px evita que un redondeo de medio píxel anuncie un
-    // desplazamiento que no existe.
-    const medir = () => setDesbordado(el.scrollWidth > el.clientWidth + 4)
-    medir()
-    const ro = new ResizeObserver(medir)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [pxPerDay, tasks.length, milestones.length])
-
-  const deslizar = (sentido: 1 | -1) => {
-    const el = panel.current
-    if (!el) return
-    el.scrollBy({ left: sentido * el.clientWidth * 0.8, behavior: 'smooth' })
-  }
+  // La medida y el deslizamiento viven en `useScrollX`, que comparte con el
+  // tablero de tareas: los dos paneles tenían el mismo problema y la misma
+  // solución, y una copia de cada se habría separado en el primer arreglo.
+  const { panel, desbordado, deslizar } = useScrollX(
+    `${pxPerDay}-${tasks.length}-${milestones.length}`,
+  )
 
   // Orden topológico: lo que hay que hacer antes aparece antes, aunque la
   // dirección haya introducido las tareas en otro orden.
@@ -144,7 +128,9 @@ export function GanttChart({
     const el = panel.current
     if (!el || layout.todayX === null) return
     el.scrollLeft = Math.max(0, layout.todayX - el.clientWidth / 2)
-  }, [layout.todayX])
+    // `panel` viene de `useScrollX`: es una referencia, o sea estable, pero la
+    // regla de los hooks no puede saberlo desde aquí y pide declararla.
+  }, [layout.todayX, panel])
 
   if (tasks.length === 0) {
     return (

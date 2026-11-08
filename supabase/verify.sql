@@ -209,6 +209,37 @@ with comprobaciones as (
            where table_schema = 'public' and table_name = 'tasks' and column_name = 'board_column_id')
 
   union all
+  -- 5.sexies La 0025: la papelera de tareas. Lo que hay que comprobar no es
+  --          solo que exista la columna, sino que la politica de SELECT mire
+  --          `deleted_at`: si no, o archivar falla, o lo archivado no lo ve
+  --          nadie —ni quien lo archivo— y es un borrado con otro nombre.
+  select 17, 'migracion 0025: borrar una tarea tiene vuelta atras',
+         case when (select count(*) from information_schema.columns
+                     where table_schema = 'public' and table_name = 'tasks'
+                       and column_name = 'deleted_at') = 1
+                   and (select count(*) from pg_policies
+                         where schemaname = 'public' and tablename = 'tasks'
+                           and policyname = 'tasks_select' and qual like '%deleted_at%') = 1
+                   and (select count(*) from pg_proc pr join pg_namespace n on n.oid = pr.pronamespace
+                         where n.nspname = 'app' and pr.proname = 'cascade_task_soft_delete'
+                           and pr.prosecdef) = 1
+              then 'OK' else 'FALLO' end,
+         (select case when count(*) = 1 then 'tasks.deleted_at' else 'FALTA LA COLUMNA' end
+            from information_schema.columns
+           where table_schema = 'public' and table_name = 'tasks' and column_name = 'deleted_at')
+         || ' · ' ||
+         (select case when count(*) = 1 then 'quien planifica ve la papelera'
+                      else 'LA POLITICA NO MIRA deleted_at (archivado irreversible)' end
+            from pg_policies
+           where schemaname = 'public' and tablename = 'tasks'
+             and policyname = 'tasks_select' and qual like '%deleted_at%')
+         || ' · ' ||
+         (select case when count(*) = 1 then 'arrastra las subtareas'
+                      else 'FALTA LA CASCADA O NO ES SECURITY DEFINER' end
+            from pg_proc pr join pg_namespace n on n.oid = pr.pronamespace
+           where n.nspname = 'app' and pr.proname = 'cascade_task_soft_delete' and pr.prosecdef)
+
+  union all
   -- 6. Y que ningun rol tenga capacidades que no deba: el estudiante, ninguna.
   select 10, 'el rol de estudiante no tiene capacidades',
          case when count(*) = 0 then 'OK' else 'FALLO' end,

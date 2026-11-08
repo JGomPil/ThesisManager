@@ -1062,6 +1062,44 @@ cliente al cambiar el estado desde el desplegable, y cualquier otra vía —la l
 el tablero, una petición a PostgREST— dejaba tareas `COMPLETADA` sin `completed_at`. No da ningún
 error: simplemente faltan de todos los recuentos por fechas. Prueba `[170]`.
 
+### 5.2.septvicies · Un icono que no se puede deshacer
+
+El 8 de noviembre de 2026 un usuario borró una tarea sin querer y no pudo recuperarla. No era un
+fallo de permisos: era exactamente lo que la aplicación hacía. El icono de papelera de la tarjeta
+llamaba a `delete from tasks` —borrado real, en cascada sobre las subtareas, de un clic y sin
+preguntar—, y no había de dónde recuperarla: `tasks` no tenía `deleted_at` y ningún *trigger*
+registraba en `activity_logs` el contenido de lo borrado.
+
+Y era una incoherencia dentro del propio modelo. Los trabajos se archivan desde la `0008`
+(§5.2.quinquies), los documentos y los comentarios también. Lo más frágil del plan de trabajo
+—una tarea, que se borra con un icono que está al lado de todos los demás— era lo único sin vuelta
+atrás.
+
+La `0025` lo convierte en archivado, y las dos decisiones que la sostienen son las de la `0008`,
+aprendidas allí a base de que fallara:
+
+- **La política de SELECT tiene que dejar ver lo archivado a quien archiva.** `tasks_select` pasa a
+  ser `deleted_at is null or app.can_manage_plan(work_id)`. Sin eso no es que la papelera quede
+  incompleta: PostgreSQL exige que la fila resultante de un `UPDATE` siga siendo visible para quien
+  lo ejecuta, así que **archivar fallaría**; y si no fallara, la tarea quedaría invisible para todo
+  el mundo, que es un borrado con otro nombre. Lo fija la prueba `[172]`, que después de archivar
+  comprueba que quien archivó la sigue viendo.
+- **La cascada es `security definer`.** `app.cascade_task_soft_delete()` archiva las subtareas de la
+  tarea archivada y las devuelve al restaurarla. Con los privilegios de quien escribe, la política
+  de `UPDATE` podría descartarle alguna fila —y un `UPDATE` con filas descartadas no da error—,
+  dejando media lista de comprobación archivada y la otra media no, en silencio. La recursión
+  termina sola: el `where` exige que la subtarea tenga un `deleted_at` distinto del que se le va a
+  poner.
+
+`deleted_at` entra además en la lista de campos que protege `app.enforce_task_update_scope`: quien
+solo informa de lo suyo mueve su tarjeta y cambia su estado, pero no hace desaparecer una tarea del
+plan. Prueba `[173]`, que comprueba el dato y no la ausencia de excepción, y que además verifica que
+el estudiante **no ve** lo archivado, para que no le aparezcan tareas fantasma.
+
+El borrado definitivo sigue existiendo (`tasks_delete`, para quien planifica, prueba `[174]`), pero
+ahora es una segunda decisión que se toma mirando la papelera, con su confirmación. La diferencia no
+es el aviso: es que lo que se pulsa sin leer sea reversible.
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.
@@ -1141,7 +1179,7 @@ Cada una debe ejecutarse **contra la base de datos** con el JWT del usuario corr
 desde la interfaz.
 
 > **Ya verificadas.** Las migraciones de `supabase/migrations/` se han aplicado a un
-> PostgreSQL 16 real y se ejecutan **171 pruebas** de seguridad, todas correctas:
+> PostgreSQL 16 real y se ejecutan **174 pruebas** de seguridad, todas correctas:
 > `./scripts/test-rls.sh` (detalle en `supabase/tests/README.md`). Cubren los puntos 1–6, 12 y 13
 > de la lista siguiente. Los puntos 7, 10 y 11 dependen del frontend y del despliegue, y los 8 y 9
 > del proyecto real de Supabase; se validan en la Fase 1.

@@ -24,15 +24,50 @@ export type TaskWithWork = TaskWithAssignee & {
 }
 
 export const tasksRepo = {
+  /**
+   * El plan de trabajo. `deleted_at is null` SIEMPRE: desde la 0025, borrar una
+   * tarea es archivarla, y quien puede planificar sigue viendo las archivadas
+   * en la consulta de la base de datos —hace falta para poder restaurarlas—.
+   * Si este filtro se olvidara, las tareas de la papelera volverían al tablero
+   * como si no se hubieran borrado.
+   */
   byWork: async (workId: string): Promise<TaskWithAssignee[]> => {
     const { data, error } = await supabase
       .from('tasks')
       .select(TASK_SELECT)
       .eq('work_id', workId)
+      .is('deleted_at', null)
       .order('order_index')
       .order('created_at')
     if (error) throw error
     return (data ?? []) as unknown as TaskWithAssignee[]
+  },
+
+  /** Lo que hay en la papelera de un trabajo. Solo devuelve filas a quien planifica. */
+  archived: async (workId: string): Promise<TaskWithAssignee[]> => {
+    const { data, error } = await supabase
+      .from('tasks')
+      .select(TASK_SELECT)
+      .eq('work_id', workId)
+      .not('deleted_at', 'is', null)
+      .order('deleted_at', { ascending: false })
+    if (error) throw error
+    return (data ?? []) as unknown as TaskWithAssignee[]
+  },
+
+  /**
+   * Borrar una tarea es ARCHIVARLA (0025). Un disparador se lleva con ella sus
+   * subtareas, y restaurarla las devuelve.
+   */
+  archive: async (id: string): Promise<void> => {
+    const { error } = await supabase
+      .from('tasks').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+    if (error) throw error
+  },
+
+  restore: async (id: string): Promise<void> => {
+    const { error } = await supabase.from('tasks').update({ deleted_at: null }).eq('id', id)
+    if (error) throw error
   },
 
   /**
@@ -61,6 +96,9 @@ export const tasksRepo = {
       .from('tasks')
       .select('work_id, status, due_date')
       .is('parent_task_id', null)
+      // Sin esto, una tarea de la papelera seguiría contando como atrasada en
+      // «Necesita atención», y no habría forma de quitarla de ahí.
+      .is('deleted_at', null)
     if (error) throw error
     return (data ?? []) as { work_id: string; status: TaskStatus; due_date: string | null }[]
   },
@@ -71,6 +109,7 @@ export const tasksRepo = {
       .from('tasks')
       .select(`${TASK_SELECT}, work:academic_works(id,title,work_type:work_types!academic_works_work_type_id_fkey(short_name,color))`)
       .eq('assignee_id', userId)
+      .is('deleted_at', null)
       .neq('status', 'COMPLETADA')
       .order('due_date', { ascending: true, nullsFirst: false })
       .limit(50)
@@ -254,7 +293,13 @@ export const tasksRepo = {
     return filas
   },
 
-  remove: async (id: string): Promise<void> => {
+  /**
+   * BORRADO DEFINITIVO, el de verdad: arrastra en cascada las subtareas, las
+   * dependencias y los comentarios de la tarea. Se llama desde la papelera y
+   * nada más; el icono de la tarjeta archiva (`archive`), que es lo que se
+   * espera de un icono que se pulsa sin pensar.
+   */
+  destroy: async (id: string): Promise<void> => {
     const { error } = await supabase.from('tasks').delete().eq('id', id)
     if (error) throw error
   },
