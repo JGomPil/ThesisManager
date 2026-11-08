@@ -1120,6 +1120,17 @@ function TaskCard({
     <Card
       className={cn(
         'cursor-pointer active:bg-accent',
+        // LA SOMBRA, Y NO EL BORDE, ES LO QUE DA CANTO A LA TARJETA.
+        // Sobre la columna gris, el borde del tema (`#e2e8f0`) es un escalón
+        // de un 4 % contra el fondo (`#f1f5f9`): no se ve. Y el `shadow-sm`
+        // que trae `Card` es `0 1px 2px rgb(0 0 0 / .05)`, que sobre gris
+        // claro tampoco existe. Resultado: una mancha blanca sin bordes, que
+        // es lo que se percibe como «la tarjeta está detrás de algo».
+        // Con `shadow-md` la tarjeta se despega del canal, igual que en
+        // Trello, y al pasar el ratón sube un escalón más para decir que se
+        // puede coger. En oscuro las sombras apenas pintan, pero allí el
+        // trabajo lo hace el tono: la tarjeta es MÁS OSCURA que su columna.
+        'shadow-md transition-shadow hover:shadow-lg',
         arrastrable && 'cursor-grab active:cursor-grabbing',
         // La franja del color, en el borde izquierdo: se reconoce de un vistazo
         // en una columna de quince tarjetas y no le quita sitio a nada.
