@@ -5,7 +5,8 @@ import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
 import { Avatar } from '@/components/ui/avatar'
-import { Textarea } from '@/components/ui/input'
+import { MarkupEditor } from '@/components/common/markup-editor'
+import { TextoConFormato } from '@/components/common/rich-text'
 import { Spinner } from '@/components/common/states'
 import { useToast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
@@ -107,9 +108,12 @@ export function CommentsThread({
                   <span className="font-medium text-foreground">{c.author?.full_name ?? '—'}</span>
                   <span>{format(parseISO(c.created_at), "d MMM yyyy 'a las' HH:mm", { locale: es })}</span>
                 </p>
-                <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-relaxed">
-                  {c.content}
-                </p>
+                {/* Con formato: negrita, cursiva, subrayado y listas. Lo que
+                    se guardó es texto con marcas (`**así**`), y lo de antes de
+                    que esto existiera es texto sin ninguna marca, que sale
+                    igual que salía. Aquí no se monta HTML en ningún momento:
+                    ver `rich-text.tsx`. */}
+                <TextoConFormato texto={c.content} className="mt-0.5" />
                 {c.mentions.length > 0 && (
                   <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                     <AtSign className="size-3" />
@@ -138,10 +142,10 @@ export function CommentsThread({
             if (text.trim().length >= 2 && userId) create.mutate()
           }}
         >
-          <Textarea
-            rows={2}
+          <MarkupEditor
+            rows={3}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={setText}
             placeholder="Escribir un comentario…"
             aria-label="Nuevo comentario"
             onKeyDown={(e) => {
