@@ -21,9 +21,6 @@ export const qk = {
     allWorkStatuses: ['catalogs', 'work-statuses', 'all'] as const,
     allWorkRoles: ['catalogs', 'work-roles', 'all'] as const,
     allDocumentTypes: ['catalogs', 'document-types', 'all'] as const,
-    /** Columnas del tablero de tareas (0024): por organización. */
-    boardColumns: (organizationId: string) => ['catalogs', 'board-columns', organizationId] as const,
-    boardColumnUsage: ['catalogs', 'usage', 'board-columns'] as const,
     documentTypeUsage: ['catalogs', 'usage', 'document-types'] as const,
     statusRoleUsage: ['catalogs', 'usage', 'statuses-roles'] as const,
     usage: ['catalogs', 'usage'] as const,
@@ -56,6 +53,12 @@ export const qk = {
     byWork: (workId: string) => ['tasks', 'work', workId] as const,
     mine: ['tasks', 'mine'] as const,
     summary: ['tasks', 'summary'] as const,
+    /**
+     * Las columnas del tablero de un trabajo (0024). Van bajo `tasks` a
+     * propósito: son parte del plan de trabajo, y así `tasks.all` —que se
+     * invalida al mover una tarjeta— también las alcanza.
+     */
+    boardColumns: (workId: string) => ['tasks', 'board-columns', workId] as const,
   },
 
   people: {

@@ -1,8 +1,6 @@
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  Check, FileText, Flag, GraduationCap, KanbanSquare, Microscope, Pencil, Plus, Trash2, Users, X,
-} from 'lucide-react'
+import { Check, FileText, Flag, GraduationCap, Microscope, Pencil, Plus, Trash2, Users, X } from 'lucide-react'
 import { PageHeader } from '@/app/layout/app-shell'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea } from '@/components/ui/input'
@@ -22,7 +20,6 @@ import {
   AVISO_CATALOGOS_GLOBALES, WorkRolesCard, WorkStatusesCard,
 } from '@/features/admin/statuses-roles-cards'
 import { DocumentTypesCard } from '@/features/admin/document-types-card'
-import { BoardColumnsCard } from '@/features/admin/board-columns-card'
 
 /**
  * Catálogos planos de la organización: líneas de investigación, titulaciones y
@@ -137,13 +134,6 @@ export function CatalogsPage() {
         <DocumentTypesCard />
       </SectionCard>
 
-      <SectionCard
-        title="Columnas del tablero de tareas"
-        icon={<KanbanSquare className="size-4 text-muted-foreground" />}
-        hint="Cómo se organiza el plan de trabajo de cada trabajo. Son propias del grupo: el nombre, el color y el orden los pones tú."
-      >
-        <BoardColumnsCard />
-      </SectionCard>
     </div>
   )
 }

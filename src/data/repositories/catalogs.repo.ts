@@ -1,8 +1,8 @@
 import { supabase } from '@/lib/supabase'
+import { unwrap, unwrapUpdated } from '@/data/repositories/unwrap'
 import { ordenarConOtrosAlFinal } from '@/domain/admin/catalog-order'
-import { ESTADOS_TAREA } from '@/domain/plan/board'
 import type {
-  AcademicLevelRow, AcademicYearRow, BoardColumnRow, ProgramRow, ResearchLineRow,
+  AcademicLevelRow, AcademicYearRow, ProgramRow, ResearchLineRow,
   DocumentTypeRow, WorkRoleRow, WorkStatusRow, WorkTypeRow, WorkTypeStatusRow,
 } from '@/data/types/database'
 import type { Database } from '@/data/types/database'
@@ -21,8 +21,6 @@ type RoleInsert = Database['public']['Tables']['work_roles']['Insert']
 type RoleUpdate = Database['public']['Tables']['work_roles']['Update']
 type DocTypeInsert = Database['public']['Tables']['document_types']['Insert']
 type DocTypeUpdate = Database['public']['Tables']['document_types']['Update']
-type BoardColumnInsert = Database['public']['Tables']['board_columns']['Insert']
-type BoardColumnUpdate = Database['public']['Tables']['board_columns']['Update']
 
 /**
  * Cuántos trabajos usan cada línea, titulación y curso.
@@ -40,44 +38,6 @@ export type CatalogUsage = {
   lines: Record<string, number>
   programs: Record<string, number>
   years: Record<string, number>
-}
-
-function unwrap<T>({ data, error }: { data: T | null; error: { message: string } | null }): T {
-  if (error) throw error
-  if (data === null) throw new Error('Respuesta vacía del servidor.')
-  return data
-}
-
-/**
- * Como `unwrap`, pero para un UPDATE del que se espera que vuelva LA fila.
- *
- * POR QUÉ NO BASTA `.single()`
- * PostgreSQL no da error cuando una política de RLS descarta las filas de un
- * UPDATE: no cambia nada y no dice nada, igual que la casilla de la lista de
- * comprobación que cerró la migración 0009. Con `.single()`, esos cero filas
- * llegaban a la pantalla convertidos en «Cannot coerce the result to a single
- * JSON object [PGRST116] The result contains 0 rows», que es verdad y no
- * significa nada para quien está delante. Fue el aviso que apareció el 7 de
- * noviembre de 2026 al editar un TFG, y debajo había un tipo de trabajo global
- * que ninguna política permitía editar (lo abrió la 0022).
- *
- * Así que `.maybeSingle()` y el caso se dice con palabras. No sobra con la
- * 0022 aplicada: queda para el próximo catálogo al que le falte su política, y
- * para una instalación que vaya por detrás en las migraciones.
- */
-function unwrapUpdated<T>(
-  { data, error }: { data: T | null; error: { message: string } | null },
-  queEra: string,
-): T {
-  if (error) throw error
-  if (data === null) {
-    throw new Error(
-      `La base de datos no ha modificado ${queEra}. O ya no existe, o ninguna política de ` +
-        'seguridad permite a tu cuenta cambiar esa fila. Si deberías poder, lo más probable es ' +
-        'que falte aplicar alguna migración de supabase/migrations/.',
-    )
-  }
-  return data
 }
 
 /**
@@ -339,85 +299,4 @@ export const catalogsRepo = {
 
   listDocumentTypes: async (): Promise<DocumentTypeRow[]> =>
     unwrap(await supabase.from('document_types').select('*').eq('is_active', true).order('display_order')),
-
-  // ---------------------------------------------------------------------------
-  // Columnas del tablero de tareas (migración 0024)
-  // ---------------------------------------------------------------------------
-  /**
-   * TODAS las columnas de la organización, retiradas incluidas.
-   *
-   * Las retiradas hacen falta en el tablero y no solo en Administración: una
-   * columna retirada que todavía tenga tarjetas se sigue dibujando, porque
-   * esconderla dejaría las tarjetas sin aparecer en ningún sitio sin haberlas
-   * borrado. Lo decide `resolveBoard`, en el dominio.
-   */
-  listBoardColumns: async (organizationId: string): Promise<BoardColumnRow[]> =>
-    unwrap(
-      await supabase
-        .from('board_columns')
-        .select('*')
-        .eq('organization_id', organizationId)
-        .order('display_order')
-        .order('name'),
-    ),
-
-  /**
-   * Cuántas tarjetas hay en cada columna.
-   *
-   * Hace falta para dos cosas distintas: no ofrecer «Borrar» una columna con
-   * tarjetas —la clave ajena es `on delete restrict`, así que el botón solo
-   * serviría para dar un error— y avisar antes de retirar una, porque retirada
-   * sigue dibujándose mientras tenga tarjetas.
-   *
-   * Una consulta de una columna y el recuento en memoria, como `catalogUsage`:
-   * la alternativa es una consulta por fila del catálogo. RLS ya limita las
-   * tareas a las que quien pregunta puede ver, y quien administra las ve todas.
-   */
-  boardColumnUsage: async (): Promise<Record<string, number>> => {
-    const filas = unwrap(
-      await supabase.from('tasks').select('board_column_id').not('board_column_id', 'is', null),
-    )
-    const cuenta: Record<string, number> = {}
-    for (const f of filas) {
-      if (f.board_column_id) cuenta[f.board_column_id] = (cuenta[f.board_column_id] ?? 0) + 1
-    }
-    return cuenta
-  },
-
-  createBoardColumn: async (input: BoardColumnInsert): Promise<BoardColumnRow> =>
-    unwrap(await supabase.from('board_columns').insert(input).select('*').single()),
-
-  updateBoardColumn: async (id: string, patch: BoardColumnUpdate): Promise<BoardColumnRow> =>
-    unwrapUpdated(
-      await supabase.from('board_columns').update(patch).eq('id', id).select('*').maybeSingle(),
-      'esta columna del tablero',
-    ),
-
-  removeBoardColumn: async (id: string): Promise<void> => {
-    const { error } = await supabase.from('board_columns').delete().eq('id', id)
-    if (error) throw error
-  },
-
-  /**
-   * Crea las cinco columnas de siempre como filas editables.
-   *
-   * Es el primer paso de quien quiere columnas propias: en lugar de empezar con
-   * un tablero vacío, se parte de lo que ya se estaba viendo y se renombra, se
-   * reordena o se añade. La migración 0024 no siembra estas filas a propósito
-   * —obligaría a borrarlas a quien no las quiere—, así que la siembra es este
-   * botón, explícito y en una sola operación.
-   */
-  seedBoardColumns: async (organizationId: string): Promise<BoardColumnRow[]> =>
-    unwrap(
-      await supabase
-        .from('board_columns')
-        .insert(ESTADOS_TAREA.map((e, i) => ({
-          organization_id: organizationId,
-          name: e.label,
-          color: e.tone,
-          maps_to: e.value,
-          display_order: i,
-        })))
-        .select('*'),
-    ),
 }

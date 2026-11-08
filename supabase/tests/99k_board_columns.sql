@@ -2,197 +2,205 @@
 -- Las columnas del tablero (migracion 0024)
 --
 -- QUE SE JUEGA AQUI
--- El tablero pasa a dibujar un catalogo editable, y `tasks.status` —de donde
--- salen el progreso, los colores del cronograma, los bloqueos por dependencia y
--- los informes— se DERIVA de la columna. Dos cosas que pueden salir mal y no se
--- verian:
+-- El tablero pasa a tener columnas con el nombre que quiera quien dirige el
+-- trabajo, estilo Trello. Tres cosas pueden salir mal y ninguna daria error en
+-- la pantalla:
 --
---   1. que la derivacion no ocurra: una tarjeta en «Hecho» que para la
---      aplicacion sigue pendiente. El tablero se veria perfecto y el progreso
---      del trabajo estaria mal.
---   2. que la comprobacion de organizacion falle ABIERTO: el disparador lee
---      `board_columns`, y si no fuese `security definer`, RLS le esconderia la
---      columna de otra organizacion —que es justamente la que hay que
---      rechazar— y se apartaria solo. Es el fallo que tumbo la primera version
---      de la 0023.
+--   1. QUIEN las administra. Si la politica pidiera administracion del grupo,
+--      la direccion de una tesis no podria renombrar sus propias columnas y lo
+--      unico que veria es que no pasa nada (a un UPDATE sin permiso la politica
+--      le descarta las filas y NO falla).
+--   2. Que mover una tarjeta cambie el estado de la tarea. Son dos
+--      clasificaciones distintas a proposito: «Papers» no es un estado. Si una
+--      se llevara a la otra, el progreso del trabajo y el cronograma cambiarian
+--      al reordenar el tablero.
+--   3. Que la comprobacion de «la columna es de este trabajo» falle ABIERTA: el
+--      disparador lee `board_columns`, y sin `security definer` RLS le
+--      esconderia la columna de otro trabajo —la que hay que rechazar— y se
+--      apartaria sola. Es el fallo que tumbo la primera version de la 0023.
 --
 -- Datos de los ficheros anteriores:
 --   admin        = 1111...  ADMIN de la organizacion aaaa...0001
---   investigador = 2222...  MEMBER, director de TFG-01 (puede planificar)
---   estudiante   = 3333...  MEMBER, estudiante de TFG-01
+--   investigador = 2222...  director de TFG-01 (puede planificar) y ESTUDIANTE
+--                           de su propia TESIS-02
+--   estudiante   = 3333...  estudiante de TFG-01
+--   TFG-01       = bbbb...0001     TESIS-02 = bbbb...0002
 --   tarea        = dddd...0001 en TFG-01, asignada al estudiante
 -- =============================================================================
 
--- Fixtures: se insertan con el rol por defecto, que no pasa por RLS.
-insert into organizations (id, name, slug) values
-  ('aaaaaaaa-0000-0000-0000-000000000009','Otro grupo','otro-grupo')
-on conflict (id) do nothing;
--- El segundo grupo se queda CON ADMINISTRACION, y no es un detalle: la
--- comprobacion 14 de `supabase/verify.sql` —«cada organizacion tiene al menos
--- un administrador activo»— se ejecuta al final de la tanda sobre esta misma
--- base, y un grupo de pruebas sin administrador la haria fallar. Seria un fallo
--- correcto sobre un dato inventado, o sea ruido que acabaria enseñando a
--- ignorar esa comprobacion. Que la misma persona administre dos grupos es
--- ademas un estado legitimo del modelo.
-insert into organization_members (organization_id, user_id, role) values
-  ('aaaaaaaa-0000-0000-0000-000000000009','11111111-1111-1111-1111-111111111111','ADMIN')
-on conflict (organization_id, user_id) do nothing;
-insert into board_columns (id, organization_id, name, color, maps_to, display_order) values
-  ('ffffffff-0000-0000-0000-000000000009','aaaaaaaa-0000-0000-0000-000000000009',
-   'Columna ajena','slate','EN_CURSO',0)
+-- Fixture: una columna en OTRO trabajo. Se inserta con el rol por defecto, que
+-- no pasa por RLS, porque en TESIS-02 el investigador es estudiante y no puede
+-- crearla: lo que se prueba con ella es el rechazo, no su alta.
+insert into board_columns (id, work_id, name, color, display_order) values
+  ('ffffffff-0000-0000-0000-000000000009','bbbbbbbb-0000-0000-0000-000000000002',
+   'Columna ajena','slate',0)
 on conflict (id) do nothing;
 
 \echo '================ COLUMNAS DEL TABLERO ================'
 
-\echo '[166] La administracion crea columnas con sus nombres; un miembro no'
+\echo '[166] El DIRECTOR del trabajo crea sus columnas con el nombre que quiera; el estudiante no'
 do $$
-declare v_n int;
+declare v_n int; v_creada boolean := false;
 begin
-  set local role authenticated;
-  perform set_config('test.uid','11111111-1111-1111-1111-111111111111', true);
-  insert into board_columns (id, organization_id, name, color, maps_to, display_order) values
-    ('ffffffff-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000001','Por hacer','slate','PENDIENTE',0),
-    ('ffffffff-0000-0000-0000-000000000002','aaaaaaaa-0000-0000-0000-000000000001','Papers','violet','EN_CURSO',1),
-    ('ffffffff-0000-0000-0000-000000000003','aaaaaaaa-0000-0000-0000-000000000001','Hecho','green','COMPLETADA',2);
-  reset role;
-
-  select count(*) into v_n from board_columns
-   where organization_id = 'aaaaaaaa-0000-0000-0000-000000000001';
-  if v_n <> 3 then
-    raise exception 'FALLO [166]: la administracion no ha podido crear las columnas (hay %)', v_n;
-  end if;
-
-  -- Un miembro normal. La politica de escritura pide ser administrador.
+  -- El director no es administrador del grupo: si la politica pidiera
+  -- `is_org_admin` esto no insertaria nada y no daria error.
   set local role authenticated;
   perform set_config('test.uid','22222222-2222-2222-2222-222222222222', true);
+  insert into board_columns (id, work_id, name, color, display_order) values
+    ('ffffffff-0000-0000-0000-000000000001','bbbbbbbb-0000-0000-0000-000000000001','Papers','violet',0),
+    ('ffffffff-0000-0000-0000-000000000002','bbbbbbbb-0000-0000-0000-000000000001','Estudios','blue',1);
+  select count(*) into v_n from board_columns where work_id = 'bbbbbbbb-0000-0000-0000-000000000001';
+  reset role;
+  if v_n <> 2 then
+    raise exception 'FALLO [166]: el director no ha podido crear sus columnas (%)', v_n;
+  end if;
+
+  -- Y el nombre es libre: ningun catalogo que casar, ningun significado que
+  -- elegir. Se comprueba con uno que no se parece a ningun estado.
+  set local role authenticated;
+  perform set_config('test.uid','22222222-2222-2222-2222-222222222222', true);
+  update board_columns set name = 'Enviado a revista'
+   where id = 'ffffffff-0000-0000-0000-000000000002';
+  reset role;
+  if (select name from board_columns where id = 'ffffffff-0000-0000-0000-000000000002')
+     <> 'Enviado a revista' then
+    raise exception 'FALLO [166]: el director no ha podido renombrar su columna';
+  end if;
+  -- Se deja como estaba, que las pruebas de abajo la nombran.
+  update board_columns set name = 'Estudios' where id = 'ffffffff-0000-0000-0000-000000000002';
+
+  -- El estudiante del trabajo, no: es el plan de trabajo, igual que los hitos.
+  set local role authenticated;
+  perform set_config('test.uid','33333333-3333-3333-3333-333333333333', true);
   begin
-    insert into board_columns (organization_id, name, maps_to) values
-      ('aaaaaaaa-0000-0000-0000-000000000001','Columna de un miembro','EN_CURSO');
-  exception when others then null;
+    insert into board_columns (work_id, name, display_order)
+    values ('bbbbbbbb-0000-0000-0000-000000000001','Mi columna',9);
+    v_creada := true;
+  exception when insufficient_privilege then null;
   end;
   reset role;
-
-  select count(*) into v_n from board_columns
-   where organization_id = 'aaaaaaaa-0000-0000-0000-000000000001';
-  if v_n <> 3 then
-    raise exception 'FALLO [166]: un miembro ha creado una columna del tablero (hay %)', v_n;
+  if v_creada then
+    raise exception 'FALLO DE SEGURIDAD [166]: el estudiante ha creado una columna';
   end if;
   raise notice 'CORRECTO [166]';
 end $$;
 
-\echo '[167] Mover la tarjeta a una columna DERIVA el estado y la marca de completado'
+\echo '[167] Mover la tarjeta NO cambia el estado, y cambiar el estado NO mueve la tarjeta'
 do $$
-declare v_estado text; v_completado timestamptz;
+declare v_estado text; v_col uuid;
 begin
-  -- Punto de partida: la tarea existe y no esta completada.
-  if not exists (select 1 from tasks where id = 'dddddddd-0000-0000-0000-000000000001') then
-    raise exception 'FALLO [167]: la prueba necesita la tarea dddd...0001 y no esta';
-  end if;
-
+  -- a) La tarjeta a «Papers». El estado tiene que quedarse donde estaba: una
+  --    columna es una clasificacion mas, no un estado disfrazado.
   set local role authenticated;
   perform set_config('test.uid','22222222-2222-2222-2222-222222222222', true);
-  update tasks set board_column_id = 'ffffffff-0000-0000-0000-000000000003'  -- «Hecho»
+  update tasks set status = 'EN_CURSO' where id = 'dddddddd-0000-0000-0000-000000000001';
+  update tasks set board_column_id = 'ffffffff-0000-0000-0000-000000000001'
    where id = 'dddddddd-0000-0000-0000-000000000001';
   reset role;
 
-  select status, completed_at into v_estado, v_completado
+  select status, board_column_id into v_estado, v_col
     from tasks where id = 'dddddddd-0000-0000-0000-000000000001';
-  if v_estado <> 'COMPLETADA' then
-    raise exception 'FALLO [167]: la tarjeta esta en «Hecho» y el estado sigue siendo % (el progreso del trabajo estaria mal y el tablero se veria perfecto)', v_estado;
+  if v_col is distinct from 'ffffffff-0000-0000-0000-000000000001' then
+    raise exception 'FALLO [167]: la tarjeta no se ha movido';
   end if;
-  if v_completado is null then
-    raise exception 'FALLO [167]: completada sin fecha de completado: no contaria en ningun recuento por fechas';
+  if v_estado <> 'EN_CURSO' then
+    raise exception 'FALLO [167]: mover la tarjeta ha cambiado el estado a %', v_estado;
   end if;
 
-  -- Y al revés: sacarla de «Hecho» quita el estado Y la marca.
+  -- b) Y al contrario: completar la tarea no la saca de «Papers». Si la sacara,
+  --    el tablero se reordenaria solo cada vez que alguien marca algo.
   set local role authenticated;
   perform set_config('test.uid','22222222-2222-2222-2222-222222222222', true);
-  update tasks set board_column_id = 'ffffffff-0000-0000-0000-000000000002'  -- «Papers»
-   where id = 'dddddddd-0000-0000-0000-000000000001';
+  update tasks set status = 'COMPLETADA' where id = 'dddddddd-0000-0000-0000-000000000001';
   reset role;
 
-  select status, completed_at into v_estado, v_completado
+  select status, board_column_id into v_estado, v_col
     from tasks where id = 'dddddddd-0000-0000-0000-000000000001';
-  if v_estado <> 'EN_CURSO' or v_completado is not null then
-    raise exception 'FALLO [167]: al salir de «Hecho» quedo estado=% completed_at=%', v_estado, v_completado;
+  if v_estado <> 'COMPLETADA' or v_col is distinct from 'ffffffff-0000-0000-0000-000000000001' then
+    raise exception 'FALLO [167]: completar la tarea le ha movido la tarjeta (% / %)', v_estado, v_col;
   end if;
   raise notice 'CORRECTO [167]';
 end $$;
 
-\echo '[168] Una columna de OTRA organizacion se rechaza (y la comprobacion no falla abierto)'
+\echo '[168] Una columna de OTRO trabajo se rechaza (y la comprobacion no falla abierta)'
 do $$
-declare v_col uuid; v_rechazado boolean := false;
+declare v_aceptada boolean := false;
 begin
+  -- Lo intenta el DIRECTOR, que si puede escribir esta tarea: es la unica
+  -- sesion que distingue un rechazo de verdad de un «no tenia permiso de todas
+  -- formas». Y es tambien la que destapa el fallo abierto: sin
+  -- `security definer`, el disparador no veria la columna de TESIS-02 y dejaria
+  -- pasar la tarjeta al tablero de otro trabajo.
   set local role authenticated;
   perform set_config('test.uid','22222222-2222-2222-2222-222222222222', true);
-
-  -- Quien escribe NO VE esa columna: su politica de lectura solo alcanza a su
-  -- organizacion. Si el disparador no fuese `security definer`, tampoco la
-  -- veria él, no encontraria la fila y dejaria pasar el cambio. Se comprueba
-  -- primero que, efectivamente, es invisible; así la prueba no se vuelve
-  -- verde por el motivo equivocado.
-  if exists (select 1 from board_columns where id = 'ffffffff-0000-0000-0000-000000000009') then
-    reset role;
-    raise exception 'FALLO [168]: la columna de otra organizacion es visible; la prueba no comprueba lo que dice';
-  end if;
-
   begin
     update tasks set board_column_id = 'ffffffff-0000-0000-0000-000000000009'
      where id = 'dddddddd-0000-0000-0000-000000000001';
-  exception when others then v_rechazado := true;
+    v_aceptada := true;
+  exception when check_violation or foreign_key_violation then null;
   end;
   reset role;
-
-  select board_column_id into v_col from tasks where id = 'dddddddd-0000-0000-0000-000000000001';
-  if not v_rechazado then
-    raise exception 'FALLO [168]: se ha aceptado una columna de otra organizacion';
+  if v_aceptada then
+    raise exception 'FALLO DE SEGURIDAD [168]: la tarjeta ha pasado al tablero de otro trabajo';
   end if;
-  if v_col <> 'ffffffff-0000-0000-0000-000000000002' then
-    raise exception 'FALLO [168]: la tarjeta ha cambiado de columna (%)', v_col;
+  if (select board_column_id from tasks where id = 'dddddddd-0000-0000-0000-000000000001')
+     is distinct from 'ffffffff-0000-0000-0000-000000000001' then
+    raise exception 'FALLO [168]: la tarjeta ya no esta donde estaba';
   end if;
   raise notice 'CORRECTO [168]';
 end $$;
 
-\echo '[169] El estudiante mueve SU tarjeta de columna, pero no renombra la columna'
+\echo '[169] El estudiante mueve SU tarjeta de columna y de sitio, pero no renombra la columna'
 do $$
-declare v_col uuid; v_nombre text;
+declare v_col uuid; v_orden int; v_cambiado boolean := false;
 begin
+  -- Mover su tarjeta y colocarla: es informar de lo suyo, y es el gesto de
+  -- arrastrar, que ESCRIBE una posicion siempre. Si `order_index` siguiera
+  -- prohibido, el arrastre fallaria con un mensaje que no le dice nada.
   set local role authenticated;
   perform set_config('test.uid','33333333-3333-3333-3333-333333333333', true);
-  -- Mover su tarjeta es informar del avance: es lo mismo que cambiar el estado,
-  -- lo unico que `enforce_task_update_scope` le permite.
-  update tasks set board_column_id = 'ffffffff-0000-0000-0000-000000000001'  -- «Por hacer»
+  update tasks set board_column_id = 'ffffffff-0000-0000-0000-000000000002', order_index = 3
    where id = 'dddddddd-0000-0000-0000-000000000001';
-
-  -- Renombrar la columna es administrar el catalogo: no.
-  begin
-    update board_columns set name = 'Mi columna'
-     where id = 'ffffffff-0000-0000-0000-000000000001';
-  exception when others then null;
-  end;
   reset role;
 
-  select board_column_id into v_col from tasks where id = 'dddddddd-0000-0000-0000-000000000001';
-  if v_col <> 'ffffffff-0000-0000-0000-000000000001' then
-    raise exception 'FALLO [169]: el estudiante no ha podido mover su propia tarjeta (%)', coalesce(v_col::text,'NADA');
+  select board_column_id, order_index into v_col, v_orden
+    from tasks where id = 'dddddddd-0000-0000-0000-000000000001';
+  if v_col is distinct from 'ffffffff-0000-0000-0000-000000000002' or v_orden <> 3 then
+    raise exception 'FALLO [169]: el estudiante no ha podido mover su tarjeta (% / %)', v_col, v_orden;
   end if;
-  select name into v_nombre from board_columns where id = 'ffffffff-0000-0000-0000-000000000001';
-  if v_nombre <> 'Por hacer' then
-    raise exception 'FALLO [169]: el estudiante ha renombrado una columna del tablero (%)', v_nombre;
+
+  -- Pero el titulo sigue siendo del plan.
+  set local role authenticated;
+  perform set_config('test.uid','33333333-3333-3333-3333-333333333333', true);
+  begin
+    update tasks set title = 'Otro titulo' where id = 'dddddddd-0000-0000-0000-000000000001';
+    v_cambiado := true;
+  exception when others then null;
+  end;
+  -- Y la columna del tablero tampoco: se comprueba EL DATO, porque a un UPDATE
+  -- sin permiso la politica le descarta las filas y no da ningun error.
+  update board_columns set name = 'Lo mio' where id = 'ffffffff-0000-0000-0000-000000000002';
+  reset role;
+
+  if v_cambiado then
+    raise exception 'FALLO DE SEGURIDAD [169]: el estudiante ha cambiado el titulo';
+  end if;
+  if (select name from board_columns where id = 'ffffffff-0000-0000-0000-000000000002') <> 'Estudios' then
+    raise exception 'FALLO DE SEGURIDAD [169]: el estudiante ha renombrado la columna';
   end if;
   raise notice 'CORRECTO [169]';
 end $$;
 
-\echo '[170] Una columna con tarjetas no se borra; y completar por otra via recoloca la tarjeta'
+\echo '[170] Una columna con tarjetas no se borra; y la marca de completado la pone la base de datos'
 do $$
-declare v_borrado boolean := false; v_col uuid; v_estado text;
+declare v_borrado boolean := false; v_completado timestamptz;
 begin
-  -- a) Borrar una columna que tiene tarjetas dentro: `on delete restrict`. Con
-  --    `set null` las tarjetas se dispersarian sin que nadie lo pidiera.
+  -- a) `on delete restrict`: con `set null` las tarjetas se esparcirian sin que
+  --    nadie lo hubiera pedido.
   set local role authenticated;
-  perform set_config('test.uid','11111111-1111-1111-1111-111111111111', true);
+  perform set_config('test.uid','22222222-2222-2222-2222-222222222222', true);
   begin
-    delete from board_columns where id = 'ffffffff-0000-0000-0000-000000000001';
+    delete from board_columns where id = 'ffffffff-0000-0000-0000-000000000002';
     v_borrado := true;
   exception when foreign_key_violation then null;
   end;
@@ -201,80 +209,57 @@ begin
     raise exception 'FALLO [170]: se ha borrado una columna que tenia tarjetas';
   end if;
 
-  -- b) «Marcar como completada» no pasa por el tablero: cambia el estado. La
-  --    tarjeta tiene que irse sola a una columna que signifique completada, o
-  --    quedaria una tarea hecha viviendo en «Por hacer».
-  set local role authenticated;
-  perform set_config('test.uid','22222222-2222-2222-2222-222222222222', true);
-  update tasks set status = 'COMPLETADA'
-   where id = 'dddddddd-0000-0000-0000-000000000001';
-  reset role;
-
-  select board_column_id, status into v_col, v_estado
+  -- b) `completed_at` ya no depende de que el cliente se acuerde. La tarea
+  --    quedo COMPLETADA en la [167] sin que nadie escribiera la marca.
+  select completed_at into v_completado
     from tasks where id = 'dddddddd-0000-0000-0000-000000000001';
-  if v_estado <> 'COMPLETADA' then
-    raise exception 'FALLO [170]: el estado no se ha guardado (%)', v_estado;
-  end if;
-  if v_col is distinct from 'ffffffff-0000-0000-0000-000000000003' then
-    raise exception 'FALLO [170]: la tarjeta completada se ha quedado en % en lugar de irse a «Hecho»', coalesce(v_col::text,'NINGUNA');
+  if v_completado is null then
+    raise exception 'FALLO [170]: una tarea completada sin completed_at no sale en ningun recuento por fechas';
   end if;
 
-  -- Se deja como estaba: los ficheros siguientes leen esta tarea.
+  -- Y al dejar de estar completada se retira, que si no el recuento la cuenta
+  -- dos veces: como pendiente y como terminada en su dia.
   set local role authenticated;
   perform set_config('test.uid','22222222-2222-2222-2222-222222222222', true);
-  update tasks set status = 'EN_CURSO', board_column_id = null
-   where id = 'dddddddd-0000-0000-0000-000000000001';
+  update tasks set status = 'EN_CURSO' where id = 'dddddddd-0000-0000-0000-000000000001';
   reset role;
+  if (select completed_at from tasks where id = 'dddddddd-0000-0000-0000-000000000001') is not null then
+    raise exception 'FALLO [170]: completed_at se ha quedado puesto en una tarea que ya no esta completada';
+  end if;
   raise notice 'CORRECTO [170]';
 end $$;
 
-\echo '[171] Cambiar el SIGNIFICADO de una columna arrastra a las tarjetas que tiene dentro'
+\echo '[171] Dos columnas con el mismo nombre en el mismo tablero, no; en otro trabajo, si'
 do $$
-declare v_estado text; v_completado timestamptz; v_col uuid;
+declare v_duplicada boolean := false;
 begin
-  -- La tarjeta se deja en «Papers», que significa «en curso».
   set local role authenticated;
   perform set_config('test.uid','22222222-2222-2222-2222-222222222222', true);
-  update tasks set board_column_id = 'ffffffff-0000-0000-0000-000000000002'
-   where id = 'dddddddd-0000-0000-0000-000000000001';
+  begin
+    insert into board_columns (work_id, name, display_order)
+    values ('bbbbbbbb-0000-0000-0000-000000000001','Papers',5);
+    v_duplicada := true;
+  exception when unique_violation then null;
+  end;
   reset role;
-
-  select status into v_estado from tasks where id = 'dddddddd-0000-0000-0000-000000000001';
-  if v_estado <> 'EN_CURSO' then
-    raise exception 'FALLO [171]: la tarjeta no ha tomado el significado de su columna (%)', v_estado;
+  if v_duplicada then
+    raise exception 'FALLO [171]: dos columnas «Papers» en el mismo tablero no se distinguen';
   end if;
 
-  -- Y ahora la administracion decide que «Papers» significa «completada». Las
-  -- tareas que ya estan dentro tienen que seguirla: si no, el tablero y el
-  -- progreso del trabajo cuentan historias distintas y nadie se enterara.
+  -- El mismo nombre en otro tablero es legitimo: la unicidad es por trabajo, y
+  -- si fuera global dos tesis no podrian tener las dos su columna «Papers».
+  insert into board_columns (work_id, name, display_order)
+  values ('bbbbbbbb-0000-0000-0000-000000000002','Papers',5);
+  if (select count(*) from board_columns where name = 'Papers') <> 2 then
+    raise exception 'FALLO [171]: la unicidad del nombre no es por trabajo';
+  end if;
+  delete from board_columns
+   where work_id = 'bbbbbbbb-0000-0000-0000-000000000002' and name = 'Papers';
+
+  -- Se deja la tarea como estaba, que lo que viene detras la lee.
   set local role authenticated;
-  perform set_config('test.uid','11111111-1111-1111-1111-111111111111', true);
-  update board_columns set maps_to = 'COMPLETADA'
-   where id = 'ffffffff-0000-0000-0000-000000000002';
-  reset role;
-
-  select status, completed_at, board_column_id into v_estado, v_completado, v_col
-    from tasks where id = 'dddddddd-0000-0000-0000-000000000001';
-  if v_estado <> 'COMPLETADA' then
-    raise exception 'FALLO [171]: la tarea se ha quedado en % mientras su columna significa COMPLETADA', v_estado;
-  end if;
-  -- La marca de completado la pone el otro disparador: una tarea completada sin
-  -- `completed_at` no sale en ningun recuento por fechas.
-  if v_completado is null then
-    raise exception 'FALLO [171]: falta completed_at';
-  end if;
-  -- Y no se mueve de sitio: la columna ya significa lo que dice.
-  if v_col is distinct from 'ffffffff-0000-0000-0000-000000000002' then
-    raise exception 'FALLO [171]: la tarjeta se ha ido de su columna';
-  end if;
-
-  -- Se deja todo como estaba, que los ficheros siguientes leen esta tarea.
-  set local role authenticated;
-  perform set_config('test.uid','11111111-1111-1111-1111-111111111111', true);
-  update board_columns set maps_to = 'EN_CURSO'
-   where id = 'ffffffff-0000-0000-0000-000000000002';
   perform set_config('test.uid','22222222-2222-2222-2222-222222222222', true);
-  update tasks set board_column_id = null, status = 'EN_CURSO'
+  update tasks set board_column_id = null, order_index = 0, status = 'EN_CURSO'
    where id = 'dddddddd-0000-0000-0000-000000000001';
   reset role;
   raise notice 'CORRECTO [171]';

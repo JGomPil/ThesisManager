@@ -16,11 +16,11 @@ código.
 >   `supabase/verify.sql`: RLS en todas las tablas, `anon` sin acceso a ninguna función de `app`,
 >   las 18 tablas del núcleo, las políticas y disparadores de la `0020` a la `0023`, que cada
 >   organización tenga administración, y el rol de estudiante sin capacidades.
->   La **`0024`** (columnas del tablero de tareas configurables) está probada contra PostgreSQL 16
+>   La **`0024`** (el tablero de tareas de cada trabajo, con columnas propias) está probada contra PostgreSQL 16
 >   y **pendiente de aplicar** en el proyecto real: hasta que se aplique, la comprobación 16 de
 >   `supabase/verify.sql` —que ahora devuelve **16 filas**— dirá `FALLO`, que es justo para lo que
 >   está.
->   171 pruebas de seguridad contra PostgreSQL 16 y 143 pruebas unitarias (dominio, y el
+>   171 pruebas de seguridad contra PostgreSQL 16 y 148 pruebas unitarias (dominio, y el
 >   recorrido de los cubos de Storage contra un cliente simulado).
 > - Progreso detallado en [`ROADMAP.md`](ROADMAP.md); decisiones técnicas en
 >   [`docs/FASE_0.md`](docs/FASE_0.md).

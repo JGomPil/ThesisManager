@@ -1012,43 +1012,55 @@ comprobación vive en el formulario y en la ficha, como el máximo de directores
 seguridad —quien puede escribir esa fecha puede escribir el trabajo entero—, es evitar un dato
 absurdo escrito sin querer.
 
-### 5.2.sexvicies · Un dato que la interfaz enseña y otro que la aplicación entiende
+### 5.2.sexvicies · Quién manda en una columna, y lo que una columna no significa
 
-La `0024` hace configurables las columnas del tablero de tareas: nombre, color y orden los pone
-cada grupo, y pueden llamarse «Papers» o «Estudios». Pero `tasks.status` sigue siendo lo que lee
-todo lo demás —el progreso del trabajo, el color de la barra del cronograma, qué tarea bloquea a
-otra, los informes—, así que cada columna declara **qué significa** (`maps_to`, con el mismo
-`CHECK` que `tasks.status`) y un *trigger* mantiene las dos direcciones en su sitio.
+La `0024` hace que el tablero de tareas de cada trabajo tenga las columnas que quiera quien lo
+dirige: «Papers», «Estudios», «Enviado a revista». Tres decisiones de seguridad, y las tres se
+pueden leer en la migración:
 
-Tres decisiones que son de seguridad, y no de interfaz:
+- **Las columnas son del TRABAJO, y por tanto de su dirección.** `board_columns.work_id` y
+  `board_columns_write` con `app.can_manage_plan(work_id)`: la misma frase que los hitos y las
+  fases de la `0003`. La primera versión de esta migración las puso por organización y las dejó en
+  manos de la administración del grupo, que es una frontera equivocada: quien dirige una tesis no
+  tiene por qué pedir permiso para renombrar una columna de su tablero, y la administración del
+  grupo no tiene nada que decir sobre cómo se organiza ese trabajo. Lo que es peor, el error no se
+  habría visto: a un `UPDATE` sin permiso la política le descarta las filas y **no da error**
+  (§5.2.quatervicies), así que la dirección habría renombrado una columna, se habría quedado
+  igual, y no habría ningún mensaje que explicara por qué. La prueba `[166]` la hace un director
+  que **no** es administrador del grupo, que es la única sesión que distingue las dos cosas.
+- **El *trigger* es `security definer`**, por lo de §5.2.quinvicies:
+  `app.assert_task_board_column_same_work()` comprueba que la columna elegida sea del mismo
+  trabajo que la tarea, y para eso tiene que leer `board_columns`. Con los privilegios de quien
+  escribe, RLS le esconde la columna de otro trabajo —la que hay que rechazar—, el `select` no
+  devuelve fila y la comprobación **se aparta sola**: fallaría abierta justo en el caso que viene a
+  impedir, y la tarjeta acabaría en el tablero de otro trabajo. La migración comprueba `prosecdef`
+  antes de terminar, y la prueba `[168]` lo intenta desde una sesión que **sí** puede escribir la
+  tarea, que es la única que distingue el fallo.
+- **Mover una tarjeta, y colocarla, se le permite a quien no planifica.**
+  `app.enforce_task_update_scope()` ya dejaba pasar `status`; ahora deja pasar también
+  `board_column_id` y `order_index`. Lo segundo es un cambio de criterio y conviene decir por qué:
+  `order_index` estaba prohibido con el argumento de que ordenar el tablero es planificar, pero
+  con un tablero que se arrastra, soltar una tarjeta **escribe una posición, siempre**. Permitir
+  la columna y prohibir la posición deja el gesto fallando con «Solo puede actualizarse el estado
+  de la tarea», que no le dice nada a quien acaba de arrastrar su propia tarea. Y el daño está
+  acotado por RLS, no por el *trigger*: `tasks_update` solo le deja escribir las filas donde es
+  responsable, así que mueve **sus** tarjetas y ninguna otra. Lo que sigue prohibido es lo que
+  cambia el plan: título, descripción, responsable, prioridad, fechas, trabajo, tarea padre e
+  hito. Prueba `[169]`, con las dos mitades.
 
-- **El *trigger* es `security definer`**, por lo de §5.2.quinvicies: `app.sync_task_board_column()`
-  comprueba que la columna elegida sea del **mismo grupo** que el trabajo de la tarea, y para eso
-  tiene que leer `board_columns` y `academic_works`. Con los privilegios de quien escribe, a un
-  estudiante RLS le esconde la columna de otra organización, el `select` no devuelve fila y la
-  comprobación **se aparta sola**: fallaría abierta justo en el caso que viene a impedir. La
-  migración comprueba `prosecdef` antes de terminar, y la prueba `[168]` lo hace desde una sesión
-  que **sí** puede escribir la tarea, que es la única que distingue el fallo.
-- **Mover una tarjeta se le permite al estudiante a propósito.**
-  `app.enforce_task_update_scope()` deja pasar `board_column_id` —y por tanto el cambio de estado
-  que deriva de él— porque mover tarjetas es el trabajo diario de quien hace la tesis, no una
-  decisión de planificación. Lo que no puede es renombrar, crear ni reordenar columnas: eso es
-  `board_columns_write`, solo administración del grupo. Las dos mitades están en la prueba `[169]`;
-  la lista de campos que ese *trigger* deja pasar lleva escrito al lado por qué está cada uno,
-  porque es el sitio donde un permiso se amplía sin querer.
-- **Y la otra direccion tambien se vigila, que no es simetrica**: cambiar el `maps_to` de una
-  columna que ya tiene tarjetas dentro lo arrastra un segundo *trigger*,
-  `app.sync_board_column_meaning()`, igualmente `security definer` —tiene que alcanzar las tareas
-  de trabajos donde quien administra no es miembro, y con los permisos de quien escribe RLS le
-  dejaría fuera justo esas, corrigiendo a medias y en silencio—. Sin él, cambiar «Papers» de «en
-  curso» a «completada» se guardaba sin error y dejaba las tareas de dentro con el estado viejo:
-  el tablero decía una cosa y el progreso del trabajo otra, que es el fallo que esta migración
-  viene a impedir, colándose por la única vía que no se miraba. Prueba `[171]`.
-- **El nombre nunca decide nada.** Una columna llamada «Hecho» que signifique «en curso» deja el
-  progreso del trabajo mintiendo **sin dar ningún error**, y es un error de configuración que no
-  se puede impedir desde la base de datos: el significado es un dato legítimo. Por eso la pantalla
-  de administración lo dice al lado del desplegable, en lugar de esconderlo tras un valor por
-  omisión razonable.
+Y una que no es de permisos pero vive de la misma honestidad: **una columna no significa nada**.
+No hay ningún campo de significado, a propósito. La primera versión hacía que cada columna
+declarase a qué estado correspondía y derivaba `tasks.status` de ella, y eso obligaba a elegir un
+significado para cada nombre que se inventara —«¿y “Papers” qué es, en curso?»— para sostener algo
+que ya estaba resuelto: el estado es un dato de la tarea, se ve y se cambia en su tarjeta, y es lo
+que leen el progreso del trabajo, el cronograma, los bloqueos por dependencia y los informes.
+Separadas, no hay nada que pueda mentir: renombrar una columna no cambia ningún cálculo, y mover
+una tarjeta no cambia ningún estado. La prueba `[167]` fija las dos direcciones.
+
+De paso, la marca de completado pasa a la base de datos (`sync_task_completed_at`): la escribía el
+cliente al cambiar el estado desde el desplegable, y cualquier otra vía —la lista de comprobación,
+el tablero, una petición a PostgREST— dejaba tareas `COMPLETADA` sin `completed_at`. No da ningún
+error: simplemente faltan de todos los recuentos por fechas. Prueba `[170]`.
 
 ## 6. Autenticación y alta de usuarios
 

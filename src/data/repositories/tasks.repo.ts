@@ -1,11 +1,14 @@
 import { supabase } from '@/lib/supabase'
-import { ESTADOS_TAREA, type CardMove } from '@/domain/plan/board'
+import { unwrap, unwrapUpdated } from '@/data/repositories/unwrap'
+import { columnasIniciales, ESTADOS_TAREA, type CardMove } from '@/domain/plan/board'
 import type {
-  Database, TaskDependencyRow, TaskPriority, TaskRow, TaskStatus,
+  BoardColumnRow, Database, TaskDependencyRow, TaskPriority, TaskRow, TaskStatus,
 } from '@/data/types/database'
 
 type TaskInsert = Database['public']['Tables']['tasks']['Insert']
 type TaskUpdate = Database['public']['Tables']['tasks']['Update']
+type BoardColumnInsert = Database['public']['Tables']['board_columns']['Insert']
+type BoardColumnUpdate = Database['public']['Tables']['board_columns']['Update']
 
 // `tasks` apunta a `profiles` por `assignee_id` y por `created_by`: sin la pista
 // explícita PostgREST responde HTTP 300 PGRST201 y el tablero se queda vacío.
@@ -92,11 +95,16 @@ export const tasksRepo = {
    * sobre su tarea: el trigger `enforce_task_update_scope` rechaza cualquier
    * otra columna si no tiene can_manage_plan. Por eso va en su propio método.
    */
+  /**
+   * El estado de una tarea. `completed_at` NO se manda: lo pone y lo quita el
+   * disparador `app.sync_task_completed_at` (0024), que es el único sitio donde
+   * se decide. Antes lo escribía esta función, y cualquier otra vía de cambiar
+   * el estado —la lista de comprobación, el tablero, una peticion a PostgREST—
+   * dejaba tareas completadas sin fecha de completado: no daba error, faltaban
+   * de los recuentos por fechas.
+   */
   setStatus: async (id: string, status: TaskStatus): Promise<TaskRow> => {
-    const patch: TaskUpdate = {
-      status,
-      completed_at: status === 'COMPLETADA' ? new Date().toISOString() : null,
-    }
+    const patch: TaskUpdate = { status }
     const { data, error } = await supabase.from('tasks').update(patch).eq('id', id).select('*').single()
     if (error) throw error
     return data
@@ -150,6 +158,100 @@ export const tasksRepo = {
     )
     const fallo = respuestas.find((r) => r.error)
     if (fallo?.error) throw fallo.error
+  },
+
+  // ---------------------------------------------------------------------------
+  // Columnas del tablero (migración 0024)
+  // ---------------------------------------------------------------------------
+  /**
+   * Las columnas de UN trabajo. Están aquí y no en `catalogs.repo` porque no
+   * son un catálogo del grupo: son parte del plan de trabajo, como los hitos y
+   * las fases, y las administra quien dirige ese trabajo.
+   *
+   * Lista vacía no es un error ni un estado a medias: es lo que tiene un
+   * trabajo que no ha creado columnas, y entonces el tablero agrupa por estado
+   * como siempre (`resolveBoard`).
+   */
+  boardColumns: async (workId: string): Promise<BoardColumnRow[]> =>
+    unwrap(
+      await supabase
+        .from('board_columns')
+        .select('*')
+        .eq('work_id', workId)
+        .order('display_order')
+        .order('name'),
+    ),
+
+  createBoardColumn: async (input: BoardColumnInsert): Promise<BoardColumnRow> =>
+    unwrap(await supabase.from('board_columns').insert(input).select('*').single()),
+
+  // `unwrapUpdated` y no `.single()`: a un UPDATE al que la política le
+  // descarta las filas, PostgreSQL no le da error. Sin esto, quien no puede
+  // tocar la columna vería que «se ha guardado» y al recargar seguiría igual.
+  updateBoardColumn: async (id: string, patch: BoardColumnUpdate): Promise<BoardColumnRow> =>
+    unwrapUpdated(
+      await supabase.from('board_columns').update(patch).eq('id', id).select('*').maybeSingle(),
+      'esta columna del tablero',
+    ),
+
+  removeBoardColumn: async (id: string): Promise<void> => {
+    const { error } = await supabase.from('board_columns').delete().eq('id', id)
+    if (error) throw error
+  },
+
+  reorderBoardColumns: async (cambios: { id: string; display_order: number }[]): Promise<void> => {
+    if (cambios.length === 0) return
+    const respuestas = await Promise.all(
+      cambios.map(({ id, display_order }) =>
+        supabase.from('board_columns').update({ display_order }).eq('id', id)),
+    )
+    const fallo = respuestas.find((r) => r.error)
+    if (fallo?.error) throw fallo.error
+  },
+
+  /**
+   * Crea el primer tablero de un trabajo: «Por hacer», «En curso» y «Hecho».
+   *
+   * Y COLOCA LAS TAREAS QUE YA EXISTÍAN, cada una según el estado que tiene en
+   * ese momento (lo reparte `columnasIniciales`, en el dominio). Dejarlas todas
+   * en la primera columna sería tirar información que ya se tenía y obligar a
+   * recolocar a mano un plan entero.
+   *
+   * Es la ÚNICA vez que el estado decide una columna. A partir de aquí son dos
+   * clasificaciones independientes: mover una tarjeta no cambia el estado, y
+   * renombrar una columna no significa nada para la aplicación.
+   */
+  seedBoardColumns: async (
+    workId: string, tareas: { id: string; status: TaskStatus }[],
+  ): Promise<BoardColumnRow[]> => {
+    const plantilla = columnasIniciales()
+    const filas = unwrap(
+      await supabase
+        .from('board_columns')
+        .insert(plantilla.map((c, i) => ({
+          work_id: workId, name: c.name, color: c.color, display_order: i,
+        })))
+        .select('*'),
+    )
+
+    const destino = new Map<string, string>()
+    plantilla.forEach((c) => {
+      const fila = filas.find((f) => f.name === c.name)
+      if (fila) c.estados.forEach((e) => destino.set(e, fila.id))
+    })
+
+    const colocaciones = tareas
+      .map((t) => ({ id: t.id, board_column_id: destino.get(t.status) }))
+      .filter((x): x is { id: string; board_column_id: string } => x.board_column_id !== undefined)
+    if (colocaciones.length > 0) {
+      const respuestas = await Promise.all(
+        colocaciones.map((c) =>
+          supabase.from('tasks').update({ board_column_id: c.board_column_id }).eq('id', c.id)),
+      )
+      const fallo = respuestas.find((r) => r.error)
+      if (fallo?.error) throw fallo.error
+    }
+    return filas
   },
 
   remove: async (id: string): Promise<void> => {

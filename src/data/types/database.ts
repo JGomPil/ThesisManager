@@ -226,12 +226,11 @@ export type TaskRow = {
   /**
    * En qué COLUMNA del tablero está la tarjeta (migración 0024).
    *
-   * `null` significa «sin columna asignada», y es un estado normal, no un
-   * olvido: una organización que no ha configurado columnas ve el tablero de
-   * siempre y sus tareas no apuntan a ninguna. En ese caso la columna se
-   * deduce del estado. Con columna asignada manda la columna: un disparador
-   * deriva `status` de ella (`maps_to`), así que estas dos no se contradicen
-   * nunca.
+   * `null` es un estado normal, no un olvido: es lo que tienen todas las
+   * tareas mientras su trabajo no haya creado columnas —y entonces el tablero
+   * agrupa por estado, como siempre— y lo que vuelven a tener si se borra la
+   * suya. No tiene nada que ver con `status`: la columna es una clasificación
+   * de quien dirige el trabajo y no significa nada para la aplicación.
    */
   board_column_id: string | null
   /**
@@ -248,23 +247,20 @@ export type TaskRow = {
 }
 
 /**
- * Columna del tablero de tareas (migración 0024). El catálogo que hace
- * configurable el Kanban.
+ * Columna del tablero de tareas (migración 0024): una lista del tablero de UN
+ * trabajo, estilo Trello.
  *
- * `maps_to` es la pieza que mantiene honesto el resto de la aplicación: la
- * columna se llama como quiera —«Papers», «Estudios»— y además DECLARA qué
- * significa, de modo que el progreso, los colores del cronograma, los bloqueos
- * por dependencia y los informes siguen leyendo `tasks.status` sin saber que
- * existe este catálogo.
+ * Solo tiene nombre, color y orden. No significa nada para la aplicación: el
+ * estado de la tarea es `tasks.status`, un dato aparte que se ve y se cambia en
+ * la propia tarjeta. Mover una tarjeta no cambia el estado, y renombrar una
+ * columna no cambia nada más.
  */
 export type BoardColumnRow = {
   id: string
-  organization_id: string
+  work_id: string
   name: string
-  color: string
-  maps_to: TaskStatus
+  color: string | null
   display_order: number
-  is_active: boolean
   created_at: string
 }
 
@@ -567,7 +563,7 @@ export type Database = {
       academic_works: Table<AcademicWorkRow, Auto<AcademicWorkRow, 'id' | 'research_group_id' | 'program_id' | 'academic_year_id' | 'research_line_id' | 'description' | 'objectives' | 'hypothesis' | 'methodology' | 'keywords' | 'notes' | 'start_date' | 'expected_end_date' | 'actual_end_date' | 'defense_date' | 'progress_override' | 'is_archived' | 'created_by' | 'created_at' | 'updated_at' | 'deleted_at'>>
       work_members: Table<WorkMemberRow, Auto<WorkMemberRow, 'id' | 'is_primary' | 'permissions' | 'start_date' | 'end_date' | 'status' | 'created_by' | 'created_at' | 'updated_at'>>
       tasks: Table<TaskRow, Auto<TaskRow, 'id' | 'parent_task_id' | 'milestone_id' | 'description' | 'assignee_id' | 'status' | 'priority' | 'start_date' | 'due_date' | 'completed_at' | 'order_index' | 'board_column_id' | 'template_task_id' | 'created_by' | 'created_at' | 'updated_at'>>
-      board_columns: Table<BoardColumnRow, Auto<BoardColumnRow, 'id' | 'color' | 'maps_to' | 'display_order' | 'is_active' | 'created_at'>>
+      board_columns: Table<BoardColumnRow, Auto<BoardColumnRow, 'id' | 'color' | 'display_order' | 'created_at'>>
       milestones: Table<MilestoneRow, Auto<MilestoneRow, 'id' | 'phase_id' | 'description' | 'is_met' | 'met_at' | 'order_index' | 'created_at'>>
       meetings: Table<MeetingRow, Auto<MeetingRow, 'id' | 'duration_min' | 'modality' | 'location' | 'topics' | 'summary' | 'next_meeting_at' | 'created_by' | 'created_at' | 'updated_at'>>
       meeting_participants: Table<MeetingParticipantRow, Auto<MeetingParticipantRow, 'attended'>>

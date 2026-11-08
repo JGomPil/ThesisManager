@@ -133,36 +133,8 @@ seguridad se comporta correctamente sin reescribir políticas.
   `text` con `CHECK`, no como tabla.
 - `task_statuses` sigue siendo también una columna `text` con `CHECK` —`tasks.status`—, y lo
   seguirá siendo: el dominio casa por valor (`domain/plan`), el cronograma colorea por valor y el
-  progreso del trabajo se calcula con él. Lo que se ha vuelto catálogo, en la `0024`, es otra
-  cosa: **las columnas del tablero** (§3.5). Son dos preguntas distintas que al principio parecían
-  una sola —«qué estados existen» y «cómo quiero organizar mi tablero»—, y por eso aquella
-  decisión no se deshace, se completa.
-
-### 3.5. `board_columns` — las columnas del tablero de tareas (`0024`)
-
-El tablero tenía una columna por valor del `CHECK` de `tasks.status`, es decir: lo decidía el
-código. Un grupo que trabaja con *papers* quiere columnas «Papers» y «Estudios», no «Pendiente» y
-«En curso», y las tarjetas en el orden que decide quien planifica —una pendiente puede ir debajo
-de una en curso— y no agrupadas por estado.
-
-| Columna | Notas |
-|---|---|
-| `organization_id` | uuid FK **NOT NULL**: no hay columnas globales. El tablero es del grupo |
-| `name` | Lo que se ve. Único por organización |
-| `color` | Uno de los tonos de la paleta, como los demás catálogos |
-| `maps_to` | **Qué significa la columna** para la aplicación: uno de los valores de `tasks.status`, con el mismo `CHECK`. Es el campo que hace que esto no sea solo decoración |
-| `display_order` | El orden de las columnas en el tablero, de izquierda a derecha |
-| `is_active` | Retirar sin borrar. Una columna retirada **se sigue dibujando mientras tenga tarjetas**: esconderla haría desaparecer tareas de la vista |
-
-`tasks.board_column_id` es FK **nullable** con `on delete restrict`: sin columna asignada, el
-tablero dibuja las cinco de siempre, así que la migración no obliga a nadie a configurar nada, y
-una columna con tarjetas dentro no se puede borrar.
-
-Las dos direcciones las mantiene un *trigger* `security definer`, `app.sync_task_board_column()`:
-mover una tarjeta a una columna **deriva** `status` de su `maps_to` (y pone o quita
-`completed_at`), y completar una tarea por otra vía recoloca su tarjeta en la primera columna que
-signifique «completada». Sin eso, el tablero y el resumen del trabajo contarían historias
-distintas sin que nada diera error. Por qué `security definer`, en `SECURITY.md` §5.2.sexvicies.
+  progreso del trabajo se calcula con él. Lo que la `0024` hace configurable es otra cosa, y no
+  es un catálogo del grupo: **las columnas del tablero de cada trabajo** (§6.ter).
 
 ## 4. `academic_works`
 
@@ -219,7 +191,7 @@ del mismo trabajo.
 - `tasks`: `work_id`, `parent_task_id` (subtareas), `assignee_id`, `title`, `description`,
   `status` (`PENDIENTE`/`EN_CURSO`/`BLOQUEADA`/`EN_REVISION`/`COMPLETADA`), `priority`
   (`BAJA`/`MEDIA`/`ALTA`/`URGENTE`), `start_date`, `due_date`, `completed_at`, `order_index`,
-  `milestone_id`, `board_column_id` (▸ `board_columns`, §3.5), `created_by`. `task_dependencies` (`task_id`, `depends_on_task_id`, `CHECK` de no
+  `milestone_id`, `board_column_id` (▸ `board_columns`, §6.ter), `created_by`. `task_dependencies` (`task_id`, `depends_on_task_id`, `CHECK` de no
   autodependencia; los ciclos se validan en la aplicación).
 - `meetings` + `meeting_participants` + `meeting_agreements` (acuerdos, con posible `task_id`
   derivada) + `meeting_private_notes` (**tabla aparte, nunca columna**, para que RLS la proteja por
@@ -261,6 +233,53 @@ clave `service_role`, que salta todas las políticas RLS y no puede existir en u
 La tabla es una lista de trabajo; el envío se hace desde el panel de Supabase. El camino de
 automatización, dentro de la arquitectura ya elegida y sin coste, es una Edge Function de Supabase
 con esa clave en sus *secrets*: solo cambiaría quién pone `status = 'SENT'`.
+
+## 6.ter. `board_columns` — el tablero de cada trabajo (`0024`)
+
+El tablero de tareas dibujaba una columna por cada valor del `CHECK` de `tasks.status`
+—Pendiente, En curso, Bloqueada, En revisión, Completada— y agrupaba las tarjetas por ese estado:
+lo decidía el código, y el orden dentro de cada columna no lo decidía nadie. Lo que hace falta se
+parece a Trello: un tablero por trabajo, con las listas que quiera quien lo dirige —«Papers»,
+«Estudios»— y las tarjetas arrastrándose entre ellas y dentro de ellas.
+
+| Columna | Notas |
+|---|---|
+| `work_id` | uuid FK **NOT NULL** ▸ `academic_works`, `on delete cascade`. Las columnas son **del trabajo**, no de la organización: un tablero es de un trabajo igual que una lista de Trello es de su tablero. De aquí sale que las administre **quien dirige el trabajo** |
+| `name` | Lo único que se ve. Único por trabajo: dos columnas «Papers» en el mismo tablero no se distinguen. Entre 1 y 60 caracteres |
+| `color` | Uno de los tonos de la paleta. Nullable |
+| `display_order` | El orden de izquierda a derecha |
+
+**Una columna no significa nada.** No hay `maps_to` ni ningún campo de significado: el estado de
+la tarea sigue en `tasks.status`, es un dato suyo y se ve y se cambia en la propia tarjeta. Mover
+una tarjeta **no** cambia el estado, y cambiar el estado **no** mueve la tarjeta. Son dos
+clasificaciones a la vez, que es justo lo que hace falta: «Papers» no es un estado, y una tarjeta
+de «Papers» puede estar pendiente o en curso. Por eso el progreso del trabajo, los colores del
+cronograma, los bloqueos por dependencia y los informes siguen leyendo `status` y no saben que
+estas columnas existen.
+
+Políticas: `board_columns_select` para quien ve el trabajo (`app.accessible_work_ids()`) y
+`board_columns_write` con `app.can_manage_plan(work_id)` —la misma frase que los hitos y las
+fases de la `0003`—, así que la dirección administra su tablero sin pedírselo a la administración
+del grupo.
+
+`tasks.board_column_id` es FK **nullable** con `on delete restrict`:
+
+- `NULL` no es un hueco a rellenar. Es lo que tienen todas las tareas mientras su trabajo no tenga
+  columnas —y entonces el tablero agrupa por estado, como siempre—, y también lo que vuelven a
+  tener si se borra la suya. Una tarjeta sin columna se dibuja en la primera: trabajo invisible,
+  nunca.
+- `restrict` y no `set null`: borrar una columna con tarjetas dentro las esparciría sin que nadie
+  lo haya pedido. La aplicación solo ofrece borrar las vacías.
+
+Dos *triggers*, los dos en `tasks`:
+
+- `assert_task_board_column_same_work` (`security definer`): la columna tiene que ser del mismo
+  trabajo que la tarea. Es lo único que la clave ajena no puede comprobar, y sin él una tarjeta
+  podría acabar en el tablero de otro trabajo. Por qué `security definer`, en `SECURITY.md`
+  §5.2.sexvicies.
+- `sync_task_completed_at`: `completed_at` se pone y se quita según el estado, en un solo sitio.
+  Antes lo escribía el cliente al cambiar el estado desde el desplegable, y cualquier otra vía
+  dejaba tareas `COMPLETADA` sin fecha —que no dan error y faltan de los recuentos por fechas—.
 
 ## 7. `keepalive` — mantenimiento técnico
 

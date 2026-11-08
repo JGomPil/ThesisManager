@@ -73,10 +73,11 @@ export function TaskDetailDialog({
   /** Participantes activos del trabajo: hacen falta para elegir a quién mencionar. */
   members: WorkMemberWithRole[]
   /**
-   * En qué columna del tablero está la tarjeta (migración 0024). Se recibe ya
-   * resuelta porque la resuelve el tablero: aquí no hay que volver a decidirlo
-   * —serían dos respuestas posibles a la misma pregunta— ni hace falta otra
-   * consulta del catálogo.
+   * En qué columna del tablero está la tarjeta (migración 0024), o una columna
+   * del tablero por estado si el trabajo no tiene columnas propias —y entonces
+   * no se enseña, porque sería repetir el estado—. Se recibe ya resuelta
+   * porque la resuelve el tablero: aquí no hay que volver a decidirlo, serían
+   * dos respuestas posibles a la misma pregunta.
    */
   columna: BoardColumn | null
 }) {
@@ -172,16 +173,17 @@ export function TaskDetailDialog({
         <DialogHeader>
           <DialogTitle>{task.title}</DialogTitle>
           <DialogDescription className="flex flex-wrap items-center gap-1.5">
-            {/* El nombre de la COLUMNA, que es lo que se ve en el tablero. El
-                estado interno solo se añade si la columna se llama de otra
-                manera: así «Papers» no obliga a adivinar que para la
-                aplicación eso es «En curso» —de donde salen el progreso y los
-                colores del cronograma—, y no se repite cuando coinciden. */}
-            <ToneBadge tone={columna?.color ?? status?.tone ?? null}>
-              {columna?.name ?? status?.label}
-            </ToneBadge>
-            {columna && status && columna.name !== status.label && (
-              <span className="text-xs text-muted-foreground">({status.label})</span>
+            {/* El ESTADO de la tarea y, aparte, la columna donde está su
+                tarjeta. Son dos cosas distintas desde la 0024: el estado es lo
+                que leen el progreso del trabajo y el cronograma, y el nombre de
+                la columna es de quien dirige el trabajo y no significa nada.
+                Mientras el tablero agrupe por estado no hay columna que decir,
+                y entonces no se repite. */}
+            <ToneBadge tone={status?.tone ?? null}>{status?.label}</ToneBadge>
+            {columna && columna.id !== null && (
+              <span className="text-xs text-muted-foreground">
+                en <ToneBadge tone={columna.color}>{columna.name}</ToneBadge>
+              </span>
             )}
             <ToneBadge tone={priority?.tone ?? null}>{priority?.label}</ToneBadge>
             {task.assignee && <span className="text-xs">· {task.assignee.full_name}</span>}

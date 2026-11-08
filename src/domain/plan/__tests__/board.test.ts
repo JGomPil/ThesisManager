@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  columnKeyOf, columnasPorDefecto, groupCards, planCardMove, resolveBoard,
-  type BoardCard, type BoardColumn,
+  columnKeyOf, columnasIniciales, columnasPorEstado, groupCards, planCardMove, resolveBoard,
+  siguienteOrden, type BoardCard, type BoardColumn,
 } from '@/domain/plan/board'
 
 /**
@@ -12,154 +12,161 @@ import {
  */
 type Estado = 'PENDIENTE' | 'EN_CURSO' | 'BLOQUEADA' | 'EN_REVISION' | 'COMPLETADA'
 
-const col = (
-  id: string, name: string, mapsTo: Estado, orden: number, activa = true,
-) => ({
+const col = (id: string, name: string, orden: number) => ({
   id,
-  organization_id: 'org',
+  work_id: 'trabajo',
   name,
   color: 'slate',
-  maps_to: mapsTo,
   display_order: orden,
-  is_active: activa,
   created_at: '2026-11-08T00:00:00Z',
 })
 
 const card = (
-  id: string, orden: number, columna: string | null, estado: BoardCard['status'] = 'PENDIENTE',
+  id: string, orden: number, columna: string | null, estado: Estado = 'PENDIENTE',
 ): BoardCard => ({ id, order_index: orden, board_column_id: columna, status: estado })
 
+const keys = (columnas: BoardColumn[]) => columnas.map((c) => c.name)
+
 describe('resolveBoard', () => {
-  it('sin catálogo configurado, dibuja las cinco de siempre', () => {
-    const columnas = resolveBoard([], [])
-    expect(columnas.map((c) => c.mapsTo)).toEqual([
-      'PENDIENTE', 'EN_CURSO', 'BLOQUEADA', 'EN_REVISION', 'COMPLETADA',
-    ])
-    // Ninguna tiene fila en la base: no hay nada que apuntar.
-    expect(columnas.every((c) => c.id === null)).toBe(true)
+  it('sin columnas, el tablero de siempre: una por estado', () => {
+    const tablero = resolveBoard([])
+    expect(keys(tablero)).toEqual(['Pendiente', 'En curso', 'Bloqueada', 'En revisión', 'Completada'])
+    // Son columnas sin fila detrás, y cada una agrupa un estado.
+    expect(tablero.every((c) => c.id === null && c.estado !== null)).toBe(true)
   })
 
-  it('con catálogo, respeta el orden configurado', () => {
-    const columnas = resolveBoard([
-      col('c', 'Hecho', 'COMPLETADA', 2),
-      col('a', 'Por hacer', 'PENDIENTE', 0),
-      col('b', 'Papers', 'EN_CURSO', 1),
-    ], [])
-    expect(columnas.map((c) => c.name)).toEqual(['Por hacer', 'Papers', 'Hecho'])
+  it('con columnas del trabajo, esas y en su orden', () => {
+    const tablero = resolveBoard([col('b', 'Estudios', 1), col('a', 'Papers', 0)])
+    expect(keys(tablero)).toEqual(['Papers', 'Estudios'])
+    // Y ninguna significa nada: el estado de la tarea es otro dato.
+    expect(tablero.every((c) => c.estado === null)).toBe(true)
   })
 
-  it('una columna retirada no se dibuja… salvo que todavía tenga tarjetas', () => {
-    const catalogo = [col('a', 'Por hacer', 'PENDIENTE', 0), col('z', 'Vieja', 'EN_CURSO', 1, false)]
-    expect(resolveBoard(catalogo, []).map((c) => c.name)).toEqual(['Por hacer'])
-    // Con una tarjeta dentro, se sigue dibujando: si no, el trabajo seguiría
-    // ahí y nadie lo vería.
-    expect(resolveBoard(catalogo, [card('t1', 0, 'z')]).map((c) => c.name))
-      .toEqual(['Por hacer', 'Vieja'])
+  it('a igual orden, por nombre: el tablero no baila entre dos cargas', () => {
+    expect(keys(resolveBoard([col('b', 'Zeta', 0), col('a', 'Alfa', 0)]))).toEqual(['Alfa', 'Zeta'])
   })
 })
 
 describe('columnKeyOf', () => {
-  const columnas = resolveBoard([
-    col('a', 'Por hacer', 'PENDIENTE', 0),
-    col('b', 'Papers', 'EN_CURSO', 1),
-  ], [])
-
-  it('respeta la columna asignada', () => {
-    expect(columnKeyOf(card('t', 0, 'b'), columnas)).toBe('b')
+  it('en el tablero por estado, la columna de su estado', () => {
+    const tablero = resolveBoard([])
+    expect(columnKeyOf(card('t1', 0, null, 'EN_CURSO'), tablero)).toBe('estado:EN_CURSO')
   })
 
-  it('sin columna asignada, cae en la primera que signifique su estado', () => {
-    expect(columnKeyOf(card('t', 0, null, 'EN_CURSO'), columnas)).toBe('b')
+  it('con columnas, la suya', () => {
+    const tablero = resolveBoard([col('a', 'Papers', 0), col('b', 'Estudios', 1)])
+    expect(columnKeyOf(card('t1', 0, 'b'), tablero)).toBe('b')
   })
 
-  it('si la columna asignada ya no se dibuja, vuelve a decidirse por el estado', () => {
-    expect(columnKeyOf(card('t', 0, 'borrada', 'EN_CURSO'), columnas)).toBe('b')
+  it('una tarjeta sin columna cae en la PRIMERA, no desaparece', () => {
+    const tablero = resolveBoard([col('a', 'Papers', 0), col('b', 'Estudios', 1)])
+    expect(columnKeyOf(card('t1', 0, null, 'COMPLETADA'), tablero)).toBe('a')
   })
 
-  it('si ningún significado encaja, cae en la primera columna y no se pierde', () => {
-    expect(columnKeyOf(card('t', 0, null, 'COMPLETADA'), columnas)).toBe('a')
+  it('y si su columna ya no existe, también: trabajo invisible, nunca', () => {
+    const tablero = resolveBoard([col('a', 'Papers', 0)])
+    expect(columnKeyOf(card('t1', 0, 'borrada'), tablero)).toBe('a')
   })
 })
 
 describe('groupCards', () => {
-  it('reparte y conserva el orden de llegada', () => {
-    const columnas = resolveBoard([
-      col('a', 'A', 'PENDIENTE', 0), col('b', 'B', 'EN_CURSO', 1),
-    ], [])
+  it('conserva el orden de llegada y deja vacías las columnas sin tarjetas', () => {
+    const tablero = resolveBoard([col('a', 'Papers', 0), col('b', 'Estudios', 1)])
+    const grupos = groupCards([card('t1', 0, 'a'), card('t2', 1, 'a')], tablero)
+    expect(grupos.get('a')!.map((t) => t.id)).toEqual(['t1', 't2'])
+    expect(grupos.get('b')).toEqual([])
+  })
+
+  it('no agrupa por estado cuando hay columnas: el orden lo decide quien planifica', () => {
+    const tablero = resolveBoard([col('a', 'Papers', 0)])
     const grupos = groupCards(
-      [card('t1', 0, 'a'), card('t2', 1, 'b'), card('t3', 2, 'a')],
-      columnas,
+      [card('t1', 0, 'a', 'EN_CURSO'), card('t2', 1, 'a', 'PENDIENTE')], tablero,
     )
-    expect(grupos.get('a')!.map((t) => t.id)).toEqual(['t1', 't3'])
-    expect(grupos.get('b')!.map((t) => t.id)).toEqual(['t2'])
+    expect(grupos.get('a')!.map((t) => t.id)).toEqual(['t1', 't2'])
   })
 })
 
 describe('planCardMove', () => {
-  const columnas: BoardColumn[] = resolveBoard([
-    col('a', 'Por hacer', 'PENDIENTE', 0),
-    col('b', 'Papers', 'EN_CURSO', 1),
-  ], [])
-  const tarjetas = [
-    card('t1', 0, 'a'), card('t2', 1, 'a'), card('t3', 2, 'a'),
-    card('t4', 0, 'b'),
-  ]
+  const tablero = resolveBoard([col('a', 'Papers', 0), col('b', 'Estudios', 1)])
+  const tarjetas = [card('t1', 0, 'a'), card('t2', 1, 'a'), card('t3', 0, 'b')]
 
-  it('mueve a otra columna, al final', () => {
-    expect(planCardMove({
-      tarjetas, columnas, arrastradaId: 't1', destinoKey: 'b', antesDe: null,
-    })).toEqual([{ id: 't1', order_index: 1, board_column_id: 'b' }])
+  it('cambiar de columna NO toca el estado', () => {
+    const movs = planCardMove({
+      tarjetas, columnas: tablero, arrastradaId: 't1', destinoKey: 'b', antesDe: null,
+    })
+    expect(movs).toContainEqual({ id: 't1', order_index: 1, board_column_id: 'b' })
+    expect(movs.every((m) => m.status === undefined)).toBe(true)
   })
 
-  it('mueve a otra columna, delante de una tarjeta concreta', () => {
-    expect(planCardMove({
-      tarjetas, columnas, arrastradaId: 't1', destinoKey: 'b', antesDe: 't4',
-    })).toEqual([
-      { id: 't1', order_index: 0, board_column_id: 'b' },
-      { id: 't4', order_index: 1 },
-    ])
+  it('en el tablero POR ESTADO sí, porque allí la columna es el estado', () => {
+    const porEstado = columnasPorEstado()
+    const movs = planCardMove({
+      tarjetas: [card('t1', 0, null, 'PENDIENTE')],
+      columnas: porEstado, arrastradaId: 't1', destinoKey: 'estado:COMPLETADA', antesDe: null,
+    })
+    expect(movs).toEqual([{ id: 't1', order_index: 0, status: 'COMPLETADA' }])
   })
 
-  it('reordena dentro de la misma columna y solo escribe lo que cambia', () => {
+  it('soltar donde ya estaba no escribe nada', () => {
     expect(planCardMove({
-      tarjetas, columnas, arrastradaId: 't3', destinoKey: 'a', antesDe: 't1',
-    })).toEqual([
-      { id: 't3', order_index: 0 },
-      { id: 't1', order_index: 1 },
-      { id: 't2', order_index: 2 },
-    ])
-  })
-
-  it('soltar una tarjeta donde ya estaba no escribe nada', () => {
-    expect(planCardMove({
-      tarjetas, columnas, arrastradaId: 't1', destinoKey: 'a', antesDe: 't2',
-    })).toEqual([])
-    expect(planCardMove({
-      tarjetas, columnas, arrastradaId: 't1', destinoKey: 'a', antesDe: 't1',
+      tarjetas, columnas: tablero, arrastradaId: 't1', destinoKey: 'a', antesDe: 't2',
     })).toEqual([])
   })
 
-  it('sin catálogo, mover de columna cambia el ESTADO (no hay fila que apuntar)', () => {
-    const porDefecto = columnasPorDefecto()
-    const sueltas = [card('t1', 0, null, 'PENDIENTE'), card('t2', 0, null, 'EN_CURSO')]
-    expect(planCardMove({
-      tarjetas: sueltas,
-      columnas: porDefecto,
-      arrastradaId: 't1',
-      destinoKey: 'estado:EN_CURSO',
-      antesDe: 't2',
-    })).toEqual([
-      { id: 't1', order_index: 0, board_column_id: null, status: 'EN_CURSO' },
-      { id: 't2', order_index: 1 },
-    ])
+  it('reordenar dentro de una columna escribe solo las filas que se mueven', () => {
+    const movs = planCardMove({
+      tarjetas, columnas: tablero, arrastradaId: 't2', destinoKey: 'a', antesDe: 't1',
+    })
+    expect(movs).toEqual([{ id: 't2', order_index: 0 }, { id: 't1', order_index: 1 }])
   })
 
-  it('una tarjeta que no existe o un destino que no existe no mueven nada', () => {
+  it('la columna de origen no se renumera: un hueco no cambia el orden', () => {
+    const movs = planCardMove({
+      tarjetas, columnas: tablero, arrastradaId: 't1', destinoKey: 'b', antesDe: 't3',
+    })
+    // t2 se queda con su order_index 1 y un hueco delante.
+    expect(movs.map((m) => m.id)).toEqual(['t1', 't3'])
+  })
+
+  it('sin permiso para ordenar, una sola escritura y al final de la columna', () => {
+    const movs = planCardMove({
+      tarjetas, columnas: tablero, arrastradaId: 't1', destinoKey: 'b', antesDe: 't3',
+      puedeOrdenar: false,
+    })
+    // Renumerar las vecinas sería escribir filas que RLS le descarta en
+    // silencio: el tablero quedaría a medio ordenar y sin ningún error.
+    expect(movs).toEqual([{ id: 't1', order_index: 1, board_column_id: 'b' }])
+  })
+
+  it('y en su propia columna, sin permiso, no se escribe nada', () => {
     expect(planCardMove({
-      tarjetas, columnas, arrastradaId: 'fantasma', destinoKey: 'a', antesDe: null,
+      tarjetas, columnas: tablero, arrastradaId: 't1', destinoKey: 'a', antesDe: 't2',
+      puedeOrdenar: false,
+    })).toEqual([])
+  })
+
+  it('una tarjeta o una columna que no existen no escriben nada', () => {
+    expect(planCardMove({
+      tarjetas, columnas: tablero, arrastradaId: 'fantasma', destinoKey: 'a', antesDe: null,
     })).toEqual([])
     expect(planCardMove({
-      tarjetas, columnas, arrastradaId: 't1', destinoKey: 'fantasma', antesDe: null,
+      tarjetas, columnas: tablero, arrastradaId: 't1', destinoKey: 'fantasma', antesDe: null,
     })).toEqual([])
+  })
+})
+
+describe('columnasIniciales', () => {
+  it('reparte los cinco estados, sin dejarse ninguno ni repetir', () => {
+    const estados = columnasIniciales().flatMap((c) => c.estados)
+    expect(estados.slice().sort()).toEqual(
+      ['BLOQUEADA', 'COMPLETADA', 'EN_CURSO', 'EN_REVISION', 'PENDIENTE'],
+    )
+  })
+})
+
+describe('siguienteOrden', () => {
+  it('la primera columna es la 0 y las demás van al final', () => {
+    expect(siguienteOrden([])).toBe(0)
+    expect(siguienteOrden([col('a', 'Papers', 0), col('b', 'Estudios', 4)])).toBe(5)
   })
 })
