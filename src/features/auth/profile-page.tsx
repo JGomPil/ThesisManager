@@ -38,6 +38,24 @@ const profileSchema = z.object({
     .trim()
     .regex(/^(\d{4}-\d{4}-\d{4}-\d{3}[\dX])?$/, 'Formato: 0000-0000-0000-0000')
     .optional(),
+  /**
+   * LinkedIn: la dirección completa, y se exige que sea de LinkedIn.
+   *
+   * Lo segundo no es celo: este campo se pinta como un enlace con el rótulo
+   * «LinkedIn», así que una dirección de otro sitio sería un enlace que dice
+   * una cosa y lleva a otra, en la ficha que otras personas miran. Se admiten
+   * `linkedin.com` y los subdominios de país (`es.linkedin.com`), que son los
+   * que reparte LinkedIn según desde dónde se copie el enlace.
+   */
+  linkedin_url: z
+    .string()
+    .trim()
+    .regex(
+      /^(https:\/\/([a-z]{2,3}\.)?linkedin\.com\/.+)?$/,
+      'Pega la dirección completa de tu LinkedIn (https://www.linkedin.com/in/…)',
+    )
+    .max(300)
+    .optional(),
   bio: z.string().trim().max(BIO_MAX, `Máximo ${BIO_MAX} caracteres`).optional(),
 })
 type ProfileValues = z.infer<typeof profileSchema>
@@ -67,7 +85,7 @@ export function ProfilePage() {
 
   const form = useForm<ProfileValues>({
     resolver: zodResolver(profileSchema),
-    defaultValues: { full_name: '', department: '', position: '', orcid: '', bio: '' },
+    defaultValues: { full_name: '', department: '', position: '', orcid: '', linkedin_url: '', bio: '' },
   })
 
   React.useEffect(() => {
@@ -77,6 +95,7 @@ export function ProfilePage() {
       department: profile.department ?? '',
       position: profile.position ?? '',
       orcid: profile.orcid ?? '',
+      linkedin_url: profile.linkedin_url ?? '',
       bio: profile.bio ?? '',
     })
   }, [profile, form])
@@ -92,6 +111,7 @@ export function ProfilePage() {
         department: values.department || null,
         position: values.position || null,
         orcid: values.orcid || null,
+        linkedin_url: values.linkedin_url || null,
         bio: values.bio || null,
       }),
     onSuccess: () => {
@@ -195,10 +215,21 @@ export function ProfilePage() {
                 </div>
               </div>
 
-              <div>
-                <Label htmlFor="orcid">ORCID</Label>
-                <Input id="orcid" className="mt-1.5 font-mono" placeholder="0000-0000-0000-0000" {...form.register('orcid')} />
-                <FieldError>{form.formState.errors.orcid?.message}</FieldError>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="orcid">ORCID</Label>
+                  <Input id="orcid" className="mt-1.5 font-mono" placeholder="0000-0000-0000-0000" {...form.register('orcid')} />
+                  <FieldError>{form.formState.errors.orcid?.message}</FieldError>
+                </div>
+                <div>
+                  <Label htmlFor="linkedin">LinkedIn</Label>
+                  <Input
+                    id="linkedin" type="url" inputMode="url" className="mt-1.5"
+                    placeholder="https://www.linkedin.com/in/…"
+                    {...form.register('linkedin_url')}
+                  />
+                  <FieldError>{form.formState.errors.linkedin_url?.message}</FieldError>
+                </div>
               </div>
 
               <div>

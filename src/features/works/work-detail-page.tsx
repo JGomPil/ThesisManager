@@ -161,8 +161,17 @@ export function WorkDetailPage() {
       )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Columna principal */}
-        <div className="space-y-4 lg:col-span-2">
+        {/* Columna principal.
+            `min-w-0` NO ES ADORNO: una celda de rejilla tiene `min-width:auto`,
+            o sea que se ensancha hasta caber su contenido. Dentro de esta van el
+            tablero y el cronograma, que son filas anchas con su propio
+            desplazamiento horizontal, y sin esto la celda —y con ella la página
+            entera— crecía hasta el ancho del tablero. En el móvil el resultado
+            era que el dedo movía LA PÁGINA en lugar del tablero: se veía la
+            segunda columna, se volvía a arrastrar y aparecía la primera, y a la
+            tercera no se llegaba nunca. Ningún error, solo una pantalla que no
+            obedece. */}
+        <div className="min-w-0 space-y-4 lg:col-span-2">
           {/* El tablero se construye UNA vez (`tablero`) y se enseña en un
               sitio o en el otro, nunca en los dos: tiene estado propio
               —diálogos abiertos, tarea seleccionada— y dos copias vivas a la
@@ -226,8 +235,10 @@ export function WorkDetailPage() {
           </Card>
         </div>
 
-        {/* Columna lateral */}
-        <div className="space-y-4">
+        {/* Columna lateral. `min-w-0` por lo mismo que la principal: aquí hay
+            correos y títulos largos, y una celda de rejilla no se encoge por
+            debajo de su contenido si no se le dice. */}
+        <div className="min-w-0 space-y-4">
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-sm">Estado y progreso</CardTitle></CardHeader>
             <CardContent className="space-y-3 pt-0">

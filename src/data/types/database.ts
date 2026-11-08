@@ -32,6 +32,15 @@ export type ProfileRow = {
   department: string | null
   position: string | null
   orcid: string | null
+  /**
+   * La dirección COMPLETA de su LinkedIn (migración 0028), o `null`.
+   *
+   * Completa y no el nombre de usuario: la aplicación no fabrica enlaces a
+   * sitios ajenos. Si LinkedIn cambiara la forma de sus direcciones, un enlace
+   * compuesto a mano llevaría a una página que no existe en todas las fichas a
+   * la vez, y la base de datos no tendría la dirección buena por ningún lado.
+   */
+  linkedin_url: string | null
   bio: string | null
   is_active: boolean
   created_at: string

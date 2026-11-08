@@ -12,18 +12,18 @@ código.
 > - Aplicación publicada en **https://jgompil.github.io/ThesisManager/**, conectada a un proyecto
 >   de Supabase real. Sin las variables de entorno, la web explica cuáles faltan en lugar de
 >   quedarse en blanco.
->   La **`0026`** (un color por tarea, sin significado) y la **`0027`** (cambiar de correo sin
->   cambiar de perfil) están probadas contra PostgreSQL 16 y **pendientes de aplicar** en el
->   proyecto real: hasta que se apliquen, las comprobaciones 18 y 19 de `supabase/verify.sql` —que
->   ahora devuelve **19 filas**— dirán `FALLO`, que es justo para lo que están.
-> - Migraciones `0001…0025` **aplicadas** en el proyecto real y verificadas el 2026-11-08 con
->   `supabase/verify.sql`: **17 comprobaciones, todas `OK`** —RLS en todas las tablas, `anon` sin
+>   La **`0028`** (LinkedIn en el perfil) está probada contra PostgreSQL 16 y **pendiente de
+>   aplicar** en el proyecto real. No añade comprobación a `supabase/verify.sql`, que sigue
+>   devolviendo **19 filas**: es una columna más en `profiles`, y la visibilidad de un perfil es
+>   por fila, así que no hay política nueva que verificar.
+> - Migraciones `0001…0027` **aplicadas** en el proyecto real y verificadas el 2026-11-08 con
+>   `supabase/verify.sql`: **19 comprobaciones, todas `OK`** —RLS en todas las tablas, `anon` sin
 >   acceso a ninguna función de `app`, las 18 tablas del núcleo, las políticas y disparadores de la
->   `0020` a la `0025`, que cada organización tenga administración, y el rol de estudiante sin
+>   `0020` a la `0027`, que cada organización tenga administración, y el rol de estudiante sin
 >   capacidades—. Las dos últimas comprueban lo que no se vería de otra manera: que las columnas
 >   del tablero sean del trabajo y sin significado (`0024`), y que archivar una tarea tenga vuelta
 >   atrás (`0025`).
->   177 pruebas de seguridad contra PostgreSQL 16 y 151 pruebas unitarias (dominio, y el
+>   178 pruebas de seguridad contra PostgreSQL 16 y 151 pruebas unitarias (dominio, y el
 >   recorrido de los cubos de Storage contra un cliente simulado).
 > - Progreso detallado en [`ROADMAP.md`](ROADMAP.md); decisiones técnicas en
 >   [`docs/FASE_0.md`](docs/FASE_0.md).
@@ -93,13 +93,13 @@ npm run icons            # regenera los iconos desde scripts/make-icons.py
 npm run drill            # ensaya la restauración de una copia (sin argumento: autoprueba)
 ```
 
-Base de datos: aplicar `supabase/migrations/0001…0027` y después
+Base de datos: aplicar `supabase/migrations/0001…0028` y después
 `supabase/seed/0001_catalogs.sql`. Detalle en [`DEPLOYMENT.md`](DEPLOYMENT.md) §5.
 
 Pruebas de seguridad del modelo de datos, sin necesidad de proyecto en Supabase (requiere Docker):
 
 ```bash
-./scripts/test-rls.sh                      # 177 pruebas de RLS, catálogos, storage y keepalive
+./scripts/test-rls.sh                      # 178 pruebas de RLS, catálogos, storage y keepalive
 ./scripts/backup-dump.sh                    # vuelca la base real y ensaya la copia seguida
 python3 scripts/backup-storage.py <carpeta> # y los ficheros de Storage, que no van en el .sql
 ./scripts/restore-drill.sh copia.sql       # ¿esta copia se puede restaurar de verdad?

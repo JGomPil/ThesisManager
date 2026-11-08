@@ -1208,8 +1208,9 @@ Dos detalles que un simple `grep` no resuelve, y que están documentados en el p
 
 ## 8. RGPD y datos personales
 
-- **Minimización de lo almacenado**: nombre, apellidos, correo institucional, departamento y
-  grupo. Nada más. Sin DNI, sin teléfono, sin dirección, sin fecha de nacimiento, sin expediente
+- **Minimización de lo almacenado**: nombre, apellidos, correo institucional, departamento,
+  grupo y, si cada cual quiere, su ORCID y su LinkedIn —dos perfiles que esa persona ya ha hecho
+  públicos por su cuenta, y que escribe ella—. Nada más. Sin DNI, sin teléfono, sin dirección, sin fecha de nacimiento, sin expediente
   académico oficial.
 - **Minimización de lo accesible**, que es distinto y se olvidó al principio: guardar poco no
   sirve de nada si todo el mundo lo ve todo. Desde la `0016` (§5.2.duodevicies) nadie accede a los
@@ -1233,7 +1234,7 @@ Cada una debe ejecutarse **contra la base de datos** con el JWT del usuario corr
 desde la interfaz.
 
 > **Ya verificadas.** Las migraciones de `supabase/migrations/` se han aplicado a un
-> PostgreSQL 16 real y se ejecutan **177 pruebas** de seguridad, todas correctas:
+> PostgreSQL 16 real y se ejecutan **178 pruebas** de seguridad, todas correctas:
 > `./scripts/test-rls.sh` (detalle en `supabase/tests/README.md`). Cubren los puntos 1–6, 12 y 13
 > de la lista siguiente. Los puntos 7, 10 y 11 dependen del frontend y del despliegue, y los 8 y 9
 > del proyecto real de Supabase; se validan en la Fase 1.

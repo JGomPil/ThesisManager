@@ -65,21 +65,32 @@ export function FullscreenPanel({
 /**
  * El botón que abre lo anterior. Va en la cabecera de la tarjeta.
  *
- * Oculto en el móvil A PROPÓSITO: allí la tarjeta ya ocupa todo el ancho, así
- * que no hay nada que ganar, y el tablero abre diálogos propios —la ficha de
- * una tarea— que quedarían apilados sobre este, que es la forma más rápida de
- * dejar media pantalla inservible en un teléfono.
+ * ESTUVO OCULTO EN EL MÓVIL, con el argumento de que allí la tarjeta ya ocupa
+ * todo el ancho y no había nada que ganar. Era falso: en un teléfono lo que
+ * escasea es el ALTO, y la ficha del trabajo mete el tablero entre la cabecera,
+ * el aviso de atención y otras cuatro tarjetas, así que del tablero se ven tres
+ * centímetros. A pantalla completa se ve el tablero y nada más, que es
+ * exactamente lo que se quiere cuando se va a mover tarjetas.
+ *
+ * Lo del apilamiento de diálogos tampoco era un problema de verdad: abrir la
+ * ficha de una tarea desde aquí la pone encima, y se cierra con su «✕» o con
+ * `Esc` sin tocar la de debajo. Lo hace Radix, y es lo mismo que ya pasaba en
+ * el escritorio.
  */
 export function ExpandButton({ onClick, label }: { onClick: () => void; label: string }) {
   return (
     <Button
       variant="outline"
       size="sm"
-      className="hidden shrink-0 sm:inline-flex"
+      className="shrink-0"
       onClick={onClick}
       title={label}
     >
-      <Maximize2 /> Pantalla completa
+      {/* El rótulo se acorta en el móvil, donde esta cabecera comparte línea
+          con el título de la tarjeta. El botón sigue teniendo `title`, y el
+          icono es el mismo en los dos casos. */}
+      <Maximize2 /> <span className="hidden sm:inline">Pantalla completa</span>
+      <span className="sm:hidden">Ampliar</span>
     </Button>
   )
 }

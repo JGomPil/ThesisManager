@@ -33,11 +33,33 @@ export function useScrollX(clave: unknown) {
     return () => ro.disconnect()
   }, [clave])
 
-  /** Un paso de casi una pantalla, que deja a la vista por dónde se iba. */
+  /**
+   * Un paso DE COLUMNAS ENTERAS, no un porcentaje de la pantalla.
+   *
+   * Con un 80 % del ancho visible, en un móvil el paso (272 px) se quedaba algo
+   * corto para una columna (292 px con su hueco): cada pulsación dejaba la
+   * columna siguiente un poco desplazada, y a la tercera o la cuarta ya no se
+   * sabía dónde estaba uno. Midiendo el primer hijo, el paso es un número
+   * exacto de columnas —una en un teléfono, tres o cuatro en un escritorio— y
+   * el borde de la columna siempre queda donde se espera.
+   *
+   * Si el panel no tiene hijos medibles (el cronograma, que es un dibujo
+   * continuo), se vuelve al 80 % de siempre, que ahí es lo correcto: no hay
+   * columnas a las que ajustarse.
+   */
   const deslizar = (sentido: 1 | -1) => {
     const el = panel.current
     if (!el) return
-    el.scrollBy({ left: sentido * el.clientWidth * 0.8, behavior: 'smooth' })
+    const primera = el.firstElementChild as HTMLElement | null
+    const ancho = primera?.offsetWidth ?? 0
+    if (ancho === 0 || ancho > el.clientWidth) {
+      el.scrollBy({ left: sentido * el.clientWidth * 0.8, behavior: 'smooth' })
+      return
+    }
+    const hueco = 12 // `gap-3`
+    const paso = ancho + hueco
+    const cuantas = Math.max(1, Math.floor(el.clientWidth / paso))
+    el.scrollBy({ left: sentido * cuantas * paso, behavior: 'smooth' })
   }
 
   /**

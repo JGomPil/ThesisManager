@@ -497,7 +497,12 @@ export function TaskBoard({
                   ) : (
                     <div
                       className={cn(
-                        'flex items-start gap-1 rounded px-1',
+                        // `flex-wrap`: en un teléfono la columna mide 280 px, y
+                        // un nombre largo más los cuatro botones no caben en
+                        // una línea. Sin esto los botones se salían de la
+                        // columna, que es la razón de que en el móvil
+                        // «no estuvieran»: en un escritorio sí caben.
+                        'flex flex-wrap items-start gap-1 rounded px-1',
                         // El asa es la CABECERA, como en Trello, y no la columna
                         // entera: si lo fuera, empezar a arrastrar desde un hueco
                         // movería la columna cuando se quería mover una tarjeta.
@@ -518,7 +523,11 @@ export function TaskBoard({
                       }}
                       onDragEnd={() => { setColArrastrada(null); setColDestino(null) }}
                     >
-                      <ToneBadge tone={col.color}>{col.name}</ToneBadge>
+                      {/* El nombre se parte en varias líneas si hace falta:
+                          lo escribe una persona y en el móvil hay 280 px. */}
+                      <ToneBadge tone={col.color} className="min-w-0 whitespace-normal break-words">
+                        {col.name}
+                      </ToneBadge>
                       <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                         {colTasks.length}
                       </span>
@@ -647,9 +656,11 @@ export function TaskBoard({
 
           {caps.canManagePlan && !porEstado && (
             <p className="text-xs text-muted-foreground">
-              Arrastra las tarjetas para ordenarlas o cambiarlas de columna, y la <strong>cabecera
-              de una columna</strong> para mover la columna entera con sus tarjetas. En un
-              teléfono, usa el desplegable de cada tarjeta y las flechas de cada columna. El nombre
+              Con ratón: arrastra las tarjetas para ordenarlas o cambiarlas de columna, y la{' '}
+              <strong>cabecera de una columna</strong> para mover la columna entera con sus
+              tarjetas. <strong>Con el dedo no se puede arrastrar</strong> —el navegador no manda
+              esos gestos—, así que en un teléfono se usa el desplegable «columna» de cada tarjeta
+              y las flechas ‹ › de cada cabecera, que hacen lo mismo. El nombre
               de una columna es tuyo: no significa nada para la aplicación, y el estado de cada
               tarea se ve y se cambia en su tarjeta.
             </p>

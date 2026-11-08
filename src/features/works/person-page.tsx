@@ -189,6 +189,27 @@ export function PersonPage() {
                 <span className="text-muted-foreground">—</span>
               )}
             </div>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="shrink-0 text-muted-foreground">LinkedIn</span>
+              {p.linkedin_url ? (
+                /* La dirección se pinta TAL CUAL se guardó, no compuesta a
+                   partir de un nombre de usuario: así un valor raro es un
+                   enlace que no lleva a ningún sitio, y no una ficha rota. El
+                   rótulo visible es «Ver perfil» porque la dirección completa
+                   de LinkedIn no cabe en esta columna y se partiría fea. */
+                <a
+                  href={p.linkedin_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                >
+                  Ver perfil
+                  <ExternalLink className="size-3 shrink-0" aria-hidden />
+                </a>
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              )}
+            </div>
             <p className="border-t pt-2 text-xs text-muted-foreground">
               No se guardan DNI, teléfono ni dirección. Solo lo necesario para la gestión académica.
             </p>
