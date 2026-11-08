@@ -13,6 +13,7 @@ import { qk } from '@/lib/query-keys'
 import { errorMessage } from '@/lib/supabase'
 import { peopleRepo, type OrgRole } from '@/data/repositories/people.repo'
 import { worksRepo } from '@/data/repositories/works.repo'
+import { normalizaUrl } from '@/domain/people/links'
 import { useAuth } from '@/features/auth/auth-context'
 
 /**
@@ -196,9 +197,14 @@ export function PersonPage() {
                    partir de un nombre de usuario: así un valor raro es un
                    enlace que no lleva a ningún sitio, y no una ficha rota. El
                    rótulo visible es «Ver perfil» porque la dirección completa
-                   de LinkedIn no cabe en esta columna y se partiría fea. */
+                   de LinkedIn no cabe en esta columna y se partiría fea.
+
+                   Lo único que se toca es el `https://`, por si el valor entró
+                   sin él (a mano por el panel de la base de datos): sin
+                   esquema, el navegador lo leería como una ruta de ESTE sitio y
+                   el enlace llevaría a una página en blanco, sin dar error. */
                 <a
-                  href={p.linkedin_url}
+                  href={normalizaUrl(p.linkedin_url) ?? p.linkedin_url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs text-primary hover:underline"

@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils'
 import { qk } from '@/lib/query-keys'
 import { errorMessage, supabase } from '@/lib/supabase'
 import { peopleRepo } from '@/data/repositories/people.repo'
+import { esUrlDeLinkedin, normalizaUrl } from '@/domain/people/links'
 import { useAuth } from '@/features/auth/auth-context'
 import { AvatarCard } from '@/features/auth/avatar-card'
 
@@ -39,22 +40,23 @@ const profileSchema = z.object({
     .regex(/^(\d{4}-\d{4}-\d{4}-\d{3}[\dX])?$/, 'Formato: 0000-0000-0000-0000')
     .optional(),
   /**
-   * LinkedIn: la dirección completa, y se exige que sea de LinkedIn.
+   * LinkedIn: se admite tal cual se pega, y se exige que sea de LinkedIn.
    *
-   * Lo segundo no es celo: este campo se pinta como un enlace con el rótulo
-   * «LinkedIn», así que una dirección de otro sitio sería un enlace que dice
-   * una cosa y lleva a otra, en la ficha que otras personas miran. Se admiten
-   * `linkedin.com` y los subdominios de país (`es.linkedin.com`), que son los
-   * que reparte LinkedIn según desde dónde se copie el enlace.
+   * Lo del esquema: LinkedIn muestra la dirección sin `https://`
+   * —`www.linkedin.com/in/alguien`— y es lo que se copia. Exigirlo a mano era
+   * decir no por un detalle que se da por supuesto, así que se añade solo
+   * (`normalizaUrl`, en el dominio); guardarlo sin esquema no vale, porque
+   * entonces el `href` es una dirección relativa de este mismo sitio.
+   *
+   * Lo del dominio no es celo: este campo se pinta como un enlace con el
+   * rótulo «LinkedIn», así que una dirección de otro sitio sería un enlace que
+   * dice una cosa y lleva a otra, en la ficha que otras personas miran.
    */
   linkedin_url: z
     .string()
     .trim()
-    .regex(
-      /^(https:\/\/([a-z]{2,3}\.)?linkedin\.com\/.+)?$/,
-      'Pega la dirección completa de tu LinkedIn (https://www.linkedin.com/in/…)',
-    )
     .max(300)
+    .refine(esUrlDeLinkedin, 'Pega la dirección de tu LinkedIn (www.linkedin.com/in/…)')
     .optional(),
   bio: z.string().trim().max(BIO_MAX, `Máximo ${BIO_MAX} caracteres`).optional(),
 })
@@ -111,7 +113,8 @@ export function ProfilePage() {
         department: values.department || null,
         position: values.position || null,
         orcid: values.orcid || null,
-        linkedin_url: values.linkedin_url || null,
+        // Con `https://` delante aunque no se haya escrito: ver `normalizaUrl`.
+        linkedin_url: normalizaUrl(values.linkedin_url),
         bio: values.bio || null,
       }),
     onSuccess: () => {
@@ -224,8 +227,8 @@ export function ProfilePage() {
                 <div>
                   <Label htmlFor="linkedin">LinkedIn</Label>
                   <Input
-                    id="linkedin" type="url" inputMode="url" className="mt-1.5"
-                    placeholder="https://www.linkedin.com/in/…"
+                    id="linkedin" inputMode="url" className="mt-1.5"
+                    placeholder="www.linkedin.com/in/…"
                     {...form.register('linkedin_url')}
                   />
                   <FieldError>{form.formState.errors.linkedin_url?.message}</FieldError>
