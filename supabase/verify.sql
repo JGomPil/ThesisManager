@@ -240,6 +240,31 @@ with comprobaciones as (
            where n.nspname = 'app' and pr.proname = 'cascade_task_soft_delete' and pr.prosecdef)
 
   union all
+  -- 5.septies La 0026: el color de una tarea. Lo que se comprueba no es la
+  --           columna, que no tiene misterio, sino que `color` siga en la lista
+  --           de campos que protege `enforce_task_update_scope`: esa funcion se
+  --           reescribe entera en cada migracion que la toca, y perder un campo
+  --           por el camino no da ningun error. Solo deja que cualquiera repinte
+  --           el plan.
+  select 18, 'migracion 0026: el color de una tarea lo pone quien planifica',
+         case when (select count(*) from information_schema.columns
+                     where table_schema = 'public' and table_name = 'tasks'
+                       and column_name = 'color') = 1
+                   and (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                         where n.nspname = 'app' and p.proname = 'enforce_task_update_scope'
+                           and pg_get_functiondef(p.oid) like '%new.color%') = 1
+              then 'OK' else 'FALLO' end,
+         (select case when count(*) = 1 then 'tasks.color' else 'FALTA LA COLUMNA' end
+            from information_schema.columns
+           where table_schema = 'public' and table_name = 'tasks' and column_name = 'color')
+         || ' · ' ||
+         (select case when count(*) = 1 then 'protegido en el alcance de edicion'
+                      else 'CUALQUIERA PUEDE REPINTAR EL PLAN' end
+            from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'app' and p.proname = 'enforce_task_update_scope'
+             and pg_get_functiondef(p.oid) like '%new.color%')
+
+  union all
   -- 6. Y que ningun rol tenga capacidades que no deba: el estudiante, ninguna.
   select 10, 'el rol de estudiante no tiene capacidades',
          case when count(*) = 0 then 'OK' else 'FALLO' end,

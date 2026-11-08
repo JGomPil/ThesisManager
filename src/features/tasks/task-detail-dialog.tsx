@@ -1,8 +1,8 @@
 import * as React from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  Check, ChevronDown, ChevronUp, GripVertical, ListChecks, MessageSquare, Paperclip, Pencil,
-  Plus, Trash2, X,
+  Check, ChevronDown, ChevronUp, GripVertical, ListChecks, MessageSquare, Palette, Paperclip,
+  Pencil, Plus, Trash2, X,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/toast'
 import { qk } from '@/lib/query-keys'
-import { cn } from '@/lib/utils'
+import { cn, toneClass, TONES } from '@/lib/utils'
 import { errorMessage } from '@/lib/supabase'
 import {
   TASK_PRIORITIES, TASK_STATUSES, tasksRepo, type TaskWithAssignee,
@@ -143,6 +143,17 @@ export function TaskDetailDialog({
   // desde la papelera del plan de trabajo (0025).
   const removeItem = useMutation({
     mutationFn: (id: string) => tasksRepo.archive(id),
+    onSuccess: invalidate,
+    onError: (e) => toast.push('error', errorMessage(e)),
+  })
+
+  /**
+   * El color de la tarea (0026). Aquí y no en el formulario: es un clic, y el
+   * formulario es para escribir. La tarjeta del tablero enseña el resultado
+   * como una franja, que es lo que hace que alguien venga a buscar esto.
+   */
+  const setColor = useMutation({
+    mutationFn: (color: string | null) => tasksRepo.setColor(task!.id, color),
     onSuccess: invalidate,
     onError: (e) => toast.push('error', errorMessage(e)),
   })
@@ -403,6 +414,47 @@ export function TaskDetailDialog({
               </p>
             )}
           </section>
+
+          {/* EL COLOR. Sin nombre y sin significado, como las columnas: quien
+              planifica decide qué quiere decir el violeta en su plan. Lo que la
+              aplicación hace con él es pintarlo en la tarjeta y dejar filtrar
+              por él en el tablero. */}
+          {caps.canManagePlan && (
+            <section className="border-t pt-3">
+              <h3 className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <Palette className="size-3.5" /> Color
+              </h3>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {TONES.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setColor.mutate(task.color === t ? null : t)}
+                    aria-pressed={task.color === t}
+                    aria-label={`Pintar esta tarea de ${t}`}
+                    className={cn(
+                      'size-6 rounded-full border border-border/60',
+                      toneClass(t),
+                      task.color === t && 'ring-2 ring-primary ring-offset-1 ring-offset-background',
+                    )}
+                  />
+                ))}
+                {task.color !== null && (
+                  <Button
+                    size="sm" variant="ghost" className="h-7 px-2 text-xs"
+                    loading={setColor.isPending}
+                    onClick={() => setColor.mutate(null)}
+                  >
+                    Quitar el color
+                  </Button>
+                )}
+              </div>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                No significa nada para la aplicación: lo decides tú. En el tablero se ve como una
+                franja en la tarjeta, y puedes filtrar por él.
+              </p>
+            </section>
+          )}
 
           {task.parent_task_id === null && (
             <TaskDependencies

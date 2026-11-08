@@ -43,6 +43,18 @@ export const tasksRepo = {
     return (data ?? []) as unknown as TaskWithAssignee[]
   },
 
+  /**
+   * El color de una tarea (0026). `null` lo quita.
+   *
+   * Va aparte de `update` porque es la acción de un clic en la ficha, y no el
+   * guardado de un formulario: mandar la tarea entera desde ahí pisaría
+   * cualquier cosa que se estuviera editando a la vez en otra pantalla.
+   */
+  setColor: async (id: string, color: string | null): Promise<void> => {
+    const { error } = await supabase.from('tasks').update({ color }).eq('id', id)
+    if (error) throw error
+  },
+
   /** Lo que hay en la papelera de un trabajo. Solo devuelve filas a quien planifica. */
   archived: async (workId: string): Promise<TaskWithAssignee[]> => {
     const { data, error } = await supabase

@@ -242,6 +242,16 @@ export type TaskRow = {
    */
   template_task_id: string | null
   /**
+   * Un color, de los tonos del catálogo, o `null` (migración 0026).
+   *
+   * NO significa nada: es la etiqueta de color de Trello. Quien planifica
+   * decide qué quiere decir el violeta en su plan, y la aplicación solo lo
+   * pinta y deja filtrar por él. Sin `check` a propósito: el catálogo de tonos
+   * vive en `src/lib/utils.ts`, y un tono que ya no exista pinta gris en lugar
+   * de romper la tarjeta.
+   */
+  color: string | null
+  /**
    * Papelera (migración 0025). Borrar una tarea es ponerle fecha aquí: las
    * consultas normales filtran `deleted_at is null` y quien puede planificar la
    * sigue viendo para poder restaurarla. Archivar una tarea archiva sus
@@ -569,7 +579,7 @@ export type Database = {
       document_types: Table<DocumentTypeRow, Auto<DocumentTypeRow, 'id' | 'organization_id' | 'display_order' | 'is_active'>>
       academic_works: Table<AcademicWorkRow, Auto<AcademicWorkRow, 'id' | 'research_group_id' | 'program_id' | 'academic_year_id' | 'research_line_id' | 'description' | 'objectives' | 'hypothesis' | 'methodology' | 'keywords' | 'notes' | 'start_date' | 'expected_end_date' | 'actual_end_date' | 'defense_date' | 'progress_override' | 'is_archived' | 'created_by' | 'created_at' | 'updated_at' | 'deleted_at'>>
       work_members: Table<WorkMemberRow, Auto<WorkMemberRow, 'id' | 'is_primary' | 'permissions' | 'start_date' | 'end_date' | 'status' | 'created_by' | 'created_at' | 'updated_at'>>
-      tasks: Table<TaskRow, Auto<TaskRow, 'id' | 'parent_task_id' | 'milestone_id' | 'description' | 'assignee_id' | 'status' | 'priority' | 'start_date' | 'due_date' | 'completed_at' | 'order_index' | 'board_column_id' | 'template_task_id' | 'deleted_at' | 'created_by' | 'created_at' | 'updated_at'>>
+      tasks: Table<TaskRow, Auto<TaskRow, 'id' | 'parent_task_id' | 'milestone_id' | 'description' | 'assignee_id' | 'status' | 'priority' | 'start_date' | 'due_date' | 'completed_at' | 'order_index' | 'board_column_id' | 'template_task_id' | 'color' | 'deleted_at' | 'created_by' | 'created_at' | 'updated_at'>>
       board_columns: Table<BoardColumnRow, Auto<BoardColumnRow, 'id' | 'color' | 'display_order' | 'created_at'>>
       milestones: Table<MilestoneRow, Auto<MilestoneRow, 'id' | 'phase_id' | 'description' | 'is_met' | 'met_at' | 'order_index' | 'created_at'>>
       meetings: Table<MeetingRow, Auto<MeetingRow, 'id' | 'duration_min' | 'modality' | 'location' | 'topics' | 'summary' | 'next_meeting_at' | 'created_by' | 'created_at' | 'updated_at'>>

@@ -27,7 +27,8 @@ import {
   TASK_PRIORITIES, TASK_STATUSES, tasksRepo, type TaskWithAssignee,
 } from '@/data/repositories/tasks.repo'
 import {
-  columnKeyOf, groupCards, planCardMove, resolveBoard, siguienteOrden, type BoardColumn,
+  coloresEnUso, columnKeyOf, groupCards, planCardMove, resolveBoard, siguienteOrden,
+  type BoardColumn,
 } from '@/domain/plan/board'
 import { moveItem, reorderWrites } from '@/domain/plan/reorder'
 import type { WorkWithRelations } from '@/data/repositories/works.repo'
@@ -35,7 +36,7 @@ import type { BoardColumnRow, TaskStatus } from '@/data/types/database'
 import { taskFormSchema, type TaskFormValues } from '@/schemas/work'
 import { canUpdateTaskStatus, type WorkCapabilities } from '@/domain/permissions/work-capabilities'
 import { daysUntil } from '@/domain/works/progress'
-import { cn, TONES } from '@/lib/utils'
+import { cn, toneClass, toneEdgeClass, TONES } from '@/lib/utils'
 import { TaskDetailDialog } from '@/features/tasks/task-detail-dialog'
 import { propsDeApertura } from '@/components/common/row-link'
 import { useIsPhone } from '@/hooks/use-media-query'
@@ -93,6 +94,15 @@ export function TaskBoard({
   const { panel, desbordado, deslizar, acompanarArrastre } = useScrollX(
     (columnas.data ?? []).length,
   )
+
+  /**
+   * Filtro por color. Vacío = todas.
+   *
+   * Un color que no se puede filtrar es decoración: sirve para reconocer una
+   * tarjeta de un vistazo, pero no para contestar «¿qué me queda de esto?».
+   * Filtra las dos vistas, el tablero y la lista, porque es la misma pregunta.
+   */
+  const [filtroColor, setFiltroColor] = React.useState<string | null>(null)
 
   // Qué COLUMNA se arrastra y sobre cuál está. Es un arrastre distinto del de
   // las tarjetas y con su propio estado: los dos gestos conviven en el mismo
@@ -237,7 +247,13 @@ export function TaskBoard({
   // aquí, en memoria, en lugar de pedirlas en una segunda consulta: ya están
   // todas descargadas y así el recuento del progreso es siempre coherente con
   // lo que se ve.
-  const rows = all.filter((t) => t.parent_task_id === null)
+  const principales = all.filter((t) => t.parent_task_id === null)
+  const coloresDisponibles = coloresEnUso(principales, TONES)
+  // Si el único color del filtro deja de existir en el plan, el filtro se
+  // ignora: más valdría eso que un tablero vacío sin explicación.
+  const filtroVivo = filtroColor !== null && coloresDisponibles.includes(filtroColor)
+    ? filtroColor : null
+  const rows = filtroVivo === null ? principales : principales.filter((t) => t.color === filtroVivo)
   const subtasksOf = (id: string) => all.filter((t) => t.parent_task_id === id)
 
   const filasColumnas = columnas.data ?? []
@@ -323,6 +339,40 @@ export function TaskBoard({
           <Button size="sm" onClick={() => setDialogOpen(true)}><Plus /> Nueva tarea</Button>
         )}
       </div>
+
+      {/* Las pastillas de color que SE ESTÁN usando, y solo esas: ofrecer los
+          doce tonos serían once filtros que no devuelven nada. */}
+      {coloresDisponibles.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filtrar por color">
+          <Button
+            size="sm"
+            variant={filtroVivo === null ? 'secondary' : 'ghost'}
+            className="h-7 px-2 text-xs"
+            onClick={() => setFiltroColor(null)}
+          >
+            Todas
+          </Button>
+          {coloresDisponibles.map((c) => {
+            const cuantas = principales.filter((t) => t.color === c).length
+            return (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setFiltroColor(filtroVivo === c ? null : c)}
+                aria-pressed={filtroVivo === c}
+                aria-label={`Ver solo las tareas de este color (${cuantas})`}
+                className={cn(
+                  'flex items-center gap-1 rounded-full px-2 py-0.5 text-xs tabular-nums',
+                  toneClass(c),
+                  filtroVivo === c && 'ring-2 ring-primary ring-offset-1 ring-offset-background',
+                )}
+              >
+                {cuantas}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {rows.length === 0 ? (
         <EmptyState
@@ -629,6 +679,12 @@ export function TaskBoard({
                       onClick={() => setOpenTaskId(t.id)}
                       className="min-w-0 text-left font-medium underline-offset-2 hover:underline"
                     >
+                      {t.color !== null && (
+                        <span
+                          className={cn('mr-1.5 inline-block size-2.5 shrink-0 rounded-full align-middle', toneClass(t.color))}
+                          aria-hidden
+                        />
+                      )}
                       {t.title}
                     </button>
                     {caps.canManagePlan && (
@@ -717,6 +773,12 @@ export function TaskBoard({
                         onClick={() => setOpenTaskId(t.id)}
                         className="text-left font-medium underline-offset-2 hover:underline"
                       >
+                        {t.color !== null && (
+                          <span
+                            className={cn('mr-1.5 inline-block size-2.5 shrink-0 rounded-full align-middle', toneClass(t.color))}
+                            aria-hidden
+                          />
+                        )}
                         {t.title}
                       </button>
                       {t.description && <span className="mt-0.5 line-clamp-1 block text-xs text-muted-foreground">{t.description}</span>}
@@ -1030,7 +1092,13 @@ function TaskCard({
 
   return (
     <Card
-      className={cn('cursor-pointer active:bg-accent', arrastrable && 'cursor-grab active:cursor-grabbing')}
+      className={cn(
+        'cursor-pointer active:bg-accent',
+        arrastrable && 'cursor-grab active:cursor-grabbing',
+        // La franja del color, en el borde izquierdo: se reconoce de un vistazo
+        // en una columna de quince tarjetas y no le quita sitio a nada.
+        task.color !== null && `border-l-4 ${toneEdgeClass(task.color)}`,
+      )}
       title={arrastrable ? 'Arrástrala para cambiarla de columna o de orden' : undefined}
       {...propsDeApertura(onOpen)}
     >

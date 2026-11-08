@@ -191,7 +191,11 @@ del mismo trabajo.
 - `tasks`: `work_id`, `parent_task_id` (subtareas), `assignee_id`, `title`, `description`,
   `status` (`PENDIENTE`/`EN_CURSO`/`BLOQUEADA`/`EN_REVISION`/`COMPLETADA`), `priority`
   (`BAJA`/`MEDIA`/`ALTA`/`URGENTE`), `start_date`, `due_date`, `completed_at`, `order_index`,
-  `milestone_id`, `board_column_id` (▸ `board_columns`, §6.ter), `deleted_at` y `created_by`.
+  `milestone_id`, `board_column_id` (▸ `board_columns`, §6.ter), `color`, `deleted_at` y
+  `created_by`. **`color`** (`0026`) es la etiqueta de color de Trello: uno de los tonos del
+  catálogo o `null`, **sin significado y sin `check`** —el catálogo de tonos vive en
+  `src/lib/utils.ts`, un `check` obligaría a una migración para añadir un color, y un tono que ya
+  no exista pinta gris en lugar de romper la tarjeta—. Lo pone quien planifica.
   **`deleted_at` es la papelera** (`0025`): borrar una tarea es archivarla, `tasks_select` deja ver
   lo archivado a quien puede planificar —si no, archivar fallaría y lo archivado sería
   irrecuperable— y un *trigger* `security definer` se lleva las subtareas y las devuelve al

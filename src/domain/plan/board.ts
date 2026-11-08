@@ -225,3 +225,21 @@ export function planCardMove({
 export function siguienteOrden(columnas: BoardColumnRow[]): number {
   return columnas.reduce((max, c) => Math.max(max, c.display_order), -1) + 1
 }
+
+/**
+ * Los colores que de verdad se están usando en un plan, en el orden del
+ * catálogo.
+ *
+ * Es lo que decide qué pastillas de filtro se enseñan. Enseñar los doce tonos
+ * sería ofrecer once filtros que no devuelven nada, y el filtro perdería su
+ * sentido: lo que se quiere saber es «cuántos grupos de color hay aquí».
+ *
+ * El orden es el del catálogo que se le pase —no el de aparición en la lista—
+ * para que la fila de pastillas no baile al mover una tarjeta.
+ */
+export function coloresEnUso(
+  tareas: { color: string | null }[], catalogo: readonly string[],
+): string[] {
+  const usados = new Set(tareas.map((t) => t.color).filter((c): c is string => c !== null))
+  return catalogo.filter((c) => usados.has(c))
+}

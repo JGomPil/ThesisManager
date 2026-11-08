@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  columnKeyOf, columnasIniciales, columnasPorEstado, groupCards, planCardMove, resolveBoard,
-  siguienteOrden, type BoardCard, type BoardColumn,
+  columnKeyOf, columnasIniciales, columnasPorEstado, coloresEnUso, groupCards, planCardMove,
+  resolveBoard, siguienteOrden, type BoardCard, type BoardColumn,
 } from '@/domain/plan/board'
 
 /**
@@ -168,5 +168,22 @@ describe('siguienteOrden', () => {
   it('la primera columna es la 0 y las demás van al final', () => {
     expect(siguienteOrden([])).toBe(0)
     expect(siguienteOrden([col('a', 'Papers', 0), col('b', 'Estudios', 4)])).toBe(5)
+  })
+})
+
+describe('coloresEnUso', () => {
+  const catalogo = ['slate', 'blue', 'violet', 'red'] as const
+
+  it('solo los que alguien ha usado, y en el orden del catálogo', () => {
+    const tareas = [{ color: 'violet' }, { color: null }, { color: 'blue' }, { color: 'violet' }]
+    expect(coloresEnUso(tareas, catalogo)).toEqual(['blue', 'violet'])
+  })
+
+  it('un plan sin colores no ofrece ningún filtro', () => {
+    expect(coloresEnUso([{ color: null }, { color: null }], catalogo)).toEqual([])
+  })
+
+  it('un color que ya no está en el catálogo no se ofrece: no se podría pintar igual', () => {
+    expect(coloresEnUso([{ color: 'fucsia' }], catalogo)).toEqual([])
   })
 })

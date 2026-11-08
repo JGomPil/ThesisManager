@@ -1100,6 +1100,23 @@ El borrado definitivo sigue existiendo (`tasks_delete`, para quien planifica, pr
 ahora es una segunda decisión que se toma mirando la papelera, con su confirmación. La diferencia no
 es el aviso: es que lo que se pulsa sin leer sea reversible.
 
+### 5.2.octovicies · Una lista escrita a mano que se reescribe en cada migración
+
+El color de una tarea (`0026`) no tiene nada que proteger: no significa nada, no entra en ningún
+cálculo y un tono desconocido pinta gris. Lo único que decide es **quién pinta**, y eso no se ve.
+
+`tasks_update` deja al responsable de una tarea escribir su propia fila, así que lo que impide que
+un estudiante repinte el plan no es una política: es que `color` figure en la lista de campos de
+`app.enforce_task_update_scope()`. Una columna nueva **no está protegida por omisión**: está
+protegida por estar escrita en esa lista. La prueba `[175]` lo intenta desde la sesión del
+responsable, que es la única que lo distingue.
+
+Y de ahí sale una regla para lo que venga: esa función **se reescribe entera** cada vez que una
+migración la toca —`0003`, `0024`, `0025`, `0026`—, y perder un campo por el camino no da ningún
+error, solo abre un permiso. Así que desde la `0026` cada migración que la reescriba comprueba al
+terminar que siguen ahí los campos que protegía antes, y `supabase/verify.sql` (comprobación 18)
+lo verifica en el proyecto real.
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.
@@ -1179,7 +1196,7 @@ Cada una debe ejecutarse **contra la base de datos** con el JWT del usuario corr
 desde la interfaz.
 
 > **Ya verificadas.** Las migraciones de `supabase/migrations/` se han aplicado a un
-> PostgreSQL 16 real y se ejecutan **174 pruebas** de seguridad, todas correctas:
+> PostgreSQL 16 real y se ejecutan **175 pruebas** de seguridad, todas correctas:
 > `./scripts/test-rls.sh` (detalle en `supabase/tests/README.md`). Cubren los puntos 1–6, 12 y 13
 > de la lista siguiente. Los puntos 7, 10 y 11 dependen del frontend y del despliegue, y los 8 y 9
 > del proyecto real de Supabase; se validan en la Fase 1.
