@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, BookOpen, Plus, Search } from 'lucide-react'
+import { Archive, BookOpen, ChevronDown, ChevronUp, ChevronsUpDown, Plus, Search } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { PageHeader } from '@/app/layout/app-shell'
@@ -25,6 +25,8 @@ import { useAcademicYears, useWorkStatuses, useWorkTypes } from '@/hooks/use-cat
 import { useAuth } from '@/features/auth/auth-context'
 import { resolveWorkCapabilities } from '@/domain/permissions/work-capabilities'
 import { daysUntil } from '@/domain/works/progress'
+import { alPulsar, leeOrden, ordena } from '@/domain/works/list-order'
+import type { ColumnaOrden, Orden } from '@/domain/works/list-order'
 
 export function WorksListPage() {
   const [params, setParams] = useSearchParams()
@@ -51,6 +53,21 @@ export function WorksListPage() {
   const curso = params.get('curso') ?? ''
   const contexto = params.get('contexto') ?? ''
   const q = params.get('q') ?? ''
+  /**
+   * EL ORDEN VIVE EN LA URL, como los filtros de al lado y por lo mismo: el
+   * enlace que se pega en un correo lleva lo que se estaba mirando, y recargar
+   * no deshace el orden elegido. `leeOrden` valida, porque una dirección la
+   * escribe cualquiera.
+   */
+  const orden = leeOrden(params.get('orden'), params.get('dir'))
+
+  const ordenarPor = (columna: ColumnaOrden) => {
+    const siguiente = alPulsar(orden, columna)
+    const next = new URLSearchParams(params)
+    next.set('orden', siguiente.columna)
+    next.set('dir', siguiente.sentido)
+    setParams(next, { replace: true })
+  }
 
   const workTypes = useWorkTypes()
   const statuses = useWorkStatuses()
@@ -123,6 +140,29 @@ export function WorksListPage() {
       vencido: dias !== null && dias < 0 && !w.status?.is_terminal,
     }
   })
+
+  /**
+   * SE ORDENAN LAS FILAS DERIVADAS, no las de la consulta: dos de las seis
+   * columnas —«Estudiante» y «Dirección»— no existen en la base de datos, se
+   * arman aquí arriba. Y se ordena una sola vez, de modo que la tabla del
+   * escritorio y las tarjetas del móvil enseñan lo mismo en el mismo orden.
+   *
+   * Sin orden elegido se respeta el de la consulta (`created_at` descendente,
+   * lo más nuevo primero), que es lo que había antes de que esto existiera.
+   */
+  const filasOrdenadas = orden === null ? filas : ordena(
+    filas,
+    (f) => ({
+      titulo: f.w.title,
+      tipo: f.w.work_type?.short_name ?? '',
+      estado: f.w.status?.name ?? '',
+      estadoOrden: f.w.status?.display_order ?? 0,
+      estudiante: f.estudiantes,
+      direccion: f.direccion,
+      fin: f.w.expected_end_date,
+    }),
+    orden,
+  )
 
   return (
     <div className="space-y-4">
@@ -213,7 +253,7 @@ export function WorksListPage() {
               una sola vez arriba, así que las dos vistas no pueden discrepar,
               y el coste es markup, no consultas. */}
           <Card className="divide-y sm:hidden">
-            {filas.map(({ w, estudiantes, direccion, dias, vencido }) => (
+            {filasOrdenadas.map(({ w, estudiantes, direccion, dias, vencido }) => (
               <div
                 key={w.id}
                 className={cn('cursor-pointer border-l-4 p-3 active:bg-accent', toneEdgeClass(w.work_type?.color))}
@@ -269,17 +309,17 @@ export function WorksListPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Título</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Estudiante</TableHead>
-                <TableHead>Dirección</TableHead>
-                <TableHead>Fin previsto</TableHead>
+                <Cabecera columna="titulo" orden={orden} onOrdenar={ordenarPor}>Título</Cabecera>
+                <Cabecera columna="tipo" orden={orden} onOrdenar={ordenarPor}>Tipo</Cabecera>
+                <Cabecera columna="estado" orden={orden} onOrdenar={ordenarPor}>Estado</Cabecera>
+                <Cabecera columna="estudiante" orden={orden} onOrdenar={ordenarPor}>Estudiante</Cabecera>
+                <Cabecera columna="direccion" orden={orden} onOrdenar={ordenarPor}>Dirección</Cabecera>
+                <Cabecera columna="fin" orden={orden} onOrdenar={ordenarPor}>Fin previsto</Cabecera>
                 {isOrgAdmin && <TableHead className="w-10" />}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filas.map(({ w, estudiantes, direccion, vencido }) => {
+              {filasOrdenadas.map(({ w, estudiantes, direccion, vencido }) => {
                 return (
                   <TableRow key={w.id} className="cursor-pointer" {...rowLink(`/trabajos/${w.id}`)}>
                     {/* La franja del tipo, al principio de la fila: es lo que
@@ -353,5 +393,56 @@ export function WorksListPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+/**
+ * Una cabecera que ordena al pulsarla.
+ *
+ * `aria-sort` EN EL `<th>` Y NO EN EL BOTÓN: es el atributo con el que un
+ * lector de pantalla anuncia «ordenado de forma ascendente» al entrar en la
+ * columna, y solo lo entiende sobre la celda de cabecera. Sin él, quien no ve
+ * la flecha no tiene forma de saber por dónde está ordenada la tabla.
+ *
+ * La flecha se dibuja SIEMPRE, también en las columnas inactivas (ahí, doble y
+ * apagada): una cabecera que solo parece pulsable cuando ya la has pulsado no
+ * se descubre nunca.
+ */
+function Cabecera({
+  columna, orden, onOrdenar, children,
+}: {
+  columna: ColumnaOrden
+  orden: Orden | null
+  onOrdenar: (columna: ColumnaOrden) => void
+  children: React.ReactNode
+}) {
+  const activa = orden?.columna === columna
+  const ascendente = activa && orden.sentido === 'asc'
+
+  return (
+    <TableHead
+      aria-sort={activa ? (ascendente ? 'ascending' : 'descending') : 'none'}
+      className={cn('p-0', activa && 'text-foreground')}
+    >
+      {/* El botón ocupa la celda entera (`w-full`, el relleno aquí y no en el
+          `<th>`): el sitio al que se apunta para ordenar es la cabecera, no
+          las letras. */}
+      <button
+        type="button"
+        onClick={() => onOrdenar(columna)}
+        title={`Ordenar por ${String(children).toLowerCase()}`}
+        className={cn(
+          'flex h-10 w-full items-center gap-1 px-3 text-left uppercase tracking-wide transition-colors',
+          'hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+        )}
+      >
+        {children}
+        {activa ? (
+          ascendente ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />
+        ) : (
+          <ChevronsUpDown className="size-3.5 opacity-40" aria-hidden />
+        )}
+      </button>
+    </TableHead>
   )
 }

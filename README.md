@@ -28,7 +28,7 @@ código.
 >   capacidades—. Las dos últimas comprueban lo que no se vería de otra manera: que las columnas
 >   del tablero sean del trabajo y sin significado (`0024`), y que archivar una tarea tenga vuelta
 >   atrás (`0025`).
->   180 pruebas de seguridad contra PostgreSQL 16 y 221 pruebas unitarias (dominio, y el
+>   180 pruebas de seguridad contra PostgreSQL 16 y 238 pruebas unitarias (dominio, y el
 >   recorrido de los cubos de Storage contra un cliente simulado).
 > - Progreso detallado en [`ROADMAP.md`](ROADMAP.md); decisiones técnicas en
 >   [`docs/FASE_0.md`](docs/FASE_0.md).
