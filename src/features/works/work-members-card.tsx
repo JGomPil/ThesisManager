@@ -22,6 +22,7 @@ import { worksRepo, type WorkWithRelations } from '@/data/repositories/works.rep
 import { useAuth } from '@/features/auth/auth-context'
 import { peopleRepo, type PersonFound } from '@/data/repositories/people.repo'
 import { useWorkRoles } from '@/hooks/use-catalogs'
+import { avisoDeDireccion } from '@/domain/works/direccion'
 import { memberFormSchema, type MemberFormValues } from '@/schemas/work'
 import type { WorkCapabilities } from '@/domain/permissions/work-capabilities'
 
@@ -76,6 +77,19 @@ export function WorkMembersCard({ work, caps }: { work: WorkWithRelations; caps:
       <CardContent className="space-y-4 pt-0">
         <Group label="Estudiantes" members={students} caps={caps} onRemove={(id) => remove.mutate(id)} />
         <Group label="Dirección" members={supervisors} caps={caps} onRemove={(id) => remove.mutate(id)} />
+        {/* Se enseña aunque nadie esté añadiendo a nadie: un trabajo puede
+            venir pasado de antes, o alguien pudo bajar el número del catálogo
+            después. Si solo apareciera en el formulario de añadir, ese caso no
+            se veria nunca. */}
+        {avisoDeDireccion(
+          work.members, work.work_type?.max_supervisors ?? null, work.work_type?.short_name ?? null, false,
+        ) && (
+          <p className="rounded-md border bg-muted/40 p-2.5 text-xs text-muted-foreground">
+            {avisoDeDireccion(
+              work.members, work.work_type?.max_supervisors ?? null, work.work_type?.short_name ?? null, false,
+            )}
+          </p>
+        )}
         {others.length > 0 && (
           <Group label="Otros" members={others} caps={caps} onRemove={(id) => remove.mutate(id)} />
         )}
@@ -326,6 +340,21 @@ function AddMemberDialog({
             <input type="checkbox" className="size-4 rounded border-input" {...form.register('is_primary')} />
             Marcar como participante principal de esa función
           </label>
+
+          {/* AVISA, NO IMPIDE. El número del catálogo dice lo NORMAL, no lo
+              permitido: una codirección externa o un relevo a mitad de curso
+              son casos legítimos, y una regla tajante estorbaría justo ahí.
+              Mismo trato que el aviso de «este tipo es individual» de abajo,
+              que lleva funcionando así desde la primera versión. */}
+          {selectedRole?.is_supervisory && avisoDeDireccion(
+            work.members, work.work_type?.max_supervisors ?? null, work.work_type?.short_name ?? null, true,
+          ) && (
+            <p className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2.5 text-xs">
+              {avisoDeDireccion(
+                work.members, work.work_type?.max_supervisors ?? null, work.work_type?.short_name ?? null, true,
+              )}
+            </p>
+          )}
 
           {!work.work_type?.allows_multiple_students && (
             <p className="rounded-md border bg-muted/40 p-2.5 text-xs text-muted-foreground">

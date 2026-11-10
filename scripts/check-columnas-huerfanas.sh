@@ -81,10 +81,11 @@ PENDIENTES = {
     'comments.parent_comment_id': 'responder a un comentario concreto: el hilo es plano en pantalla',
     'milestones.phase_id':        'colgar un hito de una fase del plan',
     'tasks.milestone_id':         'enganchar una tarea a un hito (la columna la protege el disparador)',
-    # Las dos siguientes son REGLAS MUERTAS: estan en el catalogo, se pueden
-    # rellenar y no las hace cumplir nadie. Peor que faltar, porque quien las
-    # rellena cree haber decidido algo.
-    'work_types.max_supervisors':      'cuantos directores admite un tipo: NADIE lo comprueba al anadir participantes',
+    # REGLA MUERTA: esta en el catalogo, se puede rellenar y no la hace cumplir
+    # nadie. Peor que faltar, porque quien la rellena cree haber decidido algo.
+    # (`max_supervisors` estaba aqui y salio de la lista el 10-11-2026: ahora
+    # avisa al anadir a la direccion. La salida de esta lista la canto el propio
+    # guion, que avisa de las excepciones que sobran.)
     'work_types.default_template_id':  'plantilla por omision del tipo: no se puede elegir ni se aplica sola',
 }
 
