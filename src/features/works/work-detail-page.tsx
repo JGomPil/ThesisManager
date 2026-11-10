@@ -137,7 +137,11 @@ export function WorkDetailPage() {
         ].filter(Boolean).join(' · ')}
         actions={
           <div className="flex items-center gap-2">
-            {caps.canEditWork && (
+            {/* El alumno también entra a «Editar», pero allí solo ve el
+                contenido académico: lo demás se lo frena el disparador
+                `enforce_work_update_scope` (0030) y el formulario ni se lo
+                enseña. `canEditWork` sigue siendo la dirección. */}
+            {caps.canEditAcademicContent && (
               <Button asChild variant="outline"><Link to={`/trabajos/${w.id}/editar`}><Pencil /> Editar</Link></Button>
             )}
             {/* Archivar queda reservado a la administración. Esconder el botón
@@ -341,8 +345,10 @@ export function WorkDetailPage() {
                   {caps.canManagePlan && <li>Puedes planificar y editar tareas.</li>}
                   {caps.isStudent && (
                     <li className="text-xs">
-                      Como estudiante puedes actualizar el estado de tus tareas, pero no las fechas
-                      ni las notas privadas de supervisión.
+                      Como estudiante escribes el contenido académico, tus hitos, las reuniones y
+                      las tareas que tengas asignadas, con su lista de comprobación. No llevas el
+                      estado del trabajo, las fechas, el progreso —que lo valora la dirección—,
+                      quién es responsable de cada tarea ni las notas privadas de supervisión.
                     </li>
                   )}
                 </ul>

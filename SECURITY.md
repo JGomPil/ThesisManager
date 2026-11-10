@@ -1106,10 +1106,14 @@ El color de una tarea (`0026`) no tiene nada que proteger: no significa nada, no
 cálculo y un tono desconocido pinta gris. Lo único que decide es **quién pinta**, y eso no se ve.
 
 `tasks_update` deja al responsable de una tarea escribir su propia fila, así que lo que impide que
-un estudiante repinte el plan no es una política: es que `color` figure en la lista de campos de
+alguien repinte el plan no es una política: es que `color` figure en la lista de campos de
 `app.enforce_task_update_scope()`. Una columna nueva **no está protegida por omisión**: está
-protegida por estar escrita en esa lista. La prueba `[175]` lo intenta desde la sesión del
-responsable, que es la única que lo distingue.
+protegida por estar escrita en esa lista.
+
+(Con la `0030` el responsable sí pinta **la suya**, porque sale del disparador antes de llegar a esa
+comparación. El campo sigue protegido para todos los demás, que es donde estaba el riesgo: el
+límite se movió de «qué campo es» a «de quién es la tarea». La prueba `[175]` comprueba las dos
+mitades.)
 
 Y de ahí sale una regla para lo que venga: esa función **se reescribe entera** cada vez que una
 migración la toca —`0003`, `0024`, `0025`, `0026`—, y perder un campo por el camino no da ningún
@@ -1147,6 +1151,44 @@ Las dos funciones son `security definer` porque leen o escriben fuera del alcanc
 `auth.users` no devolvería fila, el correo de la cuenta se leería como nulo y se rechazarían todos
 los cambios, incluido el legítimo. Es menos grave que lo contrario, pero deja el cambio de correo
 sin funcionar y sin motivo visible, que es la otra manera de que una pantalla no sirva para nada.
+
+### 5.2.tricies · Conceder es la dirección peligrosa, y la papelera decidió por mí
+
+La `0030` abre cuatro cosas al alumno **en su propio trabajo**: escribir su tarea entera y los
+puntos de su lista de comprobación, convocar reuniones, poner hitos y escribir el contenido
+académico. Las tres migraciones anteriores restringían; esta concede, y conceder no se nota.
+Restringir de más produce una pantalla que no funciona y alguien se queja el mismo día; conceder de
+más no da ningún error, no rompe nada y no se ve hasta que alguien ha cambiado lo que no debía. Por
+eso de las cinco pruebas nuevas (`[181]`–`[185]`) **tres comprueban lo que NO se ha abierto**.
+
+Tres cosas que esta migración dejó claras:
+
+1. **El límite es el trabajo, no el rol.** `app.is_work_student(work)` recibe el trabajo y mira la
+   pertenencia activa, con su `end_date`. Escrita como «¿tiene esta persona alguna función de
+   estudiante?» habría dado a cualquier doctorando permisos en el trabajo de al lado, y no habría
+   fallado nada en ninguna pantalla. Lo fijan `[74]` y `[185]`.
+
+2. **Lista blanca para el contenido académico, y no lista negra.** `app.enforce_work_update_scope()`
+   enumera las columnas **libres** —`description`, `objectives`, `hypothesis`, `methodology`,
+   `keywords`— y compara el resto con `to_jsonb(new) - array[...]`. El disparador de las tareas hace
+   lo contrario, enumera las protegidas, y por eso la `0026` tuvo que añadir una autocomprobación de
+   que `color` seguía en la lista (§5.2.octovicies): ahí una columna nueva nace **desprotegida** y
+   nadie se acuerda. Aquí nace protegida. `academic_works` tiene veinticinco columnas y crece, de
+   modo que la diferencia no es de estilo. (`updated_at` va entre las libres porque lo escribe
+   `academic_works_updated_at`, que es también `before update` y se ejecuta **antes** que este:
+   PostgreSQL los ordena por nombre.)
+
+3. **La papelera impidió el permiso que parecía más inocente.** El plan era que el responsable
+   también **quitara** puntos de su lista: quitar no borra, archiva (§5.2.septvicies), y de la
+   papelera vuelve. No funciona, y no por una decisión de diseño: `tasks_select` solo enseña lo
+   archivado a quien tiene `can_manage_plan`, así que la fila resultante deja de ser visible para
+   quien la escribe y PostgreSQL rechaza el `UPDATE` con «new row violates row-level security
+   policy». Lo destapó la prueba `[45]`. Las salidas eran enseñarle una papelera que la `0025`
+   decidió a propósito que fuera de quien planifica, o darle un borrado irreversible, que es peor.
+   Así que **un punto se escribe y se corrige, y quitarlo es de quien planifica** — y para que eso
+   sea vivible hubo que añadir lo que no existía: corregir el texto de un punto, que antes obligaba
+   a quitarlo y escribirlo otra vez. Un permiso que la base de datos no puede dar sin romper otra
+   garantía no es un permiso que falte: es una pantalla que hay que cambiar.
 
 ## 6. Autenticación y alta de usuarios
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveWorkCapabilities, type MemberLike } from '../work-capabilities'
+import { canEditTask, resolveWorkCapabilities, type MemberLike } from '../work-capabilities'
 
 const SUPERVISOR = {
   is_student: false, is_supervisory: true,
@@ -95,5 +95,59 @@ describe('resolveWorkCapabilities', () => {
   it('sin sesión no hay capacidades', () => {
     const caps = resolveWorkCapabilities([m('u1', SUPERVISOR)], null, false)
     expect(caps.isMember).toBe(false)
+  })
+})
+
+/**
+ * LO QUE LA 0030 ABRE AL ALUMNO, Y LO QUE SIGUE CERRADO.
+ *
+ * Este bloque es el espejo en cliente de la migración, y existe para que no se
+ * separen sin que nadie se entere: aquí se decide qué botones se pintan, y si
+ * dijera que sí donde la base dice que no, el alumno vería un botón que da
+ * error de permisos al pulsarlo.
+ */
+describe('el alumno en su propio trabajo (0030)', () => {
+  const alumno = resolveWorkCapabilities([m('u2', STUDENT)], 'u2', false)
+
+  it('escribe el contenido académico, sus hitos y las reuniones', () => {
+    expect(alumno.canEditAcademicContent).toBe(true)
+    expect(alumno.canManageMilestones).toBe(true)
+    expect(alumno.canManageMeetings).toBe(true)
+  })
+
+  it('pero NO lleva el expediente ni el plan', () => {
+    // `canEditWork` es lo que abre estado, fechas y progreso en la ficha.
+    expect(alumno.canEditWork).toBe(false)
+    expect(alumno.canManagePlan).toBe(false)
+    expect(alumno.canSeePrivateNotes).toBe(false)
+    expect(alumno.canManageMembers).toBe(false)
+    expect(alumno.canValidateDeliverables).toBe(false)
+  })
+
+  it('edita la tarea que tiene asignada, y no la de otro', () => {
+    expect(canEditTask(alumno, { assignee_id: 'u2' }, 'u2')).toBe(true)
+    expect(canEditTask(alumno, { assignee_id: 'u9' }, 'u2')).toBe(false)
+    expect(canEditTask(alumno, { assignee_id: null }, 'u2')).toBe(false)
+  })
+
+  it('quien planifica edita cualquiera, sea suya o no', () => {
+    const director = resolveWorkCapabilities([m('u1', SUPERVISOR)], 'u1', false)
+    expect(canEditTask(director, { assignee_id: 'u2' }, 'u1')).toBe(true)
+    expect(canEditTask(director, { assignee_id: null }, 'u1')).toBe(true)
+  })
+
+  it('sin sesión no se edita nada, ni una tarea sin responsable', () => {
+    const nadie = resolveWorkCapabilities([m('u2', STUDENT)], null, false)
+    expect(canEditTask(nadie, { assignee_id: null }, null)).toBe(false)
+  })
+
+  /**
+   * Quien no es alumno ni supervisión —un colaborador— no hereda nada de esto:
+   * lo que abre la 0030 es ser EL ALUMNO del trabajo, no estar en él.
+   */
+  it('un colaborador no entra por esta puerta', () => {
+    const colaborador = resolveWorkCapabilities([m('u3', COLLABORATOR)], 'u3', false)
+    expect(colaborador.canManageMilestones).toBe(false)
+    expect(colaborador.canEditAcademicContent).toBe(true) // por ser supervisión
   })
 })

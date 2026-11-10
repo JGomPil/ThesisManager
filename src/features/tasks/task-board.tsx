@@ -939,6 +939,7 @@ export function TaskBoard({
         onOpenChange={setDialogOpen}
         work={work}
         onSaved={invalidate}
+        puedeAsignar={caps.canManagePlan}
       />
 
       {/* El MISMO formulario para crear y para editar, montado dos veces con
@@ -951,6 +952,11 @@ export function TaskBoard({
         work={work}
         task={editTask}
         onSaved={invalidate}
+        // QUIÉN HACE LA TAREA NO LO ELIGE QUIEN LA HACE. Desde la 0030 el
+        // responsable edita su tarjeta entera, pero el responsable mismo lo
+        // sigue decidiendo quien planifica: el disparador lo rechaza, así que
+        // el desplegable se bloquea en lugar de ofrecer algo que dará error.
+        puedeAsignar={caps.canManagePlan}
         // Al guardar se vuelve a la ficha, que es de donde se venía.
         onDone={() => { const id = editTaskId; setEditTaskId(null); setOpenTaskId(id) }}
       />
@@ -1235,7 +1241,7 @@ function TaskCard({
  * formulario únicamente evita ofrecer lo que la base de datos va a rechazar.
  */
 function TaskDialog({
-  open, onOpenChange, work, task = null, onSaved, onDone,
+  open, onOpenChange, work, task = null, onSaved, onDone, puedeAsignar,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
@@ -1243,6 +1249,11 @@ function TaskDialog({
   /** Nulo: alta. Con tarea: edición de esa tarea. */
   task?: TaskWithAssignee | null
   onSaved: () => void
+  /**
+   * ¿Puede cambiarse el responsable? Falso para quien solo edita SU tarea.
+   * El campo se enseña igual, para que se vea de quién es, pero bloqueado.
+   */
+  puedeAsignar: boolean
   /** Se llama tras guardar, para que el llamante decida dónde deja al usuario. */
   onDone?: () => void
 }) {
@@ -1333,7 +1344,12 @@ function TaskDialog({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="task-assignee">Responsable</Label>
-              <Select id="task-assignee" className="mt-1.5" {...form.register('assignee_id')}>
+              <Select
+                id="task-assignee"
+                className="mt-1.5"
+                disabled={!puedeAsignar}
+                {...form.register('assignee_id')}
+              >
                 <option value="">Sin asignar</option>
                 {candidates.map((m) => (
                   <option key={m.id} value={m.user_id}>
@@ -1341,6 +1357,11 @@ function TaskDialog({
                   </option>
                 ))}
               </Select>
+              {!puedeAsignar && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Lo decide quien planifica el trabajo.
+                </p>
+              )}
             </div>
             <div>
               <Label htmlFor="task-priority">Prioridad</Label>

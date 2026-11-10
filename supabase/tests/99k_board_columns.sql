@@ -150,9 +150,9 @@ begin
   raise notice 'CORRECTO [168]';
 end $$;
 
-\echo '[169] El estudiante mueve SU tarjeta de columna y de sitio, pero no renombra la columna'
+\echo '[169] El estudiante mueve y escribe SU tarjeta, pero no renombra la columna'
 do $$
-declare v_col uuid; v_orden int; v_cambiado boolean := false;
+declare v_col uuid; v_orden int;
 begin
   -- Mover su tarjeta y colocarla: es informar de lo suyo, y es el gesto de
   -- arrastrar, que ESCRIBE una posicion siempre. Si `order_index` siguiera
@@ -169,21 +169,21 @@ begin
     raise exception 'FALLO [169]: el estudiante no ha podido mover su tarjeta (% / %)', v_col, v_orden;
   end if;
 
-  -- Pero el titulo sigue siendo del plan.
+  -- Y DESDE LA 0030, el titulo de su propia tarjeta tambien es suyo: la tarjeta
+  -- es donde cuenta lo que esta haciendo.
   set local role authenticated;
   perform set_config('test.uid','33333333-3333-3333-3333-333333333333', true);
-  begin
-    update tasks set title = 'Otro titulo' where id = 'dddddddd-0000-0000-0000-000000000001';
-    v_cambiado := true;
-  exception when others then null;
-  end;
-  -- Y la columna del tablero tampoco: se comprueba EL DATO, porque a un UPDATE
-  -- sin permiso la politica le descarta las filas y no da ningun error.
+  update tasks set title = 'Revision bibliografica (en curso)'
+   where id = 'dddddddd-0000-0000-0000-000000000001';
+  -- LA COLUMNA, NO: el tablero es la forma de trabajar del trabajo entero, y la
+  -- comparten todos. Se comprueba EL DATO, porque a un UPDATE sin permiso la
+  -- politica le descarta las filas y no da ningun error.
   update board_columns set name = 'Lo mio' where id = 'ffffffff-0000-0000-0000-000000000002';
   reset role;
 
-  if v_cambiado then
-    raise exception 'FALLO DE SEGURIDAD [169]: el estudiante ha cambiado el titulo';
+  if (select title from tasks where id = 'dddddddd-0000-0000-0000-000000000001')
+       <> 'Revision bibliografica (en curso)' then
+    raise exception 'FALLO [169]: el responsable no ha podido escribir el titulo de su tarjeta';
   end if;
   if (select name from board_columns where id = 'ffffffff-0000-0000-0000-000000000002') <> 'Estudios' then
     raise exception 'FALLO DE SEGURIDAD [169]: el estudiante ha renombrado la columna';

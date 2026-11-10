@@ -6,12 +6,20 @@
 -- una prueba: heredan las políticas de `tasks` sin añadir ninguna nueva, de
 -- modo que el reparto queda así por construcción:
 --
---   · la dirección DEFINE los puntos (INSERT/DELETE sobre tasks),
---   · el estudiante solo INFORMA de su avance (UPDATE de `status`, lo único
---     que le deja el disparador `app.enforce_task_update_scope`).
+--   · cualquiera con `can_manage_plan` define lo que quiera,
+--   · y DESDE LA 0030, el responsable de la tarea escribe y renombra los
+--     puntos de SU lista: una lista de comprobación se piensa escribiéndola, y
+--     pedir turno para añadir un punto la inutiliza. QUITAR un punto, no: eso
+--     es archivarlo, y lo archivado solo lo ve quien planifica (0025), así que
+--     sería una acción sin vuelta atrás para quien la hace. Una errata se
+--     arregla renombrando.
 --
--- Si alguna vez se relajara la política de `tasks`, estas dos pruebas
--- fallarían, que es justo lo que se quiere.
+-- LO QUE NO CAMBIÓ, y es lo que vigilan [44] y [45]: eso vale para los puntos
+-- de una tarea PROPIA. En la tarea de otro, el estudiante sigue pudiendo solo
+-- lo de antes. El límite no es «ser estudiante», es de quién es la tarea.
+--
+-- Si alguna vez se relajara la política de `tasks` más allá de eso, estas
+-- pruebas fallarían, que es justo lo que se quiere.
 --
 -- Reutiliza los datos de 10_roles_and_privacy.sql:
 --   investigador = 2222...  director principal de TFG-01
@@ -61,47 +69,96 @@ begin
 end $$;
 reset role;
 
-\echo '[44] El estudiante NO puede AÑADIR puntos a la lista (esperado: bloqueado)'
+-- CAMBIO DE DOCTRINA EN LA 0030: antes esto estaba prohibido.
+\echo '[44] El estudiante ANADE un punto a la lista de SU tarea, y no a la de otro'
 do $$
-declare padre uuid;
+declare padre uuid; ajena uuid; v_colado boolean := false;
 begin
   padre := current_setting('test.checklist_parent')::uuid;
+
+  set local role authenticated;
+  perform set_config('test.uid','33333333-3333-3333-3333-333333333333', true);
+  insert into tasks (work_id, parent_task_id, title)
+  values ('bbbbbbbb-0000-0000-0000-000000000001', padre, 'Punto que escribo yo');
+  reset role;
+
+  if not exists (
+    select 1 from tasks where parent_task_id = padre and title = 'Punto que escribo yo'
+  ) then
+    raise exception 'FALLO [44]: el estudiante no ha podido escribir su lista';
+  end if;
+
+  -- Y ahora el limite: una tarea del mismo trabajo que NO es suya. Sin la
+  -- comprobacion del responsable en `app.is_checklist_point_of_mine`, bastaria
+  -- con ser miembro para colgar puntos de la tarea de cualquiera.
+  set local role authenticated;
+  perform set_config('test.uid','22222222-2222-2222-2222-222222222222', true);
+  insert into tasks (id, work_id, title, assignee_id)
+  values ('dddddddd-0000-0000-0000-000000000044','bbbbbbbb-0000-0000-0000-000000000001',
+          'Tarea del director', '22222222-2222-2222-2222-222222222222')
+  returning id into ajena;
+  reset role;
+
   set local role authenticated;
   perform set_config('test.uid','33333333-3333-3333-3333-333333333333', true);
   begin
     insert into tasks (work_id, parent_task_id, title)
-    values ('bbbbbbbb-0000-0000-0000-000000000001', padre, 'Punto que me invento yo');
-    raise exception 'FALLO [44]: el estudiante ha podido anadir un punto a la lista';
+    values ('bbbbbbbb-0000-0000-0000-000000000001', ajena, 'Punto en tarea ajena');
+    v_colado := true;
   exception
-    when insufficient_privilege then
-      raise notice 'CORRECTO: el estudiante no define el plan, solo informa de su avance';
+    when insufficient_privilege then null;
   end;
+  reset role;
+
+  if v_colado then
+    raise exception 'FALLO DE SEGURIDAD [44]: ha colgado un punto de la tarea de otro';
+  end if;
+  raise notice 'CORRECTO [44]: escribe su lista, y solo la suya';
 end $$;
 reset role;
 
-\echo '[45] El estudiante NO puede RENOMBRAR un punto (solo cambiar su estado)'
+-- CAMBIO DE DOCTRINA EN LA 0030, y de paso se arregla la prueba: la version
+-- anterior capturaba `raise_exception`, que es justo el codigo con el que ella
+-- misma levantaba su propio «FALLO [45]». Es decir, se tragaba su propio fallo
+-- y decia CORRECTO pasara lo que pasara. Aqui no hay captura alrededor de la
+-- afirmacion: lo que se comprueba es el DATO.
+\echo '[45] El estudiante RENOMBRA un punto de su lista, y no lo quita'
 do $$
-declare punto uuid; padre uuid;
+declare punto uuid; padre uuid; v_quito boolean := false;
 begin
   padre := current_setting('test.checklist_parent')::uuid;
-  select id into punto from tasks where parent_task_id = padre limit 1;
+  select id into punto from tasks
+   where parent_task_id = padre and title = 'Punto que escribo yo';
 
   set local role authenticated;
   perform set_config('test.uid','33333333-3333-3333-3333-333333333333', true);
+  update tasks set title = 'Punto con el titulo corregido' where id = punto;
+  reset role;
+
+  if not exists (select 1 from tasks where id = punto and title = 'Punto con el titulo corregido') then
+    raise exception 'FALLO [45]: el estudiante no ha podido corregir un punto suyo';
+  end if;
+
+  -- Y EL LIMITE, que lo encontro la propia base de datos. Quitar un punto es
+  -- ARCHIVARLO (0025), y `tasks_select` solo ensena lo archivado a quien tiene
+  -- `can_manage_plan`. Asi que la fila resultante deja de ser visible para el
+  -- estudiante y PostgreSQL rechaza el UPDATE por su cuenta: «new row violates
+  -- row-level security policy». No se deja asi por no poder arreglarlo, sino
+  -- porque arreglarlo seria darle una papelera que no es suya o un borrado
+  -- irreversible. El disparador lo dice ahora en voz alta, con su mensaje.
+  set local role authenticated;
+  perform set_config('test.uid','33333333-3333-3333-3333-333333333333', true);
   begin
-    update tasks set title = 'Titulo cambiado por el estudiante' where id = punto;
-    -- Si llega aqui sin excepcion hay que comprobar que de verdad no cambio:
-    -- una sentencia que no afecta a ninguna fila por RLS tampoco lanza error,
-    -- y dar por bueno el silencio fue justo el error de la primera version de
-    -- esta prueba.
-    if exists (select 1 from tasks where id = punto and title = 'Titulo cambiado por el estudiante') then
-      raise exception 'FALLO [45]: el estudiante ha renombrado un punto';
-    end if;
-    raise notice 'CORRECTO: el renombrado no ha surtido efecto';
-  exception
-    when raise_exception or insufficient_privilege then
-      raise notice 'CORRECTO: el disparador limita al estudiante a la columna status';
+    update tasks set deleted_at = now() where id = punto;
+    v_quito := true;
+  exception when others then null;
   end;
+  reset role;
+
+  if v_quito or (select deleted_at from tasks where id = punto) is not null then
+    raise exception 'FALLO [45]: el estudiante ha archivado un punto que no podra recuperar';
+  end if;
+  raise notice 'CORRECTO [45]: corrige los puntos de su lista, y no los archiva';
 end $$;
 reset role;
 

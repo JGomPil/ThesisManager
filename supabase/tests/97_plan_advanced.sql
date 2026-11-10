@@ -172,27 +172,38 @@ begin
 end $$;
 reset role;
 
-\echo '[82] El estudiante VE los hitos de su trabajo pero no los escribe'
+-- CAMBIO DE DOCTRINA EN LA 0030: antes esta prueba exigia que el estudiante NO
+-- escribiese hitos. Un hito es un compromiso de quien hace el trabajo —el
+-- deposito, la defensa, el envio del articulo—, y quien lo cumple es quien
+-- sabe cuando va a poder cumplirlo. Lo que sigue intacto, y por eso [79]-[81]
+-- no se tocan, es el disparador que impide desincronizar `is_met` y `met_at`:
+-- el alumno escribe sus hitos, pero no se da uno por cumplido a mano.
+\echo '[82] El estudiante VE y ESCRIBE los hitos de su trabajo'
 do $$
-declare visibles int;
+declare visibles int; v_id uuid;
 begin
   set local role authenticated;
   perform set_config('test.uid','33333333-3333-3333-3333-333333333333', true);
   select count(*) into visibles from milestones
    where work_id = 'bbbbbbbb-0000-0000-0000-000000000001';
-  begin
-    insert into milestones (work_id, name, due_date)
-    values ('bbbbbbbb-0000-0000-0000-000000000001','Hito del alumno', current_date + 10);
-  exception when others then null;
-  end;
+  insert into milestones (work_id, name, due_date)
+  values ('bbbbbbbb-0000-0000-0000-000000000001','Hito del alumno', current_date + 10)
+  returning id into v_id;
+  update milestones set due_date = current_date + 25 where id = v_id;
   reset role;
+
   if visibles < 1 then
     raise exception 'FALLO [82]: el estudiante no ve los hitos de su propio trabajo';
   end if;
-  if exists (select 1 from milestones where name = 'Hito del alumno') then
-    raise exception 'FALLO [82]: el estudiante ha creado un hito';
+  if not exists (select 1 from milestones
+                  where id = v_id and due_date = current_date + 25) then
+    raise exception 'FALLO [82]: el estudiante no ha podido poner ni mover su hito';
   end if;
-  raise notice 'CORRECTO: los hitos se ven y los fija la direccion';
+
+  -- Y se deja el trabajo como estaba, que es lo que esperan las pruebas de
+  -- recuento que vienen detras.
+  delete from milestones where id = v_id;
+  raise notice 'CORRECTO: los hitos los escribe tambien quien los cumple';
 end $$;
 reset role;
 

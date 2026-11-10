@@ -28,7 +28,7 @@ import { TextoConFormato } from '@/components/common/rich-text'
 import { TaskDependencies } from '@/features/tasks/task-dependencies'
 import { TaskReferenceMaterial } from '@/features/tasks/task-reference-material'
 import type { WorkMemberWithRole } from '@/data/repositories/works.repo'
-import { canUpdateTaskStatus } from '@/domain/permissions/work-capabilities'
+import { canEditTask, canUpdateTaskStatus } from '@/domain/permissions/work-capabilities'
 import type { WorkCapabilities } from '@/domain/permissions/work-capabilities'
 
 /**
@@ -44,11 +44,13 @@ import type { WorkCapabilities } from '@/domain/permissions/work-capabilities'
  *
  *  - Cada punto puede tener responsable y fecha propios si hace falta, y
  *    aparece en «mis tareas» de quien lo tenga asignado.
- *  - Hereda la seguridad de `tasks` sin añadir ni una política: un estudiante
- *    puede MARCAR puntos (es un cambio de `status`, lo único que el disparador
- *    `enforce_task_update_scope` le permite) pero no puede añadirlos ni
- *    borrarlos. Es exactamente el reparto que queremos: la dirección define el
- *    plan, el estudiante informa de su avance.
+ *  - Hereda la seguridad de `tasks` sin añadir ni una política. Desde la 0030 el
+ *    reparto es: el responsable de la tarea AÑADE, MARCA, CORRIGE y ORDENA los
+ *    puntos de su lista —una lista de comprobación se piensa escribiéndola, y
+ *    pedir turno para añadir un punto la inutiliza— y QUITARLOS es de quien
+ *    planifica, porque quitar un punto lo archiva y la papelera del plan solo
+ *    la abre quien planifica. En la tarea de otro sigue pudiendo solo marcar.
+ *    El límite no es «ser estudiante»: es de quién es la tarea.
  *  - El progreso de la tarea sale del recuento de puntos completados, sin
  *    ningún campo que pueda quedar desincronizado.
  */
@@ -91,6 +93,16 @@ export function TaskDetailDialog({
   // discrepar de la que devuelve la consulta.
   const [arrastrando, setArrastrando] = React.useState<number | null>(null)
   const [encima, setEncima] = React.useState<number | null>(null)
+  /**
+   * El punto que se está reescribiendo, con su texto a medias.
+   *
+   * CORREGIR UN PUNTO no existía: se añadían, se marcaban, se ordenaban y se
+   * quitaban. Una errata obligaba a quitar el punto y escribirlo otra vez, que
+   * es un apaño mientras puedas quitarlo —y desde la 0030 el responsable de la
+   * tarea escribe su lista pero NO la archiva, porque lo archivado va a una
+   * papelera que no es suya. Sin esto, su errata se quedaba ahí.
+   */
+  const [renombrando, setRenombrando] = React.useState<{ id: string; texto: string } | null>(null)
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: qk.tasks.all })
@@ -140,8 +152,24 @@ export function TaskDetailDialog({
     onError: (e) => toast.push('error', errorMessage(e)),
   })
 
+  const renombrarItem = useMutation({
+    mutationFn: ({ id, title }: { id: string; title: string }) => tasksRepo.update(id, { title }),
+    onSuccess: () => { invalidate(); setRenombrando(null) },
+    onError: (e) => toast.push('error', errorMessage(e)),
+  })
+
+  /** Guarda si ha cambiado algo y tiene longitud; si no, cierra sin escribir. */
+  const guardaRenombrado = () => {
+    if (renombrando === null) return
+    const t = renombrando.texto.trim()
+    const antes = subtasks.find((s) => s.id === renombrando.id)?.title
+    if (t.length < 2 || t === antes) { setRenombrando(null); return }
+    renombrarItem.mutate({ id: renombrando.id, title: t })
+  }
+
   // Archivar, no borrar: un punto de la lista quitado sin querer se recupera
-  // desde la papelera del plan de trabajo (0025).
+  // desde la papelera del plan de trabajo (0025). Por eso quitarlo es de quien
+  // planifica: es quien puede abrir esa papelera.
   const removeItem = useMutation({
     mutationFn: (id: string) => tasksRepo.archive(id),
     onSuccess: invalidate,
@@ -172,9 +200,18 @@ export function TaskDetailDialog({
   const late = task.due_date !== null && task.status !== 'COMPLETADA' && (daysUntil(task.due_date) ?? 0) < 0
   const done = subtasks.filter((s) => s.status === 'COMPLETADA').length
   const canTick = canUpdateTaskStatus(caps, task, userId)
+  /**
+   * EDITAR LA TARJETA Y SU LISTA: quien planifica, siempre; y el responsable,
+   * en la suya (0030). Un alumno escribe los pasos de lo que tiene que hacer
+   * sin pedir turno, que es para lo que sirve una lista de comprobación.
+   *
+   * No incluye reasignarla ni archivarla: esas dos siguen pidiendo
+   * `canManagePlan`, igual que en el disparador.
+   */
+  const puedeEditar = canEditTask(caps, task, userId)
   // Con un solo punto no hay nada que ordenar, y marcar puntos no da derecho a
   // reordenarlos: eso es definir el plan, o sea `canManagePlan`.
-  const puedeOrdenar = caps.canManagePlan && subtasks.length > 1
+  const puedeOrdenar = puedeEditar && subtasks.length > 1
 
   const mover = (desde: number, hasta: number) => {
     const orden = moveItem(subtasks, desde, hasta)
@@ -214,7 +251,7 @@ export function TaskDetailDialog({
             ) : (
               <p className="text-sm text-muted-foreground">
                 Sin descripción.{' '}
-                {caps.canManagePlan && 'Pulsa «Editar» para explicar en qué consiste.'}
+                {puedeEditar && 'Pulsa «Editar» para explicar en qué consiste.'}
               </p>
             )}
           </section>
@@ -332,15 +369,51 @@ export function TaskDetailDialog({
                             contrastarla con…» se cortaba en la primera línea y el
                             resto no había manera de leerlo, ni siquiera pasando el
                             ratón por encima. Ahora parte en varias líneas, y
-                            `break-words` cubre la URL pegada sin espacios. */}
-                        <span
-                          className={cn(
-                            'min-w-0 flex-1 break-words text-sm leading-snug',
-                            checked && 'text-muted-foreground line-through',
-                          )}
-                        >
-                          {s.title}
-                        </span>
+                            `break-words` cubre la URL pegada sin espacios.
+
+                            Y SE PULSA PARA CORREGIRLO, sin botón de lápiz: el
+                            texto está donde se busca el texto, y un lápiz más
+                            en una fila que ya tiene marcar, subir, bajar y
+                            quitar no se distinguiría de los demás. */}
+                        {renombrando?.id === s.id ? (
+                          <Input
+                            autoFocus
+                            className="h-7 min-w-0 flex-1 text-sm"
+                            value={renombrando.texto}
+                            disabled={renombrarItem.isPending}
+                            aria-label="Texto del punto"
+                            onChange={(e) => setRenombrando({ id: s.id, texto: e.target.value })}
+                            onBlur={guardaRenombrado}
+                            onKeyDown={(e) => {
+                              // El diálogo se cierra con Escape, así que hay que
+                              // pararlo aquí: si no, corregir un punto y
+                              // arrepentirse cerraba la ficha entera.
+                              if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setRenombrando(null) }
+                              if (e.key === 'Enter') { e.preventDefault(); guardaRenombrado() }
+                            }}
+                          />
+                        ) : puedeEditar ? (
+                          <button
+                            type="button"
+                            onClick={() => setRenombrando({ id: s.id, texto: s.title })}
+                            className={cn(
+                              'min-w-0 flex-1 break-words rounded text-left text-sm leading-snug',
+                              'hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                              checked && 'text-muted-foreground line-through',
+                            )}
+                          >
+                            {s.title}
+                          </button>
+                        ) : (
+                          <span
+                            className={cn(
+                              'min-w-0 flex-1 break-words text-sm leading-snug',
+                              checked && 'text-muted-foreground line-through',
+                            )}
+                          >
+                            {s.title}
+                          </span>
+                        )}
                         {puedeOrdenar && (
                           <span className="flex shrink-0 items-start">
                             <Button
@@ -361,6 +434,10 @@ export function TaskDetailDialog({
                             </Button>
                           </span>
                         )}
+                        {/* QUITAR, solo quien planifica: quitar un punto lo
+                            archiva, y la papelera del plan solo la abre quien
+                            planifica. Un alumno no vería nunca lo que ha
+                            quitado. Corregirlo, en cambio, sí es suyo. */}
                         {caps.canManagePlan && (
                           <Button
                             variant="ghost" size="icon" className="mt-0.5 size-6 shrink-0"
@@ -374,15 +451,16 @@ export function TaskDetailDialog({
                     )
                   })}
                 </ul>
-                {puedeOrdenar && (
+                {puedeEditar && (
                   <p className="mt-1.5 text-xs text-muted-foreground">
-                    El orden se cambia con las flechas, o arrastrando el punto a su sitio.
+                    Pulsa el texto de un punto para corregirlo
+                    {puedeOrdenar && ', y cámbialo de sitio con las flechas o arrastrándolo'}.
                   </p>
                 )}
               </>
             )}
 
-            {caps.canManagePlan ? (
+            {puedeEditar ? (
               <form
                 className="mt-2 flex gap-2"
                 onSubmit={(e) => {
@@ -420,7 +498,7 @@ export function TaskDetailDialog({
               planifica decide qué quiere decir el violeta en su plan. Lo que la
               aplicación hace con él es pintarlo en la tarjeta y dejar filtrar
               por él en el tablero. */}
-          {caps.canManagePlan && (
+          {puedeEditar && (
             <section className="border-t pt-3">
               <h3 className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 <Palette className="size-3.5" /> Color
@@ -506,7 +584,7 @@ export function TaskDetailDialog({
             <span className="hidden sm:block" />
           )}
           <div className="flex w-full flex-wrap justify-end gap-2 sm:w-auto">
-            {caps.canManagePlan && (
+            {puedeEditar && (
               <Button variant="outline" onClick={onEdit}>
                 <Pencil /> Editar
               </Button>

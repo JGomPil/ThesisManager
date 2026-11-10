@@ -41,6 +41,18 @@ export type WorkCapabilities = {
   canValidateDeliverables: boolean
   canManageMembers: boolean
   canEditWork: boolean
+  /**
+   * LO QUE EL ALUMNO PUEDE HACER EN SU PROPIO TRABAJO (migración 0030).
+   *
+   * Son tres capacidades y no una porque no se conceden juntas ni se revocan
+   * juntas: el contenido académico lo escribe quien hace el trabajo, los hitos
+   * los cumple él, y una reunión la convoca cualquiera de las dos partes.
+   * Meterlas en `canManagePlan` habría dado de paso borrar tareas y reasignar
+   * responsables, que es justo lo que no se quería.
+   */
+  canManageMilestones: boolean
+  canManageMeetings: boolean
+  canEditAcademicContent: boolean
   roleNames: string[]
 }
 
@@ -85,8 +97,37 @@ export function resolveWorkCapabilities(
     canValidateDeliverables: granted.has('can_validate_deliverables') || isOrgAdmin,
     canManageMembers: granted.has('can_manage_members') || isOrgAdmin,
     canEditWork: isSupervisory || isOrgAdmin,
+    // Espejo de `milestones_write`, `app.can_manage_meetings` y
+    // `works_update` + `app.enforce_work_update_scope` de la 0030.
+    canManageMilestones: granted.has('can_manage_plan') || isOrgAdmin || isStudent,
+    canManageMeetings: isSupervisory || isOrgAdmin || isStudent,
+    canEditAcademicContent: isSupervisory || isOrgAdmin || isStudent,
     roleNames: mine.map((m) => m.role!).map((r) => (r.is_student ? 'Estudiante' : r.is_supervisory ? 'Supervisión' : 'Otra')),
   }
+}
+
+/**
+ * ¿Puede editar esta tarea entera —título, descripción, fechas, prioridad,
+ * color y su lista de comprobación—?
+ *
+ * Espejo de `app.enforce_task_update_scope` (0030): quien planifica, siempre;
+ * y el responsable, en la suya. Lo que NO da esta función, porque tampoco lo
+ * da el disparador, es cambiar el responsable ni ARCHIVAR —ni la tarea ni un
+ * punto de su lista—: las dos cosas son planificar, y para eso está
+ * `caps.canManagePlan`.
+ *
+ * Lo de archivar no es una cautela de la interfaz, es que la base de datos lo
+ * rechaza: `tasks_select` (0025) solo enseña lo archivado a quien tiene
+ * `can_manage_plan`, de modo que la fila archivada dejaría de ser visible para
+ * quien la archiva y el UPDATE muere con «new row violates row-level security
+ * policy». Dibujar el botón solo serviría para que diera error.
+ */
+export function canEditTask(
+  caps: WorkCapabilities,
+  task: { assignee_id: string | null },
+  userId: string | null,
+): boolean {
+  return caps.canManagePlan || (userId !== null && task.assignee_id === userId)
 }
 
 /** ¿Puede el usuario cambiar el estado de esta tarea? (no el resto de campos) */

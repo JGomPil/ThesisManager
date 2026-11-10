@@ -25,6 +25,7 @@ import { templatesRepo } from '@/data/repositories/templates.repo'
 import { statusesForWorkType } from '@/domain/works/statuses'
 import { workFormSchema, type WorkFormValues } from '@/schemas/work'
 import { useAuth } from '@/features/auth/auth-context'
+import { resolveWorkCapabilities } from '@/domain/permissions/work-capabilities'
 
 export function WorkFormPage() {
   const { id } = useParams<{ id: string }>()
@@ -32,7 +33,7 @@ export function WorkFormPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const toast = useToast()
-  const { organizationId, userId } = useAuth()
+  const { organizationId, userId, isOrgAdmin } = useAuth()
 
   const workTypes = useWorkTypes()
   const statuses = useWorkStatuses()
@@ -53,6 +54,24 @@ export function WorkFormPage() {
     queryFn: () => worksRepo.get(id!),
     enabled: isEdit,
   })
+
+  /**
+   * SOLO EL CONTENIDO ACADÉMICO cuando quien edita es el alumno del trabajo.
+   *
+   * Desde la 0030 el alumno puede cambiar descripción, objetivos, metodología
+   * y palabras clave de SU trabajo, y nada más: el expediente —título, tipo,
+   * estado, fechas y el progreso «a juicio de la dirección»— lo frena el
+   * disparador `enforce_work_update_scope`.
+   *
+   * Por eso aquí no basta con esconder las tarjetas que no le tocan: el envío
+   * tiene que llevar SOLO esos campos. Mandar el resto «tal como estaban»
+   * parece inofensivo y no lo es —una fecha que el navegador normaliza
+   * distinto, o un catálogo que cambió de valor por defecto, bastan para que
+   * el disparador vea una columna cambiada y rechace la edición entera—, y el
+   * alumno recibiría un error de permisos por un campo que ni ha visto.
+   */
+  const caps = resolveWorkCapabilities(existing.data?.members ?? [], userId, isOrgAdmin)
+  const soloContenido = isEdit && !caps.canEditWork && caps.canEditAcademicContent
 
   const form = useForm<WorkFormValues>({
     resolver: zodResolver(workFormSchema),
@@ -150,6 +169,18 @@ export function WorkFormPage() {
 
   const save = useMutation({
     mutationFn: async (values: WorkFormValues) => {
+      const contenidoAcademico = {
+        description: values.description || null,
+        objectives: values.objectives || null,
+        methodology: values.methodology || null,
+        keywords: (values.keywords ?? '')
+          .split(',')
+          .map((k) => k.trim())
+          .filter(Boolean),
+      }
+      // El alumno manda SOLO lo suyo. Ver `soloContenido`, arriba.
+      if (soloContenido) return worksRepo.update(id!, contenidoAcademico)
+
       const payload = {
         title: values.title,
         work_type_id: values.work_type_id,
@@ -166,13 +197,7 @@ export function WorkFormPage() {
         // fuese numérico, este mismo `? :` convertiría el cero en «sin
         // valorar», que es una afirmación bien distinta.
         progress_override: values.progress_override ? Number(values.progress_override) : null,
-        description: values.description || null,
-        objectives: values.objectives || null,
-        methodology: values.methodology || null,
-        keywords: (values.keywords ?? '')
-          .split(',')
-          .map((k) => k.trim())
-          .filter(Boolean),
+        ...contenidoAcademico,
       }
       if (isEdit) return worksRepo.update(id!, payload)
       if (!organizationId) throw new Error('No tienes una organización activa.')
@@ -256,7 +281,18 @@ export function WorkFormPage() {
         breadcrumb={[{ label: 'Trabajos', to: '/trabajos' }, { label: isEdit ? 'Editar' : 'Nuevo' }]}
       />
 
+      {/* Se dice lo que NO se puede cambiar, y por qué. Un formulario con
+          cuatro campos donde antes había veinte, sin explicación, se lee como
+          una pantalla a medio cargar. */}
+      {soloContenido && (
+        <p className="rounded-md border bg-muted/40 p-2.5 text-xs text-muted-foreground">
+          Esto es lo que escribes tú. El título, el tipo, el estado, las fechas y el progreso
+          los lleva la dirección del trabajo.
+        </p>
+      )}
+
       <form onSubmit={form.handleSubmit((v) => save.mutate(v))} className="space-y-4" noValidate>
+        {!soloContenido && (
         <Card>
           <CardHeader className="pb-3"><CardTitle className="text-sm">Datos principales</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -343,13 +379,14 @@ export function WorkFormPage() {
             </div>
           </CardContent>
         </Card>
+        )}
 
         {/* Seguimiento. SOLO AL EDITAR, y no por capricho: al crear un trabajo
             no hay nada que valorar todavía y una fecha de fin real recién
             nacida solo puede ser un error. Al editar son justo los dos campos
             que la ficha enseñaba sin dejar cambiarlos. El progreso se puede
             tocar además desde la propia ficha, que es donde se mira. */}
-        {isEdit && (
+        {isEdit && !soloContenido && (
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-sm">Seguimiento</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">

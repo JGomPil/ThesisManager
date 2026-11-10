@@ -47,12 +47,13 @@ import { CommentsThread } from '@/features/comments/comments-thread'
  * `meetings`, viajaría en el JSON de cualquier consulta de la reunión y
  * bastaría un descuido para pintarla.
  *
- * SOBRE EL PERMISO DE ESCRITURA: se usa `caps.canEditWork`, no
- * `caps.canManagePlan`. Es lo que refleja exactamente `meetings_write`,
- * `mparts_write` y `agreements_write`: supervisión del trabajo o
- * administración de la organización. `can_manage_plan` es otra cosa —un
- * colaborador puede tenerlo sin ser dirección— y usarlo aquí pintaría botones
- * que la base de datos rechazaría.
+ * SOBRE EL PERMISO DE ESCRITURA: se usa `caps.canManageMeetings`, que desde la
+ * 0030 incluye al ALUMNO del trabajo. Es lo que refleja exactamente
+ * `app.can_manage_meetings`, y no `caps.canManagePlan`: las tres políticas
+ * —`meetings_write`, `mparts_write` y `agreements_write`— miran a esa misma
+ * función, de modo que no pueden volver a separarse como pasó en la 0011.
+ * `can_manage_plan` es otra cosa —un colaborador puede tenerlo sin ser
+ * dirección ni alumno— y usarlo aquí pintaría botones que la base rechazaría.
  */
 export function MeetingsCard({
   work, caps, userId,
@@ -64,7 +65,7 @@ export function MeetingsCard({
   const [formOpen, setFormOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<MeetingWithDetail | null>(null)
   const [openId, setOpenId] = React.useState<string | null>(null)
-  const canEdit = caps.canEditWork
+  const canEdit = caps.canManageMeetings
 
   const meetings = useQuery({
     queryKey: qk.meetings.byWork(work.id),
@@ -198,7 +199,7 @@ function MeetingDetailDialog({
   const toast = useToast()
   const [newAgreement, setNewAgreement] = React.useState('')
   const [confirmDelete, setConfirmDelete] = React.useState(false)
-  const canEdit = caps.canEditWork
+  const canEdit = caps.canManageMeetings
 
   const invalidate = () => qc.invalidateQueries({ queryKey: qk.meetings.byWork(work.id) })
 

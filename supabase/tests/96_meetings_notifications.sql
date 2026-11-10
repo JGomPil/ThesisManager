@@ -249,28 +249,55 @@ begin
 end $$;
 reset role;
 
-\echo '[74] El estudiante NO puede convocar reuniones ni escribir acuerdos'
+-- CAMBIO DE DOCTRINA EN LA 0030. Esta prueba decia lo contrario: «el estudiante
+-- NO puede convocar reuniones ni escribir acuerdos». Pedir una reunion es la
+-- peticion mas corriente que hace quien esta haciendo el trabajo, y tener que
+-- pedirsela a su director por otro canal para que la apunte aqui convertia la
+-- agenda en papel mojado.
+--
+-- Lo que se anade es «y el estudiante», no «y cualquier miembro»: el permiso es
+-- de las dos partes del trabajo. Y la segunda mitad fija donde acaba, que es lo
+-- unico que `app.is_work_student` puede equivocarse: el trabajo. Un alumno es
+-- alumno de SU trabajo, no de los demas.
+--
+-- (El caso negativo no puede ser un colaborador, que era lo primero que parecia:
+-- COLLABORATOR lleva `is_supervisory` en el catalogo, asi que un colaborador ya
+-- convocaba reuniones desde la 0011. Es equipo de supervision, no un tercero.)
+\echo '[74] El estudiante SI convoca reuniones, y solo en su trabajo'
 do $$
+declare v_reunion uuid; v_colado boolean := false;
 begin
+  set local role authenticated;
+  perform set_config('test.uid','33333333-3333-3333-3333-333333333333', true);
+  insert into meetings (work_id, title, scheduled_at)
+  values ('bbbbbbbb-0000-0000-0000-000000000001', 'Reunion que pide el alumno', now())
+  returning id into v_reunion;
+  insert into meeting_agreements (meeting_id, work_id, description)
+  values (v_reunion, 'bbbbbbbb-0000-0000-0000-000000000001', 'Traer el analisis hecho');
+  reset role;
+
+  if not exists (select 1 from meeting_agreements where meeting_id = v_reunion) then
+    raise exception 'FALLO [74]: el estudiante no ha podido convocar y acordar';
+  end if;
+  raise notice 'CORRECTO: convocar es de las dos partes del trabajo';
+
+  -- El mismo alumno, en TESIS-02, donde no es nada. Si `app.is_work_student` se
+  -- hubiera escrito sin mirar el trabajo —«tiene alguna funcion de estudiante»—
+  -- esto pasaria, y no daria ningun error en ninguna pantalla.
   set local role authenticated;
   perform set_config('test.uid','33333333-3333-3333-3333-333333333333', true);
   begin
     insert into meetings (work_id, title, scheduled_at)
-    values ('bbbbbbbb-0000-0000-0000-000000000001', 'Reunion del alumno', now());
-    raise exception 'FALLO [74]: el estudiante ha convocado una reunion';
-  exception
-    when insufficient_privilege then
-      raise notice 'CORRECTO: convocar es acto de supervision';
+    values ('bbbbbbbb-0000-0000-0000-000000000002', 'Reunion en trabajo ajeno', now());
+    v_colado := true;
+  exception when insufficient_privilege then null;
   end;
-  begin
-    insert into meeting_agreements (meeting_id, work_id, description)
-    values (current_setting('test.meeting')::uuid,
-            'bbbbbbbb-0000-0000-0000-000000000001', 'Acuerdo que me invento');
-    raise exception 'FALLO [74]: el estudiante ha escrito un acuerdo';
-  exception
-    when insufficient_privilege then
-      raise notice 'CORRECTO: los acuerdos los fija la direccion';
-  end;
+  reset role;
+
+  if v_colado then
+    raise exception 'FALLO DE SEGURIDAD [74]: ha convocado una reunion en un trabajo ajeno';
+  end if;
+  raise notice 'CORRECTO: y solo en el suyo';
 end $$;
 reset role;
 

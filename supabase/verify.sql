@@ -246,7 +246,10 @@ with comprobaciones as (
   --           reescribe entera en cada migracion que la toca, y perder un campo
   --           por el camino no da ningun error. Solo deja que cualquiera repinte
   --           el plan.
-  select 18, 'migracion 0026: el color de una tarea lo pone quien planifica',
+  --           Desde la 0030 el responsable pinta la SUYA, porque sale antes del
+  --           disparador; esta comprobacion sigue valiendo para todos los demas,
+  --           que es donde estaba el riesgo.
+  select 18, 'migracion 0026: el color de una tarea no lo pinta un tercero',
          case when (select count(*) from information_schema.columns
                      where table_schema = 'public' and table_name = 'tasks'
                        and column_name = 'color') = 1
@@ -305,7 +308,36 @@ with comprobaciones as (
              and tgname = 'enforce_comment_immutable')
 
   union all
+  -- 5.decies La 0030: lo que el alumno puede hacer en su trabajo. Si faltara,
+  --          `works_update` dejaria entrar al alumno sin que nada limitara
+  --          QUE COLUMNAS toca, y el progreso «a juicio de la direccion» y el
+  --          estado del trabajo quedarian a su alcance. Se calla.
+  select 21, 'migracion 0030: el alumno participa, y el expediente no',
+         case when (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                     where n.nspname = 'app'
+                       and p.proname in ('is_work_student','can_manage_meetings',
+                                         'is_checklist_point_of_mine','enforce_work_update_scope')) = 4
+                   and (select count(*) from pg_trigger
+                         where tgrelid = 'public.academic_works'::regclass
+                           and tgname = 'enforce_work_update_scope') = 1
+              then 'OK' else 'FALLO' end,
+         (select case when count(*) = 1 then 'el contenido academico esta acotado'
+                      else 'EL ALUMNO PODRIA TOCAR EL EXPEDIENTE ENTERO' end
+            from pg_trigger where tgrelid = 'public.academic_works'::regclass
+             and tgname = 'enforce_work_update_scope')
+         || ' · ' ||
+         (select case when count(*) = 3 then 'las tres funciones de alcance, puestas'
+                      else 'FALTA ALGUNA FUNCION DE LA 0030' end
+            from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'app'
+             and p.proname in ('is_work_student','can_manage_meetings','is_checklist_point_of_mine'))
+
+  union all
   -- 6. Y que ningun rol tenga capacidades que no deba: el estudiante, ninguna.
+  --    SIGUE SIENDO VERDAD despues de la 0030: lo que esa migracion concede no
+  --    pasa por los flags del catalogo de roles, sino por ser EL ALUMNO DE ESE
+  --    TRABAJO. El rol en si no gana ninguna capacidad, que es lo que permite
+  --    que esta comprobacion siga teniendo sentido.
   select 10, 'el rol de estudiante no tiene capacidades',
          case when count(*) = 0 then 'OK' else 'FALLO' end,
          case when count(*) = 0 then 'correcto'

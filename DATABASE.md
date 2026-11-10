@@ -213,6 +213,16 @@ del mismo trabajo.
 - `documents` + `document_versions` (`version_label`, `external_url`, `storage_path` NULL,
   `review_status`, `submitted_at`) + `document_comments`. Se prioriza `external_url` a Drive/OneDrive;
   `storage_path` queda para adjuntos pequeños.
+- **El alumno participa en su trabajo** (`0030`): `app.is_work_student(work)` —pertenencia activa
+  con función de estudiante, en **ese** trabajo— entra en `milestones_write`, en la nueva
+  `app.can_manage_meetings(work)` (a la que miran ahora las tres políticas de reuniones, que en la
+  `0011` estaban escritas por separado y ya se habían desincronizado una vez) y en `works_update`,
+  con `app.enforce_work_update_scope()` limitando por **lista blanca** qué columnas de
+  `academic_works` puede escribir: descripción, objetivos, hipótesis, metodología y palabras clave.
+  Lista blanca y no negra a propósito: una columna nueva nace protegida. En `tasks`,
+  `app.is_checklist_point_of_mine(parent, work)` deja al responsable de una tarea **añadir** puntos
+  a su lista, y el disparador de alcance le deja escribirla entera **menos archivar**, porque lo
+  archivado solo lo ve quien planifica y la fila dejaría de ser visible para quien la archiva.
 - `comments` polimórfico controlado: `work_id` obligatorio + `entity_type` (`WORK`/`TASK`/`DOCUMENT`/
   `MEETING`) + `entity_id`, `parent_comment_id`, `mentions uuid[]`. `work_id` siempre presente es lo
   que permite una política RLS única y eficiente para todos los comentarios.

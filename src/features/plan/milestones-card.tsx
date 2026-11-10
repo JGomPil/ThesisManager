@@ -109,7 +109,7 @@ export function MilestonesCard({
         ) : rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Sin hitos.{' '}
-            {caps.canManagePlan
+            {caps.canManageMilestones
               ? 'Un hito es una fecha que hay que cumplir: depósito, defensa, envío de un artículo.'
               : 'La dirección los fija; aquí los verás con su fecha.'}
           </p>
@@ -125,7 +125,7 @@ export function MilestonesCard({
                     type="checkbox"
                     className="mt-0.5 size-4 rounded border-input"
                     checked={h.is_met}
-                    disabled={!caps.canManagePlan || marcar.isPending}
+                    disabled={!caps.canManageMilestones || marcar.isPending}
                     onChange={(e) => marcar.mutate({ id: h.id, met: e.target.checked })}
                   />
                   <label htmlFor={`hito-${h.id}`} className="min-w-0 flex-1">
@@ -145,7 +145,7 @@ export function MilestonesCard({
                       )}
                     </span>
                   </label>
-                  {caps.canManagePlan && (
+                  {caps.canManageMilestones && (
                     <>
                       {/* `shrink-0`: la tarjeta de hitos vive en la columna
                           estrecha, y sin esto los dos botones se aplastan
@@ -171,7 +171,7 @@ export function MilestonesCard({
           </ul>
         )}
 
-        {caps.canManagePlan && (
+        {caps.canManageMilestones && (
           <form
             className="space-y-2 border-t pt-3"
             onSubmit={(e) => {
