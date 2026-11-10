@@ -248,7 +248,22 @@ del mismo trabajo.
   menciones no se repiten al editar: `comments_notify_mentions` es `after insert`.
   El contenido es **texto con marcas** (`**negrita**`, `- punto`), nunca HTML: ver
   `src/domain/comments/markup.ts`.
-- `notifications`: `user_id`, `work_id`, `type`, `title`, `body`, `link`, `read_at`.
+- `notifications`: `user_id`, `work_id`, `type`, `title`, `body`, `link`, `read_at`, y desde la
+  `0032` **`dedupe_key`** (indice unico parcial) y **`pushed_at`**. `dedupe_key` es lo que permite
+  ejecutar los recordatorios de fecha cada hora sin repetirlos, y lleva la fecha dentro: si una
+  tarea se mueve de dia, el recordatorio vuelve a tener sentido y se manda otro. `pushed_at` lo
+  escribe el reparto, no la pantalla: distingue «esta en la campana» de «ha sonado en el movil».
+  Sigue **sin politica de INSERT**: los avisos los crean disparadores (`0011`, `0032`) y la funcion
+  de fechas, nunca el cliente.
+- **Los avisos salen al dispositivo** (`0032`): `push_subscriptions` (una fila **por dispositivo**,
+  con el `endpoint` como clave natural y las claves publicas `p256dh`/`auth_key`) y
+  `notification_prefs` (`on_dates`, `on_comments`, `days_before` por persona; **la ausencia de fila
+  significa «todo encendido»**, porque «no he dicho nada» no es «no quiero»). Los dos avisos nuevos
+  son `app.notify_comment_reply()` —alguien comenta en tu tarjeta o en un hilo donde ya escribiste,
+  que hasta ahora solo avisaba con mencion explicita— y `app.encolar_avisos_de_fechas()`, que no
+  puede ser un disparador porque **el dia que una fecha se acerca no ocurre nada en la base de
+  datos**. El reparto lo hace un workflow con un token acotado, nunca `service_role`: ver
+  SECURITY.md §5.2.tertricies.
 - `activity_logs`: `work_id`, `actor_id`, `action`, `entity_type`, `entity_id`, `diff jsonb`.
   Alimentado por *triggers* en las tablas relevantes.
 - `templates` (**`work_type_id`** ▸ `work_types`) + `template_tasks` (`offset_days`,

@@ -365,6 +365,52 @@ with comprobaciones as (
              and tgname = 'enforce_comment_immutable')
 
   union all
+  -- 5.duodecies La 0032: los avisos llegan al movil. Tres cosas que se rompen
+  --             sin dar error. Que la lista de dispositivos siga siendo privada
+  --             (dice donde esta cada persona). Que las cuatro puertas del
+  --             cartero -abiertas al rol `anon`, o sea a cualquiera con la
+  --             clave publica- sigan pidiendo el token: sin esa linea se leeria
+  --             el buzon entero del grupo. Y que EXISTA el token, porque sin el
+  --             el reparto no falla: simplemente no reparte, y nadie se entera.
+  select 23, 'migracion 0032: los avisos salen al movil, y solo con el token del cartero',
+         case when (select count(*) from pg_policies where tablename = 'push_subscriptions') = 4
+                   and (select count(*) from pg_policies
+                         where tablename = 'push_subscriptions'
+                           and coalesce(qual,'') || coalesce(with_check,'') like '%app.uid()%') = 4
+                   and (select count(*) from pg_indexes
+                         where tablename = 'notifications'
+                           and indexname = 'notifications_dedupe_uidx') = 1
+                   and (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                         where n.nspname = 'app'
+                           and p.proname in ('avisos_por_enviar','avisos_entregados',
+                                             'suscripcion_muerta','encolar_avisos')
+                           and pg_get_functiondef(p.oid) like '%es_el_cartero(p_token)%') = 4
+                   and (select count(*) from pg_trigger
+                         where tgrelid = 'public.comments'::regclass
+                           and tgname = 'comments_notify_reply') = 1
+                   and not exists (select 1 from pg_policies
+                                    where schemaname = 'app' and tablename = 'secretos')
+                   and exists (select 1 from app.secretos where nombre = 'cartero')
+              then 'OK' else 'FALLO' end,
+         (select case when count(*) = 4 then 'las cuatro puertas piden el token'
+                      else 'UNA PUERTA DEL CARTERO NO PIDE EL TOKEN: EL BUZON DEL GRUPO ESTA ABIERTO' end
+            from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'app'
+             and p.proname in ('avisos_por_enviar','avisos_entregados',
+                               'suscripcion_muerta','encolar_avisos')
+             and pg_get_functiondef(p.oid) like '%es_el_cartero(p_token)%')
+         || ' · ' ||
+         (select case when count(*) = 4 then 'los dispositivos, de cada uno'
+                      else 'LA LISTA DE DISPOSITIVOS NO ESTA PROTEGIDA' end
+            from pg_policies
+           where tablename = 'push_subscriptions'
+             and coalesce(qual,'') || coalesce(with_check,'') like '%app.uid()%')
+         || ' · ' ||
+         (select case when count(*) = 1 then 'el token esta puesto'
+                      else 'FALTA EL TOKEN: ejecuta select app.nuevo_token_del_cartero()' end
+            from app.secretos where nombre = 'cartero')
+
+  union all
   -- 6. Y que ningun rol tenga capacidades que no deba: el estudiante, ninguna.
   --    SIGUE SIENDO VERDAD despues de la 0030: lo que esa migracion concede no
   --    pasa por los flags del catalogo de roles, sino por ser EL ALUMNO DE ESE

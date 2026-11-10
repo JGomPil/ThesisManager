@@ -1240,6 +1240,65 @@ un plan que no dirige. Lo fija la prueba `[187]`, cuya primera version estaba **
 usaba al investigador que es codirector del otro trabajo, o sea que si planificaba los dos. Fallo, y
 lo que estaba mal era la prueba.
 
+### 5.2.tertricies · Quien reparte los avisos no puede tener la llave maestra
+
+La `0032` saca los avisos de la campana al movil y al ordenador, y eso obliga a que **algo de fuera
+lea avisos de otras personas** para repartirlos. Firmar un «push» exige una clave privada (VAPID) y
+cifrar el contenido para cada dispositivo: no se puede hacer desde el navegador —la clave acabaria
+en el bundle, que es publico— ni desde un disparador de PostgreSQL, que no sabe firmar ECDSA. Lo
+hace un workflow de GitHub Actions cada hora, como el `keepalive.yml`.
+
+LA FORMA FACIL ERA LA CLAVE `service_role`, y este proyecto la tiene prohibida desde el primer dia
+(`keepalive.yml`: «usa EXCLUSIVAMENTE la clave anon. Nunca service_role»). Con razon: esa clave se
+salta RLS **entera**, de modo que una fuga no se queda en los avisos, se lleva el expediente
+academico del grupo y los datos personales de todo el mundo. Y una clave que esta en los secretos de
+un repositorio esta a una confusion de distancia de estar en un log.
+
+ASI QUE EL CARTERO NO TIENE LLAVE MAESTRA: tiene un token que abre cuatro puertas estrechas.
+
+| | |
+|---|---|
+| `avisos_por_enviar` | lo pendiente de las ultimas 72 h, sin leer, con el endpoint del dispositivo |
+| `avisos_entregados` | marcar `pushed_at`, nada mas |
+| `suscripcion_muerta` | borrar la suscripcion de un dispositivo que ya no existe (404/410) |
+| `encolar_avisos` | pedir que se miren las fechas |
+
+Del token se guarda **solo su `sha256`**, en `app.secretos`, igual que una contrasena: ni la
+migracion ni quien la escribio lo conocen. Se genera con `select app.nuevo_token_del_cartero();` y
+lo que devuelve se copia a los secretos de GitHub. Se revoca volviendo a ejecutar esa linea.
+
+`app.secretos` vive en el esquema `app`, que **PostgREST no publica**, y ademas lleva RLS con **cero
+politicas**, que es como se escribe «nadie, nunca». Las funciones de aqui arriba la leen porque son
+`security definer` y corren como su propietario.
+
+LO QUE HAY QUE TENER CLARO, Y NO ESCONDER: esas cuatro funciones viven en `public` y estan
+concedidas al rol **`anon`**, porque el cartero llama con la clave anon, que es publica y va en el
+bundle. O sea que la unica cosa entre un desconocido y el texto de los avisos pendientes es el
+token. Por eso:
+
+- son 244 bits aleatorios (dos `gen_random_uuid`), no se adivinan;
+- la ventana es de 72 horas, asi que un token filtrado no abre el historico;
+- `authenticated` **no** las puede ejecutar. Hay que revocarlo a mano, uno a uno: tanto Supabase
+  como el arnes de pruebas fijan privilegios por omision que conceden todas las funciones nuevas de
+  `public` a `anon` y a `authenticated`, y `revoke ... from public` quita el pseudo-rol PUBLIC
+  **dejando intacta la concesion explicita**. Es la misma trampa de la §5.2.decies, por el otro lado;
+- `verify.sql` (23) comprueba que las cuatro sigan conteniendo `es_el_cartero(p_token)`. Son
+  `security definer`: si esa linea desapareciera, no fallaria nada, simplemente quedaria el buzon
+  del grupo abierto a cualquiera con la clave publica. La prueba `[191]` lo intenta de verdad, con
+  un token falso de la longitud correcta.
+
+Y UNA DECISION DE PRODUCTO QUE TAMBIEN ES DE SEGURIDAD: la lista de dispositivos
+(`push_subscriptions`) es de cada persona y **no tiene excepcion para la administracion de la
+organizacion**. No hace falta para gestionar nada academico; dice donde esta cada uno y con que
+trabaja; y quien pudiera escribir en ella podria hacer sonar el movil de otro con el texto que
+quisiera. Lo fija la prueba `[190]`, que comprueba las tres cosas por separado —ver, escribir a
+nombre de otro y borrar lo de otro—, porque un `delete` que RLS filtra **no da error**: devuelve
+cero filas, que es la trampa de la §5.2.quatervicies.
+
+TAMPOCO SE AVISA DE LO PRIVADO. La `0011` ya lo decia de las notas de direccion: avisar de que
+existe una nota privada la filtra, porque el aviso revela que esta ahi. La `0032` no cambia esa
+regla y no anade ningun disparador sobre `meeting_private_notes`.
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.
