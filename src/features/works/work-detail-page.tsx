@@ -346,9 +346,11 @@ export function WorkDetailPage() {
                   {caps.isStudent && (
                     <li className="text-xs">
                       Como estudiante escribes el contenido académico, tus hitos, las reuniones y
-                      las tareas que tengas asignadas, con su lista de comprobación. No llevas el
-                      estado del trabajo, las fechas, el progreso —que lo valora la dirección—,
-                      quién es responsable de cada tarea ni las notas privadas de supervisión.
+                      las tareas que tengas asignadas, añadiendo y corrigiendo los puntos de su
+                      lista. No llevas el estado del trabajo, las fechas, el progreso —que lo
+                      valora la dirección—, quién es responsable de cada tarea, las notas privadas
+                      de supervisión, ni quitas nada del plan: lo quitado va a una papelera que
+                      abre quien planifica.
                     </li>
                   )}
                 </ul>
