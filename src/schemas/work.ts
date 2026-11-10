@@ -102,6 +102,9 @@ export const workTypeFormSchema = z.object({
   requires_program: z.boolean(),
   allows_multiple_students: z.boolean(),
   counts_toward_workload: z.boolean(),
+  // Cadena vacía = «ninguna». El `<select>` no sabe de nulos, así que la
+  // conversión se hace al guardar, en un solo sitio.
+  default_template_id: z.string().optional(),
   notes: z.string().max(1000).optional(),
 })
 

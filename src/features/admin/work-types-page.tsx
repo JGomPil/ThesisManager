@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Eye, EyeOff, ListChecks, Pencil, Plus } from 'lucide-react'
 import { PageHeader } from '@/app/layout/app-shell'
 import { Button } from '@/components/ui/button'
@@ -20,6 +20,7 @@ import { qk } from '@/lib/query-keys'
 import { errorMessage } from '@/lib/supabase'
 import { TONES } from '@/lib/utils'
 import { catalogsRepo } from '@/data/repositories/catalogs.repo'
+import { templatesRepo } from '@/data/repositories/templates.repo'
 import { useAcademicLevels, useWorkTypeStatuses, useWorkTypes } from '@/hooks/use-catalogs'
 import { useAuth } from '@/features/auth/auth-context'
 import { WorkTypeStatusesDialog } from '@/features/admin/work-type-statuses-dialog'
@@ -251,7 +252,8 @@ function WorkTypeDialog({
       code: '', name: '', short_name: '', academic_level: 'GRADO', color: 'blue',
       display_order: 10, default_duration_months: 9,
       requires_defense: true, requires_deposit: true, requires_program: true,
-      allows_multiple_students: false, counts_toward_workload: true, notes: '',
+      allows_multiple_students: false, counts_toward_workload: true,
+      default_template_id: '', notes: '',
     },
   })
 
@@ -271,6 +273,7 @@ function WorkTypeDialog({
         requires_program: workType.requires_program,
         allows_multiple_students: workType.allows_multiple_students,
         counts_toward_workload: workType.counts_toward_workload,
+        default_template_id: workType.default_template_id ?? '',
         notes: workType.notes ?? '',
       })
     } else {
@@ -278,9 +281,26 @@ function WorkTypeDialog({
     }
   }, [open, workType, form])
 
+  /**
+   * Plantillas aplicables a ESTE tipo, para poder marcar la normal.
+   *
+   * Solo al editar: una plantilla se crea apuntando a un tipo, así que un tipo
+   * que todavía no existe no puede tener ninguna. Enseñar aquí un desplegable
+   * vacío al crear sería prometer algo que no se puede hacer todavía.
+   */
+  const plantillas = useQuery({
+    queryKey: qk.templates.forWorkType(workType?.id ?? ''),
+    queryFn: () => templatesRepo.forWorkType(workType!.id),
+    enabled: open && isEdit,
+  })
+
   const save = useMutation({
     mutationFn: (values: WorkTypeFormValues) => {
-      const payload = { ...values, notes: values.notes || null }
+      const payload = {
+        ...values,
+        notes: values.notes || null,
+        default_template_id: values.default_template_id || null,
+      }
       if (isEdit) return catalogsRepo.updateWorkType(workType.id, payload)
       if (!organizationId) throw new Error('No tienes una organización activa.')
       return catalogsRepo.createWorkType({ ...payload, organization_id: organizationId })
@@ -379,6 +399,27 @@ function WorkTypeDialog({
             <Check name="allows_multiple_students" form={form} label="Admite varios estudiantes" hint="Trabajos compartidos" />
             <Check name="counts_toward_workload" form={form} label="Computa en la carga de supervisión" />
           </fieldset>
+
+          {/* LA PLANTILLA NORMAL DEL TIPO. Viene PRESELECCIONADA al crear un
+              trabajo de este tipo, no se aplica sola: aplicarla sin preguntar
+              ahorra un clic y, el día que un trabajo no siga el guion, lo hace
+              nacer con quince tareas que hay que ir borrando a mano. */}
+          {isEdit && (
+            <div>
+              <Label htmlFor="wt-template">Plantilla por omisión</Label>
+              <Select id="wt-template" className="mt-1.5" {...form.register('default_template_id')}>
+                <option value="">Ninguna</option>
+                {(plantillas.data ?? []).map((t) => (
+                  <option key={t.id} value={t.id}>{t.name} · {t.tasks.length} tarea(s)</option>
+                ))}
+              </Select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {(plantillas.data ?? []).length === 0
+                  ? 'Todavía no hay plantillas para este tipo. Se crean en Administración → Plantillas.'
+                  : 'Vendrá ya elegida al crear un trabajo de este tipo. Quien lo cree decide si la aplica.'}
+              </p>
+            </div>
+          )}
 
           <div>
             <Label htmlFor="wt-notes">Notas internas</Label>

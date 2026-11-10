@@ -86,7 +86,6 @@ PENDIENTES = {
     # (`max_supervisors` estaba aqui y salio de la lista el 10-11-2026: ahora
     # avisa al anadir a la direccion. La salida de esta lista la canto el propio
     # guion, que avisa de las excepciones que sobran.)
-    'work_types.default_template_id':  'plantilla por omision del tipo: no se puede elegir ni se aplica sola',
 }
 
 sql = ''.join(io.open(f, encoding='utf-8').read() for f in sorted(glob.glob('supabase/migrations/*.sql')))

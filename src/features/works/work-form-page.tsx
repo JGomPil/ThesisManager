@@ -22,6 +22,7 @@ import {
 } from '@/hooks/use-catalogs'
 import { peopleRepo } from '@/data/repositories/people.repo'
 import { templatesRepo } from '@/data/repositories/templates.repo'
+import { plantillaAlCambiarDeTipo } from '@/domain/works/plantilla-por-omision'
 import { statusesForWorkType } from '@/domain/works/statuses'
 import { workFormSchema, type WorkFormValues } from '@/schemas/work'
 import { useAuth } from '@/features/auth/auth-context'
@@ -154,10 +155,34 @@ export function WorkFormPage() {
     enabled: !isEdit && Boolean(selectedTypeId),
   })
 
-  // Cambiar el tipo de trabajo invalida la plantilla elegida: una plantilla de
-  // TFG no se puede aplicar a una tesis, y `app.apply_template` la rechazaría
-  // (prueba [86]). Mejor que desaparezca de la vista que ofrecer algo que va a
-  // fallar al guardar.
+  /**
+   * Al elegir un tipo, su plantilla normal viene ya puesta.
+   *
+   * SE PRESELECCIONA, NO SE APLICA SOLA: el botón sigue siendo de quien crea
+   * el trabajo. Y si la marcada en el catálogo no está entre las aplicables
+   * —la retiraron, o es de otro tipo— se queda en «Empezar sin plan», porque
+   * `app.apply_template` la rechazaría al guardar (prueba [86]).
+   *
+   * EL `ref` NO SOBRA. Esto tiene que correr UNA VEZ POR TIPO, no cada vez que
+   * la consulta devuelve datos: sin él, a quien eligiera «Empezar sin plan» le
+   * reaparecería la plantilla sola en cuanto se refrescara la lista, y no
+   * habría forma de crear un trabajo sin plan.
+   */
+  const preseleccionadaPara = React.useRef<string | null>(null)
+  React.useEffect(() => {
+    if (isEdit || !selectedTypeId || plantillas.data === undefined) return
+    if (preseleccionadaPara.current === selectedTypeId) return
+    preseleccionadaPara.current = selectedTypeId
+    form.setValue(
+      'template_id',
+      plantillaAlCambiarDeTipo(plantillas.data, selectedType?.default_template_id ?? null),
+    )
+  }, [plantillas.data, selectedTypeId, selectedType, isEdit, form])
+
+  // Y aparte de lo anterior: si la plantilla ELEGIDA A MANO deja de ser
+  // aplicable, desaparece. Una plantilla de TFG no se puede aplicar a una
+  // tesis, y `app.apply_template` la rechazaría al guardar. Mejor que se
+  // quite de la vista que ofrecer algo que va a fallar.
   React.useEffect(() => {
     if (isEdit) return
     const elegida = form.getValues('template_id')
@@ -532,6 +557,20 @@ export function WorkFormPage() {
                           }. Puedes cambiarlas después una a una.`
                         : 'Si eliges una, el plan se crea con el trabajo. Es el único momento en que se aplica una plantilla: después, las tareas se añaden a mano desde el plan de trabajo.'}
               </p>
+
+              {/*
+                Por qué aparece algo ya elegido sin haberlo tocado. Encontrarse
+                una plantilla puesta sin explicacion desconcierta, y lo primero
+                que se piensa es que ya se ha aplicado. Se dice de donde viene y
+                que se puede quitar.
+              */}
+              {plantillaElegida && plantillaElegida.id === selectedType?.default_template_id && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Viene puesta porque es la plantilla habitual de
+                  {selectedType?.name ? ` «${selectedType.name}»` : ' este tipo'}. Puedes cambiarla
+                  o dejarlo en «Empezar sin plan»; nada se crea hasta que guardes.
+                </p>
+              )}
 
               {plantillaElegida && plantillaElegida.tasks.length > 0 && (
                 <ul className="mt-2 space-y-0.5 text-xs text-muted-foreground">

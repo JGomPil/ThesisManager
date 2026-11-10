@@ -72,7 +72,7 @@ desde la interfaz de administración, no con tipos `ENUM` de PostgreSQL.
 | `requires_program` | bool | Si exige titulación/programa asociado |
 | `allows_multiple_students` | bool | Trabajos compartidos |
 | `max_supervisors` | int NULL | Límite de supervisores (validación de aplicación) |
-| `default_template_id` | uuid FK NULL ▸ `templates` | Plantilla de tareas por defecto |
+| `default_template_id` | uuid FK NULL ▸ `templates` | Plantilla habitual del tipo. Se marca al editar el tipo y viene PRESELECCIONADA al crear un trabajo de ese tipo; no se aplica sola |
 | `counts_toward_workload` | bool | Si computa en los indicadores de carga de supervisión |
 | `notes` | text NULL | |
 
