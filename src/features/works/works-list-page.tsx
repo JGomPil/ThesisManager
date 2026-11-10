@@ -52,6 +52,10 @@ export function WorksListPage() {
   const estado = params.get('estado') ?? ''
   const curso = params.get('curso') ?? ''
   const contexto = params.get('contexto') ?? ''
+  // Por omisión NO se ven los cerrados: lo que se le pregunta a esta pantalla
+  // es qué hay en marcha. Quien quiera el histórico lo pide, y entonces el
+  // enlace lo lleva, como el resto de filtros.
+  const verCerrados = params.get('cerrados') === 'si'
   const q = params.get('q') ?? ''
   /**
    * EL ORDEN VIVE EN LA URL, como los filtros de al lado y por lo mismo: el
@@ -78,6 +82,7 @@ export function WorksListPage() {
     statusId: estado || undefined,
     academicYearId: curso || undefined,
     search: q || undefined,
+    onlyActive: !verCerrados,
   }
   const works = useQuery({ queryKey: qk.works.list(filters), queryFn: () => worksRepo.list(filters) })
 
@@ -216,6 +221,15 @@ export function WorksListPage() {
               <option key={y.id} value={y.id}>{y.code}</option>
             ))}
           </Select>
+
+          <Select
+            value={verCerrados ? 'si' : 'no'}
+            onChange={(e) => setParam('cerrados', e.target.value === 'si' ? 'si' : '')}
+            aria-label="Trabajos terminados"
+          >
+            <option value="no">Solo en marcha</option>
+            <option value="si">Incluir los terminados</option>
+          </Select>
         </div>
       </Card>
 
@@ -280,6 +294,7 @@ export function WorksListPage() {
                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                   <ToneBadge tone={w.work_type?.color ?? null}>{w.work_type?.short_name}</ToneBadge>
                   <ToneBadge tone={w.status?.color ?? null}>{w.status?.name}</ToneBadge>
+                  {w.is_archived && <ToneBadge tone="slate">Terminado</ToneBadge>}
                 </div>
 
                 <dl className="mt-2 space-y-0.5 text-sm text-muted-foreground">
@@ -331,7 +346,13 @@ export function WorksListPage() {
                       </Link>
                     </TableCell>
                     <TableCell><ToneBadge tone={w.work_type?.color ?? null}>{w.work_type?.short_name}</ToneBadge></TableCell>
-                    <TableCell><ToneBadge tone={w.status?.color ?? null}>{w.status?.name}</ToneBadge></TableCell>
+                    <TableCell>
+                      <ToneBadge tone={w.status?.color ?? null}>{w.status?.name}</ToneBadge>
+                      {/* El estado es del catálogo —«Defendido», «En curso»— y
+                          esto es otra cosa: si el trabajo sigue contando. Se
+                          puede estar defendido y no cerrado todavía. */}
+                      {w.is_archived && <ToneBadge tone="slate" className="ml-1.5">Terminado</ToneBadge>}
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{estudiantes}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{direccion}</TableCell>
                     <TableCell className="text-sm">

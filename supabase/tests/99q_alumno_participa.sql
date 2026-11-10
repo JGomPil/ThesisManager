@@ -186,6 +186,26 @@ begin
                is distinct from v_estado then
     raise exception 'FALLO DE SEGURIDAD [184]: el alumno ha cambiado el estado del trabajo';
   end if;
+  -- CERRAR EL TRABAJO (`is_archived`): decide si el trabajo sigue contando
+  -- como vivo en el panel y en los informes. Es el ultimo acto de dirigirlo,
+  -- no de hacerlo. Se comprueba aqui y no en una prueba nueva porque es
+  -- exactamente lo que la lista blanca promete: una columna que no esta en
+  -- ella queda fuera sin que nadie tenga que acordarse de anadirla.
+  v_toco := false;
+  set local role authenticated;
+  perform set_config('test.uid','33333333-3333-3333-3333-333333333333', true);
+  begin
+    update academic_works set is_archived = true
+     where id = 'bbbbbbbb-0000-0000-0000-000000000001';
+    v_toco := true;
+  exception when others then null;
+  end;
+  reset role;
+  if v_toco or (select is_archived from academic_works
+                 where id = 'bbbbbbbb-0000-0000-0000-000000000001') then
+    raise exception 'FALLO DE SEGURIDAD [184]: el alumno ha dado por terminado su trabajo';
+  end if;
+
   raise notice 'CORRECTO [184]';
 end $$;
 reset role;

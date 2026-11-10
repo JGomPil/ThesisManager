@@ -79,7 +79,7 @@ export function WorkFormPage() {
       title: '', work_type_id: '', status_id: '', program_id: '', academic_year_id: '',
       research_line_id: '', start_date: '', expected_end_date: '',
       actual_end_date: '', defense_date: '', progress_override: '',
-      description: '', objectives: '', methodology: '', keywords: '',
+      description: '', objectives: '', hypothesis: '', methodology: '', keywords: '',
       supervisor_id: '', student_id: '', template_id: '',
     },
   })
@@ -111,6 +111,7 @@ export function WorkFormPage() {
       progress_override: w.progress_override === null ? '' : String(w.progress_override),
       description: w.description ?? '',
       objectives: w.objectives ?? '',
+      hypothesis: w.hypothesis ?? '',
       methodology: w.methodology ?? '',
       keywords: w.keywords.join(', '),
     })
@@ -172,6 +173,7 @@ export function WorkFormPage() {
       const contenidoAcademico = {
         description: values.description || null,
         objectives: values.objectives || null,
+        hypothesis: values.hypothesis || null,
         methodology: values.methodology || null,
         keywords: (values.keywords ?? '')
           .split(',')
@@ -587,6 +589,32 @@ export function WorkFormPage() {
               render={({ field }) => (
                 <MarkupEditor
                   id="objectives"
+                  className="mt-1.5"
+                  rows={3}
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                />
+              )}
+            />
+            </div>
+            <div>
+              {/* LA HIPÓTESIS existía en `academic_works` desde la 0002 y no
+                  había ningún campo que la escribiera: el dato estaba en la
+                  base, la `0030` ya se lo permitía al alumno, y no se podía
+                  teclear en ninguna parte. Es el mismo descuido que tuvieron
+                  la fecha de defensa y el progreso académico. Va entre los
+                  objetivos y la metodología porque ese es el orden en que se
+                  piensa un trabajo: qué quiero conseguir, qué sospecho, cómo
+                  lo compruebo. Opcional, porque un TFG de desarrollo puede no
+                  tener ninguna. */}
+              <Label htmlFor="hypothesis">Hipótesis</Label>
+            <Controller
+              control={form.control}
+              name="hypothesis"
+              render={({ field }) => (
+                <MarkupEditor
+                  id="hypothesis"
                   className="mt-1.5"
                   rows={3}
                   value={field.value ?? ''}

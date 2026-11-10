@@ -24,6 +24,7 @@
     "check:shell": "./scripts/check-shell-quoting.sh",
     "check:grids": "./scripts/check-grids.sh",
     "check:pwa": "./scripts/check-pwa.sh",
+    "check:columnas": "./scripts/check-columnas-huerfanas.sh",
     "icons": "python3 scripts/make-icons.py"
   },
   "dependencies": {

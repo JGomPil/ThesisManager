@@ -43,6 +43,7 @@ export const workFormSchema = z
       .optional(),
     description: z.string().max(5000).optional(),
     objectives: z.string().max(5000).optional(),
+    hypothesis: z.string().max(5000).optional(),
     methodology: z.string().max(5000).optional(),
     keywords: z.string().optional(),
     // Participantes iniciales. Solo se usan al CREAR: en la edición los

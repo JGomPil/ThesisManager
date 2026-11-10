@@ -71,6 +71,8 @@ export const worksRepo = {
     if (filters.workTypeId) q = q.eq('work_type_id', filters.workTypeId)
     if (filters.statusId) q = q.eq('status_id', filters.statusId)
     if (filters.academicYearId) q = q.eq('academic_year_id', filters.academicYearId)
+    // `onlyActive` = sin los trabajos CERRADOS (`is_archived`), no sin los de
+    // la papelera: eso lo quita el `is('deleted_at', null)` de arriba, siempre.
     if (filters.onlyActive) q = q.eq('is_archived', false)
     if (filters.search?.trim()) q = q.ilike('title', `%${filters.search.trim()}%`)
 
@@ -95,6 +97,37 @@ export const worksRepo = {
     const { data, error } = await supabase.from('academic_works').update(patch).eq('id', id).select('*').single()
     if (error) throw error
     return data
+  },
+
+  /**
+   * CERRAR un trabajo terminado. No confundir con `archive`, que está justo
+   * debajo y es otra cosa: aquello es la papelera administrativa (`deleted_at`)
+   * y esto es «este trabajo ya está hecho».
+   *
+   * POR QUÉ HACÍA FALTA. `is_archived` existe desde la 0002 y se LEÍA en tres
+   * sitios —el panel, los informes y este repositorio— sin que nada la
+   * escribiera nunca. O sea que el filtro «solo activos» no filtraba nada y el
+   * selector «Incluir archivados» de Informes no hacía nada: un director con
+   * cinco años de TFG los veía todos contados como si siguieran en marcha, y
+   * «Necesita atención» avisaba de tesis defendidas hace dos cursos. No daba
+   * ningún error; simplemente respondía otra pregunta.
+   *
+   * Un trabajo cerrado NO desaparece: sigue en el listado, en su ficha y en los
+   * informes cuando se piden todos. Lo único que deja de hacer es contar como
+   * trabajo vivo.
+   *
+   * Quién puede: la supervisión del trabajo y la administración. No hace falta
+   * ninguna política nueva —`works_update` ya las admite— y al alumno lo frena
+   * el disparador `app.enforce_work_update_scope` de la 0030, que solo le deja
+   * el contenido académico. Esta función no comprueba nada, igual que las
+   * demás: la frontera está en la base.
+   */
+  cerrar: async (id: string, cerrado: boolean): Promise<void> => {
+    const { error } = await supabase
+      .from('academic_works')
+      .update({ is_archived: cerrado })
+      .eq('id', id)
+    if (error) throw error
   },
 
   /**

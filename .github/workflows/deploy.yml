@@ -63,6 +63,7 @@ jobs:
           ./scripts/check-text-wrap.sh
           ./scripts/check-shell-quoting.sh
           ./scripts/check-grids.sh
+          ./scripts/check-columnas-huerfanas.sh
 
       - name: Comprobar las pistas de los embeds de PostgREST
         # Entre dos tablas unidas por más de una clave ajena, un embed sin

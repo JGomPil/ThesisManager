@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Archive, Check, Pencil } from 'lucide-react'
+import { AlertTriangle, Archive, Check, CircleCheckBig, Pencil, RotateCcw } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { PageHeader } from '@/app/layout/app-shell'
@@ -58,6 +58,22 @@ export function WorkDetailPage() {
       void qc.invalidateQueries({ queryKey: qk.works.archived })
       toast.push('success', 'Trabajo archivado. Puedes restaurarlo desde Administración → Archivados.')
       navigate('/trabajos')
+    },
+    onError: (e) => toast.push('error', errorMessage(e)),
+  })
+
+  /**
+   * CERRAR y REABRIR un trabajo (`is_archived`).
+   *
+   * Es reversible y por eso no lleva confirmación: la regla de esta aplicación
+   * es que lo que se pulsa sin leer se pueda deshacer, y lo que no, se avise.
+   * «Archivar», que está al lado y manda a la papelera, sí la lleva.
+   */
+  const cerrar = useMutation({
+    mutationFn: (cerrado: boolean) => worksRepo.cerrar(id!, cerrado),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: qk.works.all })
+      toast.push('success', work.data?.is_archived ? 'Trabajo reabierto.' : 'Trabajo dado por terminado.')
     },
     onError: (e) => toast.push('error', errorMessage(e)),
   })
@@ -144,6 +160,21 @@ export function WorkDetailPage() {
             {caps.canEditAcademicContent && (
               <Button asChild variant="outline"><Link to={`/trabajos/${w.id}/editar`}><Pencil /> Editar</Link></Button>
             )}
+            {/* DAR POR TERMINADO ≠ ARCHIVAR, y van juntos a propósito para que
+                se vea que no son lo mismo. Esto marca `is_archived`: el trabajo
+                sigue donde estaba y solo deja de contar como vivo. El de al
+                lado lo manda a la papelera (`deleted_at`) y es de la
+                administración. Se ofrece a la supervisión porque cerrar un
+                trabajo es el último acto de dirigirlo. */}
+            {caps.canEditWork && (
+              <Button
+                variant="outline"
+                loading={cerrar.isPending}
+                onClick={() => cerrar.mutate(!w.is_archived)}
+              >
+                {w.is_archived ? <><RotateCcw /> Reabrir</> : <><CircleCheckBig /> Dar por terminado</>}
+              </Button>
+            )}
             {/* Archivar queda reservado a la administración. Esconder el botón
                 es comodidad; quien lo impide de verdad es el disparador
                 app.enforce_soft_delete_scope() de la migración 0008. */}
@@ -156,7 +187,20 @@ export function WorkDetailPage() {
         }
       />
 
-      {reasons.length > 0 && (
+      {/* UN TRABAJO CERRADO NO AVISA DE NADA. Si no, una tesis defendida en
+          2024 seguiría diciendo «fuera de plazo» para siempre, que es el ruido
+          que hacía que el aviso dejara de leerse. */}
+      {w.is_archived && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
+          <CircleCheckBig className="size-4 shrink-0" />
+          <span>
+            Este trabajo está <strong className="font-medium text-foreground">dado por terminado</strong>:
+            no cuenta en el panel ni en los informes de trabajos activos. Se puede reabrir.
+          </span>
+        </div>
+      )}
+
+      {!w.is_archived && reasons.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
           <AlertTriangle className="size-4 shrink-0 text-amber-600" />
           <span className="font-medium">Atención:</span>
@@ -207,12 +251,13 @@ export function WorkDetailPage() {
 
           <MeetingsCard work={w} caps={caps} userId={userId} />
 
-          {(w.description || w.objectives || w.methodology) && (
+          {(w.description || w.objectives || w.hypothesis || w.methodology) && (
             <Card>
               <CardHeader className="pb-3"><CardTitle className="text-sm">Contenido académico</CardTitle></CardHeader>
               <CardContent className="space-y-3 pt-0 text-sm">
                 {w.description && <Section label="Descripción" text={w.description} />}
                 {w.objectives && <Section label="Objetivos" text={w.objectives} />}
+                {w.hypothesis && <Section label="Hipótesis" text={w.hypothesis} />}
                 {w.methodology && <Section label="Metodología" text={w.methodology} />}
                 {w.keywords.length > 0 && (
                   <div>
