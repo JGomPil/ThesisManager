@@ -59,7 +59,7 @@ export function WorkFormPage() {
     defaultValues: {
       title: '', work_type_id: '', status_id: '', program_id: '', academic_year_id: '',
       research_line_id: '', start_date: '', expected_end_date: '',
-      actual_end_date: '', progress_override: '',
+      actual_end_date: '', defense_date: '', progress_override: '',
       description: '', objectives: '', methodology: '', keywords: '',
       supervisor_id: '', student_id: '', template_id: '',
     },
@@ -86,6 +86,7 @@ export function WorkFormPage() {
       start_date: w.start_date ?? '',
       expected_end_date: w.expected_end_date ?? '',
       actual_end_date: w.actual_end_date ?? '',
+      defense_date: w.defense_date ?? '',
       // `null` es «sin valorar» y `0` es «valorado en cero»: dos cosas
       // distintas que un `?? ''` descuidado convertiría en la misma.
       progress_override: w.progress_override === null ? '' : String(w.progress_override),
@@ -159,6 +160,7 @@ export function WorkFormPage() {
         start_date: values.start_date || null,
         expected_end_date: values.expected_end_date || null,
         actual_end_date: values.actual_end_date || null,
+        defense_date: values.defense_date || null,
         // Esto funciona porque el valor es TEXTO: `'0'` es una cadena no
         // vacía, así que un progreso de cero se guarda como 0. Si el campo
         // fuese numérico, este mismo `? :` convertiría el cero en «sin
@@ -378,6 +380,28 @@ export function WorkFormPage() {
                   Cuándo terminó de verdad, que casi nunca coincide con la fecha prevista.
                 </p>
               </div>
+
+              {/* LA DEFENSA, solo para los tipos que la tienen. El catálogo de
+                  tipos de trabajo ya decide eso con `requires_defense` —es la
+                  misma condición con la que la ficha enseña la fila «Defensa»
+                  y con la que se habilita el estado «Defendido»—, así que un
+                  informe interno o una estancia no ven un campo que en su caso
+                  no significa nada.
+
+                  Si el tipo del trabajo cambia a uno sin defensa, la fecha que
+                  hubiera guardada se queda donde está y deja de verse. Es a
+                  propósito: borrarla sola, al vuelo y sin decirlo, es perder
+                  un dato por un cambio de catálogo. */}
+              {selectedType?.requires_defense && (
+                <div>
+                  <Label htmlFor="defense_date">Fecha de defensa</Label>
+                  <Input id="defense_date" type="date" className="mt-1.5" {...form.register('defense_date')} />
+                  <FieldError>{form.formState.errors.defense_date?.message}</FieldError>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    El día del acto. Sale en la ficha y en el informe del trabajo.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

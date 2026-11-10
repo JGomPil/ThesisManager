@@ -24,6 +24,17 @@ export const workFormSchema = z
      * ni que hoy, y se traduce a `null` al guardar.
      */
     actual_end_date: z.string().optional(),
+    /**
+     * LA FECHA DE DEFENSA, que era la tercera de la misma lista.
+     *
+     * `academic_works.defense_date` existe desde la 0002, la ficha la enseña
+     * —solo para los tipos con `requires_defense`— y el informe del trabajo la
+     * imprime, pero ningún formulario la escribía: salía «—» para siempre, y
+     * la única manera de ponerla era el panel de Supabase. Es el mismo hueco
+     * que tenían el fin real y el progreso, que se tapó sin ver que había una
+     * tercera.
+     */
+    defense_date: z.string().optional(),
     progress_override: z
       .string()
       .trim()
@@ -55,6 +66,17 @@ export const workFormSchema = z
   .refine(
     (v) => !v.start_date || !v.actual_end_date || v.actual_end_date >= v.start_date,
     { message: 'La fecha de fin real no puede ser anterior al inicio', path: ['actual_end_date'] },
+  )
+  /**
+   * La defensa, después del inicio y nada más. NO se exige que sea posterior
+   * al fin real ni al previsto: en un TFG se deposita y se defiende, pero hay
+   * tribunales que fijan la fecha antes de que el trabajo conste terminado, y
+   * una regla que impida escribir lo que de verdad ha pasado es una regla que
+   * obliga a mentirle al formulario.
+   */
+  .refine(
+    (v) => !v.start_date || !v.defense_date || v.defense_date >= v.start_date,
+    { message: 'La defensa no puede ser anterior al inicio del trabajo', path: ['defense_date'] },
   )
 
 export type WorkFormValues = z.infer<typeof workFormSchema>
