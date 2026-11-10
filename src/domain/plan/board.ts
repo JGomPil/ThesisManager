@@ -243,3 +243,34 @@ export function coloresEnUso(
   const usados = new Set(tareas.map((t) => t.color).filter((c): c is string => c !== null))
   return catalogo.filter((c) => usados.has(c))
 }
+
+/**
+ * ¿Esta columna es la que se está arrastrando ahora mismo?
+ *
+ * Parece una comparación que no merece una función, y es justo por eso que
+ * estaba mal. Una columna derivada del estado —las de un trabajo que todavía
+ * no se ha hecho las suyas— tiene `id: null` (`columnasPorEstado`), y el
+ * estado «no se arrastra nada» también es `null`. Escrito a pelo en el JSX,
+ * `arrastrada === columna` daba cierto en TODAS esas columnas desde el primer
+ * dibujado, y el tablero entero se quedaba al 50 % de opacidad sin que nadie
+ * tocara nada: texto gris, bordes invisibles, aspecto de pantalla a medio
+ * cargar. Y solo en algunos trabajos, que es lo que lo hacía difícil de ver.
+ *
+ * `null` no identifica a nadie. Aquí lo dice una función con nombre, y las
+ * pruebas lo fijan.
+ */
+export function esLaColumnaArrastrada(
+  columnaId: string | null, arrastrada: string | null,
+): boolean {
+  return columnaId !== null && columnaId === arrastrada
+}
+
+/**
+ * ¿Y es donde se va a soltar? Mismo motivo, y además nunca es la propia
+ * columna que se arrastra: una columna no se suelta sobre sí misma.
+ */
+export function esLaColumnaDestino(
+  columnaId: string | null, destino: string | null, arrastrada: string | null,
+): boolean {
+  return esLaColumnaArrastrada(columnaId, destino) && columnaId !== arrastrada
+}

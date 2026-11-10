@@ -28,7 +28,8 @@ import {
   TASK_PRIORITIES, TASK_STATUSES, tasksRepo, type TaskWithAssignee,
 } from '@/data/repositories/tasks.repo'
 import {
-  coloresEnUso, columnKeyOf, groupCards, planCardMove, resolveBoard, siguienteOrden,
+  coloresEnUso, columnKeyOf, esLaColumnaArrastrada, esLaColumnaDestino, groupCards,
+  planCardMove, resolveBoard, siguienteOrden,
   type BoardColumn,
 } from '@/domain/plan/board'
 import { moveItem, reorderWrites } from '@/domain/plan/reorder'
@@ -471,10 +472,25 @@ export function TaskBoard({
                     // Sobre un fondo que ya tiene tono, el 5 % no se distinguía:
                     // la columna de destino tiene que cantar mientras se arrastra.
                     esDestino && 'bg-primary/10 ring-1 ring-primary/40',
-                    colArrastrada === col.id && 'opacity-50',
+                    // `col.id !== null` NO SOBRA, y costó una captura de
+                    // pantalla averiguarlo. Las columnas derivadas del estado
+                    // —las de un trabajo que no se ha hecho las suyas— nacen
+                    // con `id: null` (`domain/plan/board.ts`), y el estado de
+                    // arrastre también empieza en `null`. Sin esta condición,
+                    // `null === null` es cierto en TODAS ellas desde el primer
+                    // dibujado: el tablero entero se quedaba al 50 % de
+                    // opacidad sin que nadie arrastrara nada, y como el 50 %
+                    // se aplica al grupo, se llevaba por delante el texto de
+                    // las tarjetas (#0f172a pasaba a verse #878b93), los
+                    // bordes y las pastillas. Se veía «translúcido, poco
+                    // nítido», que es justo el defecto que la línea de arriba
+                    // creía haber arreglado. Y solo en unos trabajos: en
+                    // cuanto alguien pulsa «Crear mis columnas» las columnas
+                    // tienen identificador de verdad y la comparación es falsa.
+                    esLaColumnaArrastrada(col.id, colArrastrada) && 'opacity-50',
                     // La columna entera se va a colocar aquí: la barra va en el
                     // lado, porque el tablero se lee de izquierda a derecha.
-                    colDestino === col.id && colArrastrada !== col.id
+                    esLaColumnaDestino(col.id, colDestino, colArrastrada)
                       && 'border-l-2 border-primary pl-1',
                   )}
                   // Soltar sobre el hueco de la columna = al final de la

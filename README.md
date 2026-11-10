@@ -12,28 +12,15 @@ código.
 > - Aplicación publicada en **https://jgompil.github.io/ThesisManager/**, conectada a un proyecto
 >   de Supabase real. Sin las variables de entorno, la web explica cuáles faltan en lugar de
 >   quedarse en blanco.
->   La **`0028`** (LinkedIn en el perfil), la **`0029`** (comentarios editables) y la **`0030`**
->   (el alumno participa en su trabajo) están probadas contra PostgreSQL 16 y **pendientes de
->   aplicar** en el proyecto real. La `0028` no añade comprobación —es una columna más en
->   `profiles`, y la visibilidad de un perfil es por fila, así que no hay política nueva que
->   verificar—; las otras dos sí, de modo que `supabase/verify.sql` pasa a devolver **21 filas** y
->   las dos últimas dirán `FALLO` hasta que se apliquen.
->   **La `0029` no hace falta para poder editar**: la política `comments_update` que lo permite es
->   de la `0003`. Lo que falta sin ella son sus dos garantías —que la marca de «editado» sea verdad
->   y que un comentario no pueda mudarse al hilo de otro trabajo—, y las dos fallan en silencio,
->   que es justamente por lo que están en la lista de verificación.
->   **La `0030` sí hace falta**, y aquí es al contrario: sin ella la base de datos rechaza lo que
->   la interfaz ya ofrece. Mientras no se aplique, un alumno verá el botón de convocar una reunión,
->   de poner un hito o de escribir el contenido académico de su trabajo, y la base de datos se lo
->   negará.
-> - Migraciones `0001…0027` **aplicadas** en el proyecto real y verificadas el 2026-11-08 con
->   `supabase/verify.sql`: **19 comprobaciones, todas `OK`** —RLS en todas las tablas, `anon` sin
+> - Migraciones `0001…0030` **aplicadas** en el proyecto real y verificadas el 2026-11-10 con
+>   `supabase/verify.sql`: **21 comprobaciones, todas `OK`** —RLS en todas las tablas, `anon` sin
 >   acceso a ninguna función de `app`, las 18 tablas del núcleo, las políticas y disparadores de la
->   `0020` a la `0027`, que cada organización tenga administración, y el rol de estudiante sin
->   capacidades—. Las dos últimas comprueban lo que no se vería de otra manera: que las columnas
->   del tablero sean del trabajo y sin significado (`0024`), y que archivar una tarea tenga vuelta
->   atrás (`0025`).
->   180 pruebas de seguridad contra PostgreSQL 16 y 238 pruebas unitarias (dominio, y el
+>   `0020` a la `0030`, que cada organización tenga administración, y el rol de estudiante sin
+>   capacidades—. Las últimas comprueban lo que no se vería de otra manera: que las columnas
+>   del tablero sean del trabajo y sin significado (`0024`), que archivar una tarea tenga vuelta
+>   atrás (`0025`), que un comentario editado no pueda mudarse de hilo (`0029`) y que el alumno
+>   que escribe el contenido académico de su trabajo no alcance el expediente (`0030`).
+>   185 pruebas de seguridad contra PostgreSQL 16 y 248 pruebas unitarias (dominio, y el
 >   recorrido de los cubos de Storage contra un cliente simulado).
 > - Progreso detallado en [`ROADMAP.md`](ROADMAP.md); decisiones técnicas en
 >   [`docs/FASE_0.md`](docs/FASE_0.md).

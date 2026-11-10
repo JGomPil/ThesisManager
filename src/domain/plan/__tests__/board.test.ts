@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  columnKeyOf, columnasIniciales, columnasPorEstado, coloresEnUso, groupCards, planCardMove,
+  columnKeyOf, columnasIniciales, columnasPorEstado, coloresEnUso,
+  esLaColumnaArrastrada, esLaColumnaDestino, groupCards, planCardMove,
   resolveBoard, siguienteOrden, type BoardCard, type BoardColumn,
 } from '@/domain/plan/board'
 
@@ -185,5 +186,33 @@ describe('coloresEnUso', () => {
 
   it('un color que ya no está en el catálogo no se ofrece: no se podría pintar igual', () => {
     expect(coloresEnUso([{ color: 'fucsia' }], catalogo)).toEqual([])
+  })
+})
+
+describe('la columna que se arrastra, y el `null` que no identifica a nadie', () => {
+  // ESTAS PRUEBAS NACEN DE UN FALLO REAL, visible en una captura de pantalla y
+  // en ningún error de consola: el tablero de un trabajo SIN columnas propias
+  // se dibujaba entero al 50 % de opacidad. La causa era `arrastrada === col.id`
+  // escrito a pelo, con las dos cosas a `null`.
+  it('una columna derivada del estado no se considera arrastrada cuando no se arrastra nada', () => {
+    for (const col of columnasPorEstado()) {
+      expect(esLaColumnaArrastrada(col.id, null)).toBe(false)
+      expect(esLaColumnaDestino(col.id, null, null)).toBe(false)
+    }
+  })
+
+  it('`null` no identifica a nadie, ni siquiera a otra columna sin identificador', () => {
+    expect(esLaColumnaArrastrada(null, null)).toBe(false)
+    expect(esLaColumnaDestino(null, null, null)).toBe(false)
+  })
+
+  it('una columna propia sí se reconoce mientras se arrastra', () => {
+    expect(esLaColumnaArrastrada('col-1', 'col-1')).toBe(true)
+    expect(esLaColumnaArrastrada('col-1', 'col-2')).toBe(false)
+  })
+
+  it('el destino es otra columna, nunca la que se lleva en la mano', () => {
+    expect(esLaColumnaDestino('col-2', 'col-2', 'col-1')).toBe(true)
+    expect(esLaColumnaDestino('col-1', 'col-1', 'col-1')).toBe(false)
   })
 })
