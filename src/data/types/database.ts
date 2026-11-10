@@ -646,6 +646,19 @@ export type Database = {
         Args: { p_email: string }
         Returns: { id: string; full_name: string; email: string; department: string | null }[]
       }
+      /**
+       * Muda una tarea de un trabajo a otro (migración 0031), con los puntos de
+       * su lista y su hilo de comentarios, soltando lo que era del trabajo
+       * viejo: la columna del tablero, el hito, las dependencias, los
+       * documentos vinculados y los acuerdos de acta que la señalaban.
+       *
+       * Exige PLANIFICAR LOS DOS trabajos, y lo comprueba ella: es `security
+       * definer`, así que esa comprobación es toda la seguridad que hay.
+       */
+      mover_tarea_de_trabajo: {
+        Args: { p_tarea: string; p_destino: string }
+        Returns: void
+      }
     }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>

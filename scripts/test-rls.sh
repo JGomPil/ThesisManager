@@ -114,12 +114,12 @@ if printf '%s' "$VERIFICACION" | grep -q '^FALLO'; then
   printf '%s\n' "$VERIFICACION" | grep '^FALLO' | sed 's/^/    /' >&2
   exit 1
 fi
-if [ "$(printf '%s' "$VERIFICACION" | grep -c '^OK')" -lt 21 ]; then
-  echo "▸ ERROR: verify.sql deberia devolver 21 comprobaciones y ha devuelto:" >&2
+if [ "$(printf '%s' "$VERIFICACION" | grep -c '^OK')" -lt 22 ]; then
+  echo "▸ ERROR: verify.sql deberia devolver 22 comprobaciones y ha devuelto:" >&2
   printf '%s\n' "$VERIFICACION" | sed 's/^/    /' >&2
   exit 1
 fi
-echo "  · 21 comprobaciones, todas OK"
+echo "  · 22 comprobaciones, todas OK"
 
 FALLOS="$(grep -cE '^(ERROR|FALLO)|FALLO \[' "$SALIDA" || true)"
 EJECUTADAS="$(grep -cE '^\[[0-9]+\]' "$SALIDA" || true)"

@@ -12,6 +12,13 @@ código.
 > - Aplicación publicada en **https://jgompil.github.io/ThesisManager/**, conectada a un proyecto
 >   de Supabase real. Sin las variables de entorno, la web explica cuáles faltan en lugar de
 >   quedarse en blanco.
+>   La **`0031`** (mover una tarea de trabajo) está probada contra PostgreSQL 16 y **pendiente de
+>   aplicar** en el proyecto real. Hace falta: sin ella el desplegable «Mover a otro trabajo» no
+>   encuentra la función y da error. Y reescribe el disparador de los comentarios de la `0029`,
+>   porque aquella regla —«el `work_id` de un comentario no cambia nunca»— impedía que el hilo
+>   viajara con su tarea; la regla nueva es más estrecha y no más ancha: un comentario vive en el
+>   trabajo de aquello sobre lo que se comenta. Con ella, `supabase/verify.sql` pasa a devolver
+>   **22 filas**.
 > - Migraciones `0001…0030` **aplicadas** en el proyecto real y verificadas el 2026-11-10 con
 >   `supabase/verify.sql`: **21 comprobaciones, todas `OK`** —RLS en todas las tablas, `anon` sin
 >   acceso a ninguna función de `app`, las 18 tablas del núcleo, las políticas y disparadores de la
@@ -20,7 +27,7 @@ código.
 >   del tablero sean del trabajo y sin significado (`0024`), que archivar una tarea tenga vuelta
 >   atrás (`0025`), que un comentario editado no pueda mudarse de hilo (`0029`) y que el alumno
 >   que escribe el contenido académico de su trabajo no alcance el expediente (`0030`).
->   185 pruebas de seguridad contra PostgreSQL 16 y 248 pruebas unitarias (dominio, y el
+>   189 pruebas de seguridad contra PostgreSQL 16 y 248 pruebas unitarias (dominio, y el
 >   recorrido de los cubos de Storage contra un cliente simulado).
 > - Progreso detallado en [`ROADMAP.md`](ROADMAP.md); decisiones técnicas en
 >   [`docs/FASE_0.md`](docs/FASE_0.md).
@@ -90,7 +97,7 @@ npm run icons            # regenera los iconos desde scripts/make-icons.py
 npm run drill            # ensaya la restauración de una copia (sin argumento: autoprueba)
 ```
 
-Base de datos: aplicar `supabase/migrations/0001…0030` y después
+Base de datos: aplicar `supabase/migrations/0001…0031` y después
 `supabase/seed/0001_catalogs.sql`. Detalle en [`DEPLOYMENT.md`](DEPLOYMENT.md) §5.
 
 Pruebas de seguridad del modelo de datos, sin necesidad de proyecto en Supabase (requiere Docker):

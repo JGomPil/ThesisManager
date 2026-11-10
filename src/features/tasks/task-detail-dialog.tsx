@@ -1,8 +1,8 @@
 import * as React from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Check, ChevronDown, ChevronUp, GripVertical, ListChecks, MessageSquare, Palette, Paperclip,
-  Pencil, Plus, Trash2, X,
+  FolderInput, Pencil, Plus, Trash2, X,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -28,7 +28,10 @@ import { TextoConFormato } from '@/components/common/rich-text'
 import { TaskDependencies } from '@/features/tasks/task-dependencies'
 import { TaskReferenceMaterial } from '@/features/tasks/task-reference-material'
 import type { WorkMemberWithRole } from '@/data/repositories/works.repo'
-import { canEditTask, canUpdateTaskStatus } from '@/domain/permissions/work-capabilities'
+import { canEditTask, canUpdateTaskStatus, resolveWorkCapabilities } from '@/domain/permissions/work-capabilities'
+import { useAuth } from '@/features/auth/auth-context'
+import { worksRepo } from '@/data/repositories/works.repo'
+import { Select } from '@/components/ui/select'
 import type { WorkCapabilities } from '@/domain/permissions/work-capabilities'
 
 /**
@@ -86,6 +89,7 @@ export function TaskDetailDialog({
 }) {
   const qc = useQueryClient()
   const toast = useToast()
+  const { isOrgAdmin } = useAuth()
   const [newItem, setNewItem] = React.useState('')
   // Arrastre: qué punto se está moviendo y sobre cuál está ahora mismo. Solo
   // sirve para pintar la pista mientras se arrastra; el orden de verdad lo
@@ -103,10 +107,46 @@ export function TaskDetailDialog({
    * papelera que no es suya. Sin esto, su errata se quedaba ahí.
    */
   const [renombrando, setRenombrando] = React.useState<{ id: string; texto: string } | null>(null)
+  /** Trabajo de destino elegido en el desplegable, antes de confirmar. */
+  const [destino, setDestino] = React.useState('')
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: qk.tasks.all })
   }
+
+  /**
+   * MUDAR LA TARJETA A OTRO TRABAJO (0031).
+   *
+   * Los candidatos se sacan de los trabajos accesibles y se filtran por
+   * `canManagePlan`, que es el mismo espejo que usa el resto de la interfaz:
+   * la función de la base exige planificar el origen Y el destino, así que
+   * ofrecer un trabajo que no se planifica sería ofrecer un error.
+   *
+   * La consulta solo se lanza con la ficha abierta y con permiso para mover:
+   * no tiene sentido traerse el listado de trabajos cada vez que alguien abre
+   * una tarjeta para leerla.
+   */
+  const puedeMover = caps.canManagePlan && task !== null && task.parent_task_id === null
+  const trabajos = useQuery({
+    queryKey: qk.works.list({}),
+    queryFn: () => worksRepo.list(),
+    enabled: open && puedeMover,
+  })
+  const destinos = (trabajos.data ?? []).filter(
+    (w) => w.id !== workId
+      && resolveWorkCapabilities(w.members ?? [], userId, isOrgAdmin).canManagePlan,
+  )
+
+  const mudar = useMutation({
+    mutationFn: (destinoId: string) => tasksRepo.moverDeTrabajo(task!.id, destinoId),
+    onSuccess: () => {
+      invalidate()
+      setDestino('')
+      onOpenChange(false)
+      toast.push('success', 'La tarea está ahora en el otro trabajo, con su lista y su historia.')
+    },
+    onError: (e) => toast.push('error', errorMessage(e)),
+  })
 
   const addItem = useMutation({
     mutationFn: (title: string) =>
@@ -608,6 +648,55 @@ export function TaskDetailDialog({
             <Button onClick={() => onOpenChange(false)}>Cerrar</Button>
           </div>
         </DialogFooter>
+
+        {/* MUDAR LA TARJETA DE TRABAJO. Va al final, debajo del pie, porque es
+            lo que menos se hace de todo lo que hay aquí; y no detrás de un
+            segundo diálogo, porque apilar modales en un teléfono deja media
+            pantalla inservible. Se despliega al elegir destino, y lo que dice
+            el aviso es lo único que importa: qué se lleva y qué se pierde. */}
+        {puedeMover && destinos.length > 0 && (
+          <div className="border-t pt-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <FolderInput className="size-4 shrink-0 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Mover a otro trabajo:</span>
+              <Select
+                className="h-8 w-full text-xs sm:w-auto"
+                value={destino}
+                onChange={(e) => setDestino(e.target.value)}
+                aria-label="Trabajo de destino"
+              >
+                <option value="">Elegir trabajo…</option>
+                {destinos.map((w) => (
+                  <option key={w.id} value={w.id}>{w.title}</option>
+                ))}
+              </Select>
+            </div>
+
+            {destino !== '' && (
+              <div className="mt-2 rounded-md border bg-muted/40 p-2.5 text-xs text-muted-foreground">
+                <p>
+                  Se lleva <strong className="font-medium text-foreground">los puntos de su lista</strong> y{' '}
+                  <strong className="font-medium text-foreground">sus comentarios</strong>, que pasarán a
+                  verlos quienes participen en el otro trabajo.
+                </p>
+                <p className="mt-1">
+                  Pierde su columna del tablero, su hito, sus dependencias, el vínculo con los documentos
+                  y con los acuerdos de acta. Si quien la tiene asignada no participa en el otro trabajo,
+                  la tarea se queda sin responsable. <strong className="font-medium text-foreground">Eso
+                  no vuelve solo</strong> al moverla de nuevo.
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <Button size="sm" loading={mudar.isPending} onClick={() => mudar.mutate(destino)}>
+                    Mover la tarea
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setDestino('')}>
+                    Dejarlo
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   )

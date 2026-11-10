@@ -213,6 +213,19 @@ del mismo trabajo.
 - `documents` + `document_versions` (`version_label`, `external_url`, `storage_path` NULL,
   `review_status`, `submitted_at`) + `document_comments`. Se prioriza `external_url` a Drive/OneDrive;
   `storage_path` queda para adjuntos pequeños.
+- **Una tarea se muda de trabajo** (`0031`): `app.mover_tarea_de_trabajo(tarea, destino)`, con
+  envoltura en `public` porque PostgREST no ve el esquema `app`. Exige `can_manage_plan` en el
+  origen **y** en el destino —el `using` de `tasks_update` admite la fila por ser el responsable,
+  así que la comprobación no puede quedarse en la política—. Mueve en una transacción la tarea,
+  los puntos de su lista y su hilo de comentarios; pone a nulo `board_column_id`, `milestone_id`,
+  el responsable que no participe en el destino, `documents.task_id` y `meeting_agreements.task_id`,
+  y borra las dependencias que cruzarían trabajos. Rechaza mudar un punto suelto, y mudar al mismo
+  trabajo no hace nada.
+- **Un comentario vive en el trabajo de aquello que comenta** (`0031`, sustituye a la regla de la
+  `0029`): `app.enforce_comment_immutable_columns` ya no congela `work_id`; exige que, si cambia,
+  coincida con el trabajo de la entidad (`app.trabajo_de_la_entidad`). Cierra el mismo agujero —el
+  autor no puede plantar su comentario en un trabajo donde no está la entidad— y deja que el hilo
+  siga a su tarea.
 - **El alumno participa en su trabajo** (`0030`): `app.is_work_student(work)` —pertenencia activa
   con función de estudiante, en **ese** trabajo— entra en `milestones_write`, en la nueva
   `app.can_manage_meetings(work)` (a la que miran ahora las tres políticas de reuniones, que en la

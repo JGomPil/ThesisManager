@@ -1190,6 +1190,56 @@ Tres cosas que esta migración dejó claras:
    a quitarlo y escribirlo otra vez. Un permiso que la base de datos no puede dar sin romper otra
    garantía no es un permiso que falte: es una pantalla que hay que cambiar.
 
+### 5.2.untricies · Una regla que era mas gruesa que el problema que tapaba
+
+La `0029` congelaba `comments.work_id`: «de un comentario solo se puede cambiar el texto». Estaba
+escrito para tapar un agujero concreto y real —el `using` de `comments_update` solo mira el autor,
+no la pertenencia al trabajo, asi que el autor podia mudar su comentario al hilo de un trabajo del
+que no es miembro y plantarles alli el comentario de un desconocido—.
+
+Al llegar la `0031` resulto que esa regla tambien impedia lo unico que habia que permitir: que el
+hilo de una tarea viajara con ella al mudarse de trabajo. Y ahi se ve que «no cambia nunca» no era
+la regla, sino **una forma de cumplirla**, la mas gruesa. La regla de verdad es:
+
+> un comentario esta en el trabajo de la cosa sobre la que se comenta.
+
+Cierra exactamente el mismo agujero —el autor no se lo puede llevar a un trabajo cualquiera, porque
+alli no esta la entidad— y ademas **cubre un caso que la version anterior no cubria**: un comentario
+que nacio apuntando al trabajo equivocado se quedaba asi para siempre, porque la regla vieja solo
+miraba los cambios. La nueva es mas estrecha, no mas ancha.
+
+`app.trabajo_de_la_entidad` es `security definer` porque LEE OTRAS TABLAS para decidir. Sin eso la
+comprobacion se haria con los permisos de quien edita, que puede no ver la tarea, y **fallaria
+cerrada**: rechazaria una edicion legitima sin motivo visible (§5.2.quatervicies.bis).
+
+### 5.2.duotricies · Una tarea no es una fila
+
+Mover una tarea de trabajo parece `update tasks set work_id = ...`. No lo es, y esa es la leccion
+de la `0031`. De una tarea cuelgan ocho cosas, y ninguna de ellas protesta si se queda atras:
+
+| | |
+|---|---|
+| los puntos de su lista | son subtareas reales con su propio `work_id`: quedarian colgando de un padre de otro trabajo |
+| su hilo de comentarios | `comments.work_id` esta desnormalizado para RLS: sin moverlo, la conversacion es invisible en los dos sitios |
+| la columna del tablero | es de otro trabajo, y la `0024` lo rechaza |
+| el hito | igual |
+| las dependencias | `taskdeps_same_work` (`0012`) las rechaza, pero solo cuando alguien las toca |
+| `documents.task_id` | la `0010` exige que documento y tarea sean del mismo trabajo, y su disparador **solo mira al escribir el documento**: una tarea que se muda rompe el invariante sin que nadie se entere |
+| `meeting_agreements.task_id` | un acta de un trabajo no puede señalar una tarea de otro |
+| el responsable | si no participa en el destino, la tarjeta queda a nombre de alguien que no puede abrirla |
+
+Son nueve escrituras que tienen que ocurrir todas o ninguna, y eso es una transaccion: una politica
+no las hace. De ahi que sea una funcion, y que al serlo `security definer` —se salta RLS— la
+comprobacion de permisos de sus primeras lineas SEA la seguridad. Por eso `verify.sql` (22)
+comprueba que ese texto siga ahi.
+
+LA REGLA DE PERMISO necesitaba migracion y no pantalla: `tasks_update` admite la fila del origen por
+el `using` si eres el RESPONSABLE, y el `with check` se contenta con `can_manage_plan` del destino.
+Un doctorando que ademas tutele un TFG —combinacion corriente en un grupo— podia sacar su tarea de
+un plan que no dirige. Lo fija la prueba `[187]`, cuya primera version estaba **mal planteada**:
+usaba al investigador que es codirector del otro trabajo, o sea que si planificaba los dos. Fallo, y
+lo que estaba mal era la prueba.
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.

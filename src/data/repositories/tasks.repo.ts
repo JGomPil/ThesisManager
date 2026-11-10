@@ -71,6 +71,27 @@ export const tasksRepo = {
    * Borrar una tarea es ARCHIVARLA (0025). Un disparador se lleva con ella sus
    * subtareas, y restaurarla las devuelve.
    */
+  /**
+   * Mudar una tarea a otro trabajo (0031).
+   *
+   * Una llamada y no un `update`, porque no es una escritura: son nueve, y
+   * tienen que ocurrir todas o ninguna. Cambiar `work_id` a secas deja la
+   * columna del tablero, el hito, las dependencias, los documentos, las actas y
+   * el hilo de comentarios apuntando al trabajo viejo, y nada de eso da error:
+   * simplemente queda mal.
+   *
+   * QUIÉN PUEDE lo decide la función, no esta llamada ni el botón que la
+   * dispara: hay que planificar LOS DOS trabajos. Esconder el botón es
+   * comodidad.
+   */
+  moverDeTrabajo: async (id: string, destino: string): Promise<void> => {
+    const { error } = await supabase.rpc('mover_tarea_de_trabajo', {
+      p_tarea: id,
+      p_destino: destino,
+    })
+    if (error) throw error
+  },
+
   archive: async (id: string): Promise<void> => {
     const { error } = await supabase
       .from('tasks').update({ deleted_at: new Date().toISOString() }).eq('id', id)

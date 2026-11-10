@@ -333,6 +333,38 @@ with comprobaciones as (
              and p.proname in ('is_work_student','can_manage_meetings','is_checklist_point_of_mine'))
 
   union all
+  -- 5.undecies La 0031: mover una tarea de trabajo. Lo que se comprueba es que
+  --            la funcion exista y que siga exigiendo LOS DOS trabajos: es
+  --            `security definer`, o sea que se salta RLS, y sin esa linea
+  --            seria un «mueve lo que quieras a donde quieras» para cualquiera
+  --            que haya entrado. Y de paso, que el disparador de los
+  --            comentarios siga puesto despues de que la 0031 lo reescribiera.
+  select 22, 'migracion 0031: una tarea se muda, y solo entre trabajos que diriges',
+         case when (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                     where n.nspname = 'app'
+                       and p.proname in ('mover_tarea_de_trabajo','es_participante_activo',
+                                         'trabajo_de_la_entidad')) = 3
+                   and (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                         where n.nspname = 'app' and p.proname = 'mover_tarea_de_trabajo'
+                           and pg_get_functiondef(p.oid) like '%can_manage_plan(v_origen)%'
+                           and pg_get_functiondef(p.oid) like '%can_manage_plan(destino)%') = 1
+                   and (select count(*) from pg_trigger
+                         where tgrelid = 'public.comments'::regclass
+                           and tgname = 'enforce_comment_immutable') = 1
+              then 'OK' else 'FALLO' end,
+         (select case when count(*) = 1 then 'exige planificar origen y destino'
+                      else 'CUALQUIERA PODRIA MOVER UNA TAREA A CUALQUIER TRABAJO' end
+            from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'app' and p.proname = 'mover_tarea_de_trabajo'
+             and pg_get_functiondef(p.oid) like '%can_manage_plan(v_origen)%'
+             and pg_get_functiondef(p.oid) like '%can_manage_plan(destino)%')
+         || ' · ' ||
+         (select case when count(*) = 1 then 'el comentario sigue a su entidad'
+                      else 'FALTA EL DISPARADOR DE LOS COMENTARIOS' end
+            from pg_trigger where tgrelid = 'public.comments'::regclass
+             and tgname = 'enforce_comment_immutable')
+
+  union all
   -- 6. Y que ningun rol tenga capacidades que no deba: el estudiante, ninguna.
   --    SIGUE SIENDO VERDAD despues de la 0030: lo que esa migracion concede no
   --    pasa por los flags del catalogo de roles, sino por ser EL ALUMNO DE ESE
