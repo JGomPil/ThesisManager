@@ -116,13 +116,20 @@ export function NotificationsMenu() {
             )}
           </div>
 
+          {/*
+            El atajo a los ajustes va EN LA CAMPANA porque es donde se busca:
+            quien quiere que le avisen al movil esta mirando los avisos, no su
+            perfil. Los ajustes viven en el perfil porque no los decide la
+            direccion, los decide cada uno para si.
+          */}
           <div className="max-h-[22rem] overflow-y-auto">
             {list.isLoading ? (
               <div className="p-4"><Spinner /></div>
             ) : rows.length === 0 ? (
               <p className="p-4 text-sm text-muted-foreground">
                 No tienes notificaciones. Aquí aparecen las tareas que te asignan, las reuniones
-                convocadas, las entregas nuevas y las menciones en comentarios.
+                convocadas, las entregas nuevas, los comentarios en tus hilos y las fechas que se
+                acercan.
               </p>
             ) : (
               <ul className="divide-y">
@@ -165,6 +172,15 @@ export function NotificationsMenu() {
                 ))}
               </ul>
             )}
+          </div>
+          <div className="border-t px-3 py-2">
+            <button
+              type="button"
+              className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+              onClick={() => { setOpen(false); navigate('/perfil') }}
+            >
+              Que me avise también en el móvil y el ordenador
+            </button>
           </div>
         </div>
       )}

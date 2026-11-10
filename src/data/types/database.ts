@@ -416,6 +416,46 @@ export type NotificationRow = {
   link: string | null
   read_at: string | null
   created_at: string
+  /**
+   * Las dos columnas de la 0032, y ninguna de las dos es de la pantalla.
+   *
+   * `dedupe_key` la pone la funcion de fechas para no repetir un recordatorio;
+   * `pushed_at` la pone el reparto. Aqui estan porque `select *` las trae y el
+   * tipo tiene que decir la verdad sobre la fila, no sobre lo que se usa.
+   */
+  dedupe_key: string | null
+  pushed_at: string | null
+}
+
+/**
+ * Un dispositivo que ha dicho que si a los avisos.
+ *
+ * UNA FILA POR APARATO, no por persona: el movil y el portatil son dos
+ * permisos distintos y se revocan por separado. `p256dh` y `auth_key` son las
+ * claves PUBLICAS del navegador, con las que se cifra cada mensaje: no son
+ * secretos, y sin ellas no se puede mandar nada a ese aparato.
+ */
+export type PushSubscriptionRow = {
+  id: string
+  user_id: string
+  endpoint: string
+  p256dh: string
+  auth_key: string
+  user_agent: string | null
+  created_at: string
+  last_ok_at: string | null
+}
+
+/**
+ * Las dos casillas. NO HAY FILA HASTA QUE SE TOCA UNA, y la ausencia significa
+ * «no he dicho nada», o sea todo encendido (ver la 0032).
+ */
+export type NotificationPrefsRow = {
+  user_id: string
+  on_dates: boolean
+  on_comments: boolean
+  days_before: number
+  updated_at: string
 }
 
 export type InvitationStatus = 'PENDING' | 'SENT' | 'ACCEPTED' | 'CANCELLED'
@@ -596,7 +636,9 @@ export type Database = {
       meeting_agreements: Table<MeetingAgreementRow, Auto<MeetingAgreementRow, 'id' | 'task_id' | 'order_index'>>
       meeting_private_notes: Table<MeetingPrivateNoteRow, Auto<MeetingPrivateNoteRow, 'id' | 'created_at' | 'updated_at'>>
       comments: Table<CommentRow, Auto<CommentRow, 'id' | 'entity_id' | 'parent_comment_id' | 'mentions' | 'created_at' | 'updated_at' | 'deleted_at'>>
-      notifications: Table<NotificationRow, Auto<NotificationRow, 'id' | 'work_id' | 'body' | 'link' | 'read_at' | 'created_at'>>
+      notifications: Table<NotificationRow, Auto<NotificationRow, 'id' | 'work_id' | 'body' | 'link' | 'read_at' | 'created_at' | 'dedupe_key' | 'pushed_at'>>
+      push_subscriptions: Table<PushSubscriptionRow, Auto<PushSubscriptionRow, 'id' | 'user_agent' | 'created_at' | 'last_ok_at'>>
+      notification_prefs: Table<NotificationPrefsRow, Auto<NotificationPrefsRow, 'on_dates' | 'on_comments' | 'days_before' | 'updated_at'>>
       invitations: Table<InvitationRow, Auto<InvitationRow, 'id' | 'full_name' | 'intended_role' | 'status' | 'notes' | 'sent_at' | 'accepted_at' | 'accepted_user_id' | 'created_by' | 'created_at' | 'updated_at'>>
       documents: Table<DocumentRow, Auto<DocumentRow, 'id' | 'task_id' | 'document_type_id' | 'description' | 'created_by' | 'created_at' | 'updated_at' | 'deleted_at'>>
       document_versions: Table<DocumentVersionRow, Auto<DocumentVersionRow, 'id' | 'external_url' | 'storage_path' | 'author_id' | 'review_status' | 'submitted_at' | 'reviewed_at' | 'reviewer_id' | 'notes'>>

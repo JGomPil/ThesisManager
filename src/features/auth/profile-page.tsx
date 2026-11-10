@@ -18,6 +18,7 @@ import { peopleRepo } from '@/data/repositories/people.repo'
 import { esUrlDeLinkedin, normalizaUrl } from '@/domain/people/links'
 import { useAuth } from '@/features/auth/auth-context'
 import { AvatarCard } from '@/features/auth/avatar-card'
+import { AvisosCard } from '@/features/notifications/avisos-card'
 
 /**
  * Cuánto cabe en la información académica.
@@ -189,6 +190,8 @@ export function ProfilePage() {
         name={profile?.full_name ?? ''}
         avatarUrl={profile?.avatar_url ?? null}
       />
+
+      <AvisosCard />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">

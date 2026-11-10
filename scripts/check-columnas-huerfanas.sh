@@ -70,6 +70,17 @@ ACEPTADAS = {
     'document_versions.reviewed_at': 'la escribe documents.repo al validar una entrega',
     'document_versions.reviewer_id': 'idem; la ficha enseña el nombre del revisor, no la columna',
     'document_comments.version_id':  'la escribe documents.repo al comentar una version',
+
+    # Avisos (0032). Las dos primeras las escribe la BASE -la funcion de fechas
+    # y el reparto-, nunca una pantalla, y es justo lo que las hace servir: si
+    # las escribiera el cliente, un recordatorio se podria repetir o marcarse
+    # como enviado sin haberse enviado. Las dos segundas son las claves PUBLICAS
+    # que da el navegador: las guarda `push.repo` y no significan nada para
+    # nadie, asi que ensenarlas seria ruido.
+    'notifications.dedupe_key':      'la pone app.encolar_avisos_de_fechas para no repetir un recordatorio',
+    'notifications.pushed_at':       'la pone el reparto al entregar; la campana no sabe de ella',
+    'push_subscriptions.p256dh':     'clave publica del navegador: la escribe push.repo, no se ensena',
+    'push_subscriptions.auth_key':   'idem',
 }
 
 # -----------------------------------------------------------------------------

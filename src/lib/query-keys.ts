@@ -87,6 +87,8 @@ export const qk = {
   notifications: {
     list: ['notifications', 'list'] as const,
     unread: ['notifications', 'unread'] as const,
+    dispositivos: ['notifications', 'dispositivos'] as const,
+    prefs: ['notifications', 'prefs'] as const,
   },
 
   milestones: {

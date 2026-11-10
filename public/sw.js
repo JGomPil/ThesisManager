@@ -50,6 +50,78 @@ self.addEventListener('activate', (evento) => {
   )
 })
 
+/* =============================================================================
+ * Los avisos (migración 0032)
+ *
+ * Estos dos manejadores son lo único que el navegador ejecuta cuando la
+ * aplicación NO está abierta, y por eso viven aquí y no en el bundle.
+ *
+ * EL CONTENIDO VIENE CIFRADO de punto a punto: lo cifra el reparto con las
+ * claves públicas de este aparato y solo lo descifra este navegador. El
+ * servicio de push (Google, Apple, Mozilla) transporta y no lee.
+ *
+ * SE AVISA SIEMPRE, AUNQUE EL PAYLOAD VENGA MAL. Si no se muestra ninguna
+ * notificación tras recibir un `push`, Chrome y Firefox enseñan por su cuenta
+ * un aviso tipo «Este sitio se ha actualizado en segundo plano», que es
+ * desconcertante y da la impresión de que la aplicación está rota. Mejor un
+ * aviso genérico que un aviso del navegador.
+ * ========================================================================== */
+self.addEventListener('push', (evento) => {
+  let datos = {}
+  try {
+    datos = evento.data ? evento.data.json() : {}
+  } catch {
+    datos = {}
+  }
+
+  const titulo = datos.title || 'Thesis Manager'
+  const opciones = {
+    body: datos.body || '',
+    icon: 'icon-192.png',
+    badge: 'icon-192.png',
+    // `tag` colapsa: un segundo aviso del mismo asunto sustituye al primero en
+    // vez de apilarse. El reparto manda el id del aviso, así que lo que se
+    // colapsa es el MISMO aviso repartido dos veces, no dos avisos distintos.
+    tag: datos.tag || undefined,
+    data: { url: datos.url || './' },
+  }
+
+  evento.waitUntil(self.registration.showNotification(titulo, opciones))
+})
+
+/* Al pulsar el aviso: si ya hay una pestaña de la aplicación abierta, se
+ * reutiliza y se navega dentro; si no, se abre una. Abrir una pestaña nueva
+ * cada vez dejaría cinco pestañas iguales al final de la semana.
+ *
+ * La URL del aviso es una ruta del router («/trabajos/<id>»), y aquí hay que
+ * resolverla contra `registration.scope`, que en Pages es
+ * https://usuario.github.io/ThesisManager/. Sin eso, el aviso llevaría a la
+ * raíz del dominio, que no es esta aplicación. */
+self.addEventListener('notificationclick', (evento) => {
+  evento.notification.close()
+
+  const destino = new URL(
+    String(evento.notification.data?.url || './').replace(/^\//, ''),
+    self.registration.scope,
+  ).href
+
+  evento.waitUntil(
+    (async () => {
+      const abiertas = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+      for (const cliente of abiertas) {
+        if (cliente.url.startsWith(self.registration.scope)) {
+          await cliente.focus()
+          if ('navigate' in cliente) {
+            try { await cliente.navigate(destino) } catch { /* basta con el foco */ }
+          }
+          return
+        }
+      }
+      await self.clients.openWindow(destino)
+    })(),
+  )
+})
+
 self.addEventListener('fetch', (evento) => {
   const peticion = evento.request
   if (peticion.method !== 'GET') return
