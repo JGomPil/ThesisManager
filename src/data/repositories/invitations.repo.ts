@@ -4,11 +4,15 @@ import type { Database, InvitationRow, InvitationStatus } from '@/data/types/dat
 type InvitationInsert = Database['public']['Tables']['invitations']['Insert']
 
 /**
- * Cola de invitaciones.
+ * Altas autorizadas.
  *
- * La aplicación NO envía los correos: hacerlo requiere la clave `service_role`,
- * que no puede existir en un frontend público. Esto es una lista de trabajo
- * para el administrador, que envía desde el panel de Supabase.
+ * NO ES UNA COLA DE ENVÍO, y llamarla así costó un diagnóstico: la aplicación
+ * no envía correos —haría falta la clave `service_role`, que no puede existir
+ * en un frontend público— y el panel de Supabase tampoco envía estas filas.
+ * Lo que hay aquí es una lista de PERMISOS DE ENTRADA: cada fila dice que, si
+ * alguna vez existe una cuenta con ese correo, quedará de alta en el grupo con
+ * la función prevista. El alta de verdad es un acto manual en tres pasos y está
+ * descrita en DEPLOYMENT.md.
  *
  * Ver la cabecera de supabase/migrations/0005_invitations.sql para el camino
  * de automatización con una Edge Function, que no añadiría coste.
@@ -54,24 +58,27 @@ export const invitationsRepo = {
 }
 
 /**
- * LOS RÓTULOS DICEN QUIÉN HACE QUÉ, y no es un detalle de redacción.
+ * LOS RÓTULOS DICEN SI ESA PERSONA PUEDE ENTRAR O NO, que es lo único que se
+ * viene a mirar aquí. No es un detalle de redacción.
  *
  * «Enviada» era mentira a medias: la aplicación no envía ningún correo, así que
- * ese estado solo significa que quien administra marcó la fila a mano después
- * de enviarlo por su cuenta. Leído en una tabla, «Enviada» se entiende como
- * «el sistema la ha enviado», y lo que se concluye cuando la persona no recibe
- * nada es que el envío ha fallado —cuando lo que pasa es que nunca hubo envío—.
+ * ese estado solo significaba que quien administra marcó la fila a mano. Leído
+ * en una tabla, «Enviada» se entiende como «el sistema la ha enviado», y lo que
+ * se concluye cuando la persona no recibe nada es que el envío ha fallado
+ * —cuando lo que pasa es que nunca hubo envío—. Y encima tapaba el dato útil:
+ * esa fila es una cuenta QUE TODAVÍA NO EXISTE.
  *
- * «Aceptada» tampoco decía lo que significa: la pone la base de datos
- * (migración 0005) cuando la cuenta existe y entra por primera vez, y con ella
- * la persona queda de alta en el grupo con su función prevista. O sea que no es
- * que haya «aceptado» nada: es que YA TIENE CUENTA. Y eso convierte el estado
- * en el único indicador fiable de la pantalla: una fila que no pasa sola a
- * «Cuenta creada» es una cuenta que todavía no existe en Supabase.
+ * «Aceptada» tampoco decía lo que significa, y la fecha exacta importa: la pone
+ * la base de datos (migración 0005) EN EL MOMENTO EN QUE SE CREA LA CUENTA, no
+ * cuando la persona entra. El disparador cuelga de `profiles`, y el perfil lo
+ * crea `app.handle_new_user` al insertarse la fila en `auth.users`. O sea que
+ * no es que haya «aceptado» nada: es que ya tiene cuenta. Y eso convierte el
+ * estado en el único indicador fiable de la pantalla, porque responde sin salir
+ * de ella la pregunta que si no exige un viaje al panel de Supabase.
  */
 export const INVITATION_STATUS_LABELS: Record<InvitationStatus, { label: string; tone: string }> = {
-  PENDING: { label: 'Pendiente de enviar', tone: 'amber' },
-  SENT: { label: 'Marcada como enviada', tone: 'sky' },
+  PENDING: { label: 'Falta crear su cuenta', tone: 'amber' },
+  SENT: { label: 'Avisada, sin cuenta aún', tone: 'sky' },
   ACCEPTED: { label: 'Cuenta creada y de alta', tone: 'green' },
   CANCELLED: { label: 'Cancelada', tone: 'slate' },
 }

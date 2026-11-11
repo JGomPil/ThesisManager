@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Copy, ExternalLink, Mail, Plus, Trash2, Undo2 } from 'lucide-react'
+import { Check, Copy, ExternalLink, Mail, Trash2, Undo2, UserPlus } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { PageHeader } from '@/app/layout/app-shell'
@@ -30,17 +30,22 @@ import { enlaceMailto } from '@/domain/invitations/correo'
 import type { InvitationRow } from '@/data/types/database'
 
 /**
- * Cola de invitaciones.
+ * Altas de usuarios: quién puede entrar.
  *
- * Es una lista de trabajo, no un botón de envío masivo, y la razón es doble:
+ * ESTA PANTALLA NO INVITA A NADIE, Y ANTES DECÍA QUE SÍ. Se llamaba
+ * «Invitaciones», tenía un sobre por icono y hablaba de enviar; lo único que
+ * hace es AUTORIZAR. El alta de verdad son tres pasos manuales (DEPLOYMENT.md)
+ * y dos de ellos están en el panel de Supabase. La diferencia no es de estilo:
+ * mientras la pantalla parecía un buzón de salida, la conclusión natural al no
+ * recibir nada era «el correo se ha perdido», cuando lo que faltaba era crear
+ * la cuenta. Eso le pasó al grupo el 11 de noviembre de 2026, dos veces: la
+ * primera porque no existía la cuenta, la segunda porque existía sin confirmar.
  *
- *  1. Enviar la invitación requiere la clave `service_role`, que no puede
- *     existir en un frontend público. El envío se hace desde el panel de
- *     Supabase.
- *  2. El plan gratuito permite solo 2–4 correos por hora, compartidos con la
- *     recuperación de contraseña. Con 30 altas en septiembre, el administrador
- *     necesita saber por dónde iba; un formulario masivo le haría creer que ha
- *     invitado a 30 personas cuando solo habrían salido tres.
+ * Tampoco hay botón de envío masivo, y no es por falta de ganas: el plan
+ * gratuito de Supabase permite 2–4 correos por hora, compartidos con los de
+ * recuperación de contraseña. Un formulario masivo haría creer a quien
+ * administra que ha dado de alta a treinta personas cuando solo habrían salido
+ * tres, que es la peor forma posible de fallar: en silencio y creyendo que no.
  */
 export function InvitationsPage() {
   const [open, setOpen] = React.useState(false)
@@ -77,10 +82,10 @@ export function InvitationsPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Invitaciones"
-        breadcrumb={[{ label: 'Administración', to: '/admin' }, { label: 'Invitaciones' }]}
-        description="El registro público está deshabilitado: nadie entra sin figurar aquí."
-        actions={<Button onClick={() => setOpen(true)}><Plus /> Nueva invitación</Button>}
+        title="Altas de usuarios"
+        breadcrumb={[{ label: 'Administración', to: '/admin' }, { label: 'Altas de usuarios' }]}
+        description="Quién puede entrar. El registro público está deshabilitado: nadie entra sin figurar aquí. De esta pantalla no sale ningún correo."
+        actions={<Button onClick={() => setOpen(true)}><UserPlus /> Autorizar a alguien</Button>}
       />
 
       {/* Primero lo que requiere acción: una cuenta creada a mano no la ve
@@ -88,49 +93,58 @@ export function InvitationsPage() {
       <PendingAccountsCard />
 
       <div className="grid grid-cols-3 gap-3">
-        <Stat label="Pendientes de enviar" value={pending.length} tone="amber" />
-        <Stat label="Marcadas como enviadas" value={sent.length} tone="sky" />
-        <Stat label="Ya con cuenta" value={accepted.length} tone="green" />
+        <Stat label="Falta crear su cuenta" value={pending.length} tone="amber" />
+        <Stat label="Avisadas, sin cuenta" value={sent.length} tone="sky" />
+        <Stat label="Con cuenta y de alta" value={accepted.length} tone="green" />
       </div>
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Cómo enviar las invitaciones</CardTitle>
+          <CardTitle className="text-sm">Dar de alta a alguien: los tres pasos</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 pt-0 text-sm text-muted-foreground">
           <p className="text-foreground">
-            <strong>Desde esta pantalla no sale ningún correo</strong>, y «Marcada como enviada» es
-            una nota que te pones tú: la aplicación no puede enviarlos, porque hacerlo requiere una
-            clave privilegiada de Supabase que no puede vivir en un frontend público.
+            <strong>De aquí no sale ningún correo, y no va a salir.</strong> Enviarlo exige una
+            clave privilegiada de Supabase que no puede vivir en una aplicación servida desde un
+            repositorio público. El alta es manual, siempre, y esta pantalla es solo el primer paso
+            de tres.
           </p>
           <p>
-            Registrar la invitación aquí <strong>sí hace algo</strong>, y es lo importante: cuando
-            esa persona entre por primera vez con ese mismo correo, queda de alta en el grupo con la
-            función que le hayas puesto. Sin fila, una cuenta nueva no ve absolutamente nada.
+            Eso sí: es el paso que <strong>autoriza</strong>. Registrar aquí a alguien es lo que
+            hace que su cuenta, en cuanto exista, quede de alta en el grupo con la función que le
+            pongas. Sin fila, una cuenta nueva entra y no ve absolutamente nada.
           </p>
-          <ol className="list-decimal space-y-1 pl-5">
-            <li>Registra la invitación aquí (es lo que la autoriza).</li>
+          <ol className="list-decimal space-y-1.5 pl-5">
             <li>
-              Crea la cuenta en Supabase: <em>Authentication → Users</em>. Con
-              <em> Invite user</em> Supabase le manda su propio correo; con <em>Add user</em> le
-              pones una contraseña temporal y se la dices tú.
+              <strong>Autorízala aquí</strong>, con el correo exacto con el que va a entrar. Si
+              luego se registra con otro, la aplicación no la reconoce.
             </li>
             <li>
-              Avísale con <strong>«Escribir el correo»</strong>, que abre tu programa de correo con
-              el mensaje ya redactado —incluida la dirección exacta con la que tiene que entrar—, y
-              marca la fila como enviada.
+              <strong>Crea su cuenta en Supabase</strong>: <em>Authentication → Users → Add user</em>,
+              con una contraseña temporal y <strong>«Auto Confirm User» marcado</strong>. Si no lo
+              marcas, la cuenta queda sin confirmar y no puede entrar aunque tenga la contraseña:
+              crear la cuenta a mano no envía ningún correo de confirmación, así que no hay nada que
+              pulsar, y «He olvidado mi contraseña» tampoco la saca de ahí. Si ya ha pasado, se
+              arregla en su fila de Supabase: menú <em>⋯ → Confirm email</em>.
+            </li>
+            <li>
+              <strong>Avísala</strong> con «Escribir el correo»: abre tu programa de correo con el
+              mensaje ya redactado —dirección con la que entrar incluida— y lo mandas tú, con tu
+              nombre.
             </li>
           </ol>
           <p>
-            <strong>La fila cambia sola a «Cuenta creada y de alta»</strong> en cuanto la cuenta
-            existe y entra. Es el único indicador fiable de esta pantalla: si sigue en «Marcada como
-            enviada», la cuenta todavía no está creada en Supabase.
+            <strong>La fila pasa sola a «Cuenta creada y de alta»</strong> en el momento en que
+            creas la cuenta, no cuando la persona entra. Es el único indicador fiable de esta
+            pantalla: mientras no cambie, esa cuenta todavía no existe en Supabase.
           </p>
           <p className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2.5 text-xs">
-            <strong>Límite del plan gratuito:</strong> 2–4 correos por hora, compartidos con los de
-            recuperación de contraseña. Con 30 altas, reparte los envíos en varias tandas. Si una
-            persona no recibe el correo, puedes crearle la cuenta con contraseña temporal desde
-            <em> Authentication → Users → Add user</em>.
+            <strong>La alternativa, con su letra pequeña:</strong> <em>Invite user</em> sí manda un
+            correo —el de Supabase, no el tuyo— y la cuenta queda confirmada cuando la persona pulsa
+            el enlace, que ahorra el paso de la contraseña temporal. Pero el plan gratuito permite
+            2–4 correos por hora, compartidos con los de recuperación de contraseña, y ese mensaje
+            acaba en la carpeta de spam con mucha facilidad. Para dar de alta a una persona
+            concreta, el camino de arriba es más rápido y no depende de que llegue nada.
           </p>
           <Button variant="outline" size="sm" asChild>
             <a href="https://supabase.com/dashboard/project/_/auth/users" target="_blank" rel="noreferrer noopener">
@@ -142,9 +156,9 @@ export function InvitationsPage() {
 
       {rows.length === 0 ? (
         <EmptyState
-          title="Sin invitaciones registradas"
-          description="Añade a quien deba tener acceso. Al entrar por primera vez quedará de alta automáticamente con la función que indiques."
-          action={<Button size="sm" onClick={() => setOpen(true)}><Plus /> Nueva invitación</Button>}
+          title="Nadie autorizado todavía"
+          description="Autoriza a quien deba tener acceso. En cuanto le crees la cuenta en Supabase, quedará de alta en el grupo con la función que indiques."
+          action={<Button size="sm" onClick={() => setOpen(true)}><UserPlus /> Autorizar a alguien</Button>}
         />
       ) : (
         <Card>
@@ -154,7 +168,7 @@ export function InvitationsPage() {
                 <TableHead>Correo</TableHead>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Función prevista</TableHead>
-                <TableHead title="«Marcada como enviada» la pones tú; «Cuenta creada y de alta» la pone la base de datos">
+                <TableHead title="«Cuenta creada y de alta» la pone la base de datos en cuanto la cuenta existe; los otros dos estados los pones tú">
                   Estado
                 </TableHead>
                 <TableHead>Fecha</TableHead>
@@ -173,13 +187,14 @@ export function InvitationsPage() {
                     </TableCell>
                     <TableCell>
                       <ToneBadge tone={status.tone}>{status.label}</ToneBadge>
-                      {/* La pista que ahorra el viaje a Supabase: mientras la
-                          fila no pase sola a «Cuenta creada», la cuenta no
-                          existe, y por tanto no hay nada que esa persona pueda
-                          hacer aunque haya recibido el correo. */}
-                      {r.status === 'SENT' && (
+                      {/* LA PISTA VA EN LAS DOS FILAS SIN CUENTA, no solo en
+                          las avisadas: en ambas falta exactamente lo mismo, y
+                          es lo que nadie adivina desde aquí. Mientras la fila
+                          no pase sola a «Cuenta creada», esa persona no puede
+                          entrar aunque haya recibido el correo. */}
+                      {r.status !== 'ACCEPTED' && r.status !== 'CANCELLED' && (
                         <span className="mt-0.5 block text-xs text-muted-foreground">
-                          la cuenta aún no existe en Supabase
+                          créala en Supabase con «Auto Confirm User» marcado
                         </span>
                       )}
                     </TableCell>
@@ -246,10 +261,10 @@ export function InvitationsPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            title="Borrar la invitación"
+                            title="Quitar la autorización"
                             onClick={() => remove.mutate(r.id)}
                           >
-                            <Trash2 /> Borrar
+                            <Trash2 /> Quitar
                           </Button>
                         )}
                       </div>
@@ -341,7 +356,11 @@ function InvitationDialog({
     },
     onSuccess: () => {
       onCreated()
-      toast.push('success', 'Invitación registrada. Ahora envíala desde el panel de Supabase.')
+      toast.push(
+        'success',
+        'Autorizada. Ahora crea su cuenta en Supabase: Authentication → Users → Add user, ' +
+          'con «Auto Confirm User» marcado.',
+      )
       form.reset()
       onOpenChange(false)
     },
@@ -350,7 +369,7 @@ function InvitationDialog({
       toast.push(
         'error',
         msg.includes('duplicate key') || msg.includes('invitations_unique_live')
-          ? 'Ya existe una invitación activa para ese correo.'
+          ? 'Esa dirección ya está autorizada.'
           : msg,
       )
     },
@@ -360,10 +379,11 @@ function InvitationDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Nueva invitación</DialogTitle>
+          <DialogTitle>Autorizar a alguien</DialogTitle>
           <DialogDescription>
-            Al entrar por primera vez, la persona quedará de alta en el grupo con la función que
-            indiques. Sus funciones académicas se asignan después, trabajo a trabajo.
+            Esto no crea la cuenta ni envía ningún correo: autoriza. En cuanto le crees la cuenta en
+            Supabase con este mismo correo, quedará de alta en el grupo con la función que indiques.
+            Sus funciones académicas se asignan después, trabajo a trabajo.
           </DialogDescription>
         </DialogHeader>
 
@@ -395,7 +415,7 @@ function InvitationDialog({
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" loading={create.isPending}>Registrar</Button>
+            <Button type="submit" loading={create.isPending}>Autorizar</Button>
           </DialogFooter>
         </form>
       </DialogContent>

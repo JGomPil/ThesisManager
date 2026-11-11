@@ -24,7 +24,7 @@ import { WorkDetailPage } from '@/features/works/work-detail-page'
  *
  * Antes se importaban las diecisiete pantallas de golpe, de modo que un
  * estudiante que solo entra a ver su trabajo se descargaba también Catálogos,
- * Plantillas, Tipos de trabajo, Invitaciones y Archivados: pantallas que no
+ * Plantillas, Tipos de trabajo, Altas de usuarios y Archivados: pantallas que no
  * puede ni abrir, porque `RequireAdmin` se lo impide. En GitHub Pages ese peso
  * lo paga el visitante en cada visita, y buena parte de las visitas son desde
  * el móvil. Los gráficos ya iban aparte desde la Fase 4 (`manualChunks` en

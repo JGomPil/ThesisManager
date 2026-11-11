@@ -502,7 +502,7 @@ export function WorkFormPage() {
                 </Select>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {(people.data ?? []).length <= 1
-                    ? 'Aquí solo aparecen personas con cuenta. Da de alta al estudiante en Administración → Invitaciones y asígnalo luego desde la ficha.'
+                    ? 'Aquí solo aparecen personas con cuenta. Da de alta al estudiante en Administración → Altas de usuarios y asígnalo luego desde la ficha.'
                     : 'Puedes dejarlo sin asignar y completarlo cuando se confirme.'}
                 </p>
               </div>

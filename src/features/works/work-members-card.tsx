@@ -196,7 +196,7 @@ function AddMemberDialog({
       if (!persona) {
         toast.push(
           'error',
-          'Ninguna cuenta con ese correo. Comprueba la dirección o invítala desde Administración → Invitaciones.',
+          'Ninguna cuenta con ese correo. Comprueba la dirección o dale de alta en Administración → Altas de usuarios.',
         )
         return
       }
@@ -307,7 +307,7 @@ function AddMemberDialog({
               cualquier otra, escribe su correo completo. Si todavía no tiene cuenta, dale de alta
               en{' '}
               <Link to="/admin/invitaciones" className="font-medium underline underline-offset-2">
-                Administración → Invitaciones
+                Administración → Altas de usuarios
               </Link>
               .
             </p>

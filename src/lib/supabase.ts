@@ -63,9 +63,24 @@ export function errorMessage(error: unknown): string {
   if (!error) return 'Error desconocido.'
   const raw = typeof error === 'string' ? error : ((error as { message?: string }).message ?? '')
 
+  // CUENTA SIN CONFIRMAR: EL MENSAJE TIENE QUE DECIR QUIÉN LO ARREGLA.
+  //
+  // Antes decía «tienes que confirmar tu correo antes de entrar», que es cierto
+  // y completamente inútil: en este sistema las cuentas se crean a mano desde
+  // el panel de Supabase, y crearlas NO envía ningún correo de confirmación.
+  // O sea que se mandaba a la persona a buscar un mensaje que nunca existió, y
+  // «He olvidado mi contraseña» tampoco la saca de ahí, porque la recuperación
+  // no confirma la dirección. Quien puede arreglarlo es la administración, en
+  // la ficha de esa cuenta. Pasó el 11 de noviembre de 2026, con un alta creada
+  // sin marcar «Auto Confirm User».
+  const sinConfirmar =
+    'Tu cuenta existe, pero su dirección de correo todavía no está confirmada, y eso no se ' +
+    'puede arreglar desde aquí. Avisa a quien te dio de alta: se confirma en un clic.'
+
   const map: Record<string, string> = {
     'Invalid login credentials': 'Correo o contraseña incorrectos.',
-    'Email not confirmed': 'Tienes que confirmar tu correo antes de entrar.',
+    'Email not confirmed': sinConfirmar,
+    'email_not_confirmed': sinConfirmar,
     'User already registered': 'Ya existe una cuenta con ese correo.',
     'Email rate limit exceeded':
       'Se ha superado el límite de correos por hora de Supabase. Inténtalo más tarde: ' +

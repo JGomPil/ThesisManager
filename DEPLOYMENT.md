@@ -90,22 +90,32 @@ directorios que empiezan por `_`).
 4. `Authentication → Providers`: dejar solo *Email*. **Desactivar el registro público**
    (`Allow new users to sign up` = off): las altas son por invitación.
 
-   **Dar de alta a una persona, de principio a fin** (la aplicación no manda
-   correos; ver SECURITY.md §7):
-   1. En la aplicación, *Administración → Invitaciones → Nueva invitación*. Esa
-      fila es lo que la autoriza: cuando entre por primera vez con **ese mismo
-      correo**, queda de alta en el grupo con la función prevista (migración
-      `0005`). Sin fila, una cuenta nueva no ve nada.
-   2. En Supabase, *Authentication → Users*: `Invite user` manda el correo de
-      Supabase (2–4 por hora en el plan gratuito, compartidos con los de
-      recuperación de contraseña) o `Add user` crea la cuenta con una
-      contraseña temporal que le dices tú.
+   **Dar de alta a una persona, de principio a fin.** La aplicación no manda
+   correos y no va a mandarlos (SECURITY.md §7), así que el alta es **manual,
+   siempre**, y son tres pasos:
+   1. En la aplicación, *Administración → Altas de usuarios → Autorizar a
+      alguien*. Esa fila es lo que la autoriza: en cuanto exista una cuenta con
+      **ese mismo correo**, queda de alta en el grupo con la función prevista
+      (migración `0005`). Sin fila, una cuenta nueva no ve nada.
+   2. En Supabase, *Authentication → Users → `Add user`*: contraseña temporal y
+      **`Auto Confirm User` marcado**. Lo segundo no es opcional: sin marcarlo
+      la cuenta queda con el correo sin confirmar, y como crear una cuenta a
+      mano **no envía ningún correo de confirmación**, la persona no tiene nada
+      que pulsar y no puede entrar —ni siquiera por «He olvidado mi
+      contraseña», que no confirma la dirección—. Si ya ha pasado: su fila →
+      menú `⋯` → `Confirm email`.
+      La alternativa es `Invite user`, que sí manda el correo de Supabase y
+      confirma la cuenta al pulsar el enlace, pero son 2–4 correos por hora en
+      el plan gratuito (compartidos con los de recuperación de contraseña) y
+      cae en spam con facilidad.
    3. En la aplicación, *«Escribir el correo»* en su fila: abre tu programa de
-      correo con el mensaje redactado. Luego *«Ya la he enviado»*.
-   4. La fila pasa **sola** a «Cuenta creada y de alta» cuando la cuenta existe
-      y entra. Mientras siga en «Marcada como enviada», la cuenta no está
-      creada en Supabase, y la persona no puede hacer nada aunque tenga el
-      correo.
+      correo con el mensaje redactado y lo mandas tú. Luego *«Ya la he
+      enviado»*, que es solo tu propia marca.
+
+   La fila pasa **sola** a «Cuenta creada y de alta» en el momento en que se
+   crea la cuenta —el disparador cuelga de `profiles`, y el perfil nace con la
+   fila de `auth.users`—, **no** cuando la persona entra. Mientras no cambie, la
+   cuenta no existe en Supabase.
 5. `Authentication → URL Configuration`:
    - *Site URL*: `https://jgompil.github.io/ThesisManager/`
    - *Redirect URLs*: `https://jgompil.github.io/ThesisManager/**` y `http://localhost:5173/**`

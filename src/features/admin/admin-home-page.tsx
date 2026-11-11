@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Archive, Layers, ListChecks, Mail, Microscope, ShieldCheck, Users } from 'lucide-react'
+import { Archive, Layers, ListChecks, Microscope, ShieldCheck, UserPlus, Users } from 'lucide-react'
 import { formatDistanceToNow, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { PageHeader } from '@/app/layout/app-shell'
@@ -22,10 +22,13 @@ const SECTIONS = [
   },
   {
     to: '/admin/invitaciones',
-    icon: Mail,
-    title: 'Invitaciones',
+    // UserPlus Y NO UN SOBRE: el sobre prometia un envio que nunca ocurre.
+    // Desde aqui se autoriza a una persona; la cuenta se crea a mano en el
+    // panel de Supabase y el correo lo manda quien invita desde su buzon.
+    icon: UserPlus,
+    title: 'Altas de usuarios',
     description:
-      'Alta de usuarios en cola. El registro público está deshabilitado: nadie entra sin figurar aquí.',
+      'Quién puede entrar. El registro público está deshabilitado: nadie entra sin figurar aquí.',
   },
   {
     to: '/personas',
