@@ -236,6 +236,13 @@ del mismo trabajo.
   `app.is_checklist_point_of_mine(parent, work)` deja al responsable de una tarea **añadir** puntos
   a su lista, y el disparador de alcance le deja escribirla entera **menos archivar**, porque lo
   archivado solo lo ve quien planifica y la fila dejaría de ser visible para quien la archiva.
+- **El alumno apunta sus propias tareas** (`0033`): `tasks_insert` admite una tercera rama,
+  `app.is_work_student(work_id) and parent_task_id is null and assignee_id = app.uid() and
+  deleted_at is null`. Las cuatro condiciones van juntas porque en un `INSERT` **no hay disparador
+  de alcance**: el de las tareas es `before update` y necesita una fila anterior, así que el
+  `with check` es lo único que acota el alta. Lo que no cambia: `tasks_delete` sigue pidiendo
+  `can_manage_plan`, archivar lo rechaza el disparador, y el responsable de una tarea ya creada
+  tampoco se toca. Comprobación 24 de `verify.sql`; pruebas `[196]`–`[199]`.
 - `comments` polimórfico controlado: `work_id` obligatorio + `entity_type` (`WORK`/`TASK`/`DOCUMENT`/
   `MEETING`) + `entity_id`, `parent_comment_id`, `mentions uuid[]`. `work_id` siempre presente es lo
   que permite una política RLS única y eficiente para todos los comentarios.

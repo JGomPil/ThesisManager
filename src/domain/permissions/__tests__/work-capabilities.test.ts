@@ -151,3 +151,35 @@ describe('el alumno en su propio trabajo (0030)', () => {
     expect(colaborador.canEditAcademicContent).toBe(true) // por ser supervisión
   })
 })
+
+/**
+ * APUNTAR UNA TAREA NUEVA (0033).
+ *
+ * Lo que hay que vigilar aquí es que `canCreateTasks` NO arrastre lo demás:
+ * quien lo tiene por ser alumno sigue sin planificar, y eso es lo que hace que
+ * el formulario le fije el responsable en vez de ofrecerle el desplegable.
+ */
+describe('apuntar una tarea nueva (0033)', () => {
+  it('el alumno apunta tareas, y sigue sin planificar', () => {
+    const alumno = resolveWorkCapabilities([m('u2', STUDENT)], 'u2', false)
+    expect(alumno.canCreateTasks).toBe(true)
+    expect(alumno.canManagePlan).toBe(false)
+  })
+
+  it('quien planifica, también', () => {
+    expect(resolveWorkCapabilities([m('u1', SUPERVISOR)], 'u1', false).canCreateTasks).toBe(true)
+  })
+
+  it('la administración del grupo, aunque no esté en el trabajo', () => {
+    expect(resolveWorkCapabilities([], 'u9', true).canCreateTasks).toBe(true)
+  })
+
+  it('un colaborador sin plan, no: el plan ajeno no se amplía desde fuera', () => {
+    const colaborador = resolveWorkCapabilities([m('u3', COLLABORATOR)], 'u3', false)
+    expect(colaborador.canCreateTasks).toBe(false)
+  })
+
+  it('sin sesión, nada', () => {
+    expect(resolveWorkCapabilities([m('u2', STUDENT)], null, false).canCreateTasks).toBe(false)
+  })
+})

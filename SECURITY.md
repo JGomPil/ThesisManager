@@ -1299,6 +1299,39 @@ TAMPOCO SE AVISA DE LO PRIVADO. La `0011` ya lo decia de las notas de direccion:
 existe una nota privada la filtra, porque el aviso revela que esta ahi. La `0032` no cambia esa
 regla y no anade ningun disparador sobre `meeting_private_notes`.
 
+### 5.2.quatertricies · Un alta no tiene disparador que la acote
+
+La `0033` deja al alumno **apuntar tareas suyas** en su trabajo. Es una concesión pequeña en
+pantalla y la más ancha de las que se han hecho hasta ahora en la base, por un motivo estructural:
+en un `INSERT` **no hay fila anterior con la que comparar**, así que no hay disparador de alcance
+que lo limite. `app.enforce_task_update_scope` es `before update`, y toda la doctrina de «una
+política decide qué filas, un disparador decide qué columnas» se apoya en que exista una `old`. En
+un alta, **la política es lo único que hay**, y por eso las cuatro condiciones del `with check` no
+son cautelas de estilo:
+
+| | |
+|---|---|
+| `app.is_work_student(work_id)` | su trabajo, no el de al lado |
+| `assignee_id = app.uid()` | **suya**: apuntarle trabajo a otro es planificar |
+| `parent_task_id is null` | de primer nivel: la lista de comprobación de un tercero no se toca |
+| `deleted_at is null` | que no nazca en una papelera que no puede abrir |
+
+La segunda es la que de verdad importa, y no es evidente. Sin ella, un alumno podía crear tareas
+**a nombre de su director** —o sin responsable, que en un tablero compartido es lo mismo que
+dejárselas a quien pase por allí—, y nada habría fallado: la tarjeta aparece en el plan como
+cualquier otra. Lo mismo vale para la primera: una fila insertada con el `work_id` de otro trabajo
+no da error en ninguna pantalla, se dibuja en el plan ajeno como si la hubiera escrito su director.
+De las cuatro pruebas nuevas (`[196]`–`[199]`), **tres comprueban lo que no se ha abierto**, y la
+`[197]` mira la fila y no el error, porque un `INSERT` rechazado y un `INSERT` que entra donde no
+debe se parecen mucho cuando solo se lee el código de salida.
+
+Y lo que **no** se concedió, por la misma razón que la §5.2.tricies: quitar la tarjeta. Archivar la
+rechaza el disparador, y aunque no lo hiciera, `tasks_select` solo enseña lo archivado a quien
+planifica, de modo que la fila dejaría de ser visible para quien la archiva y PostgreSQL mata el
+`UPDATE`; borrar de verdad sigue pidiendo `can_manage_plan`. **Se apunta y se corrige; quitarlo es
+del plan.** Es la segunda vez que la papelera decide un permiso, y la regla que deja escrita es la
+misma: un permiso que la base no puede dar sin romper otra garantía no es un permiso que falte.
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.

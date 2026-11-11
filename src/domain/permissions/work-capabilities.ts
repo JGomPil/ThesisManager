@@ -53,6 +53,16 @@ export type WorkCapabilities = {
   canManageMilestones: boolean
   canManageMeetings: boolean
   canEditAcademicContent: boolean
+  /**
+   * ¿Puede APUNTAR una tarea nueva? (migración 0033)
+   *
+   * Separada de `canManagePlan` porque no concede lo mismo: quien planifica
+   * crea tareas para cualquiera, y el alumno solo PARA SÍ —así lo exige el
+   * `with check` de `tasks_insert`, que pide `assignee_id = app.uid()`—. De ahí
+   * que el formulario tenga que fijar el responsable cuando no se puede
+   * elegir: una tarea «sin asignar» creada por el alumno la rechaza la base.
+   */
+  canCreateTasks: boolean
   roleNames: string[]
 }
 
@@ -102,6 +112,9 @@ export function resolveWorkCapabilities(
     canManageMilestones: granted.has('can_manage_plan') || isOrgAdmin || isStudent,
     canManageMeetings: isSupervisory || isOrgAdmin || isStudent,
     canEditAcademicContent: isSupervisory || isOrgAdmin || isStudent,
+    // Espejo de la rama nueva de `tasks_insert` (0033). Un colaborador NO
+    // entra: apuntar tareas en el plan de otro no es participar en tu trabajo.
+    canCreateTasks: granted.has('can_manage_plan') || isOrgAdmin || isStudent,
     roleNames: mine.map((m) => m.role!).map((r) => (r.is_student ? 'Estudiante' : r.is_supervisory ? 'Supervisión' : 'Otra')),
   }
 }

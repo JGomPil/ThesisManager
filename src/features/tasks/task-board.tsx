@@ -337,7 +337,12 @@ export function TaskBoard({
           </Button>
         </div>
 
-        {caps.canManagePlan && (
+        {/* APUNTAR UNA TAREA NO ES PLANIFICAR (0033). El boton se pinta
+            tambien para el alumno del trabajo: lo que crea es suyo y de
+            primer nivel, y es lo que exige la politica. Reasignar, archivar
+            y borrar siguen siendo del plan, asi que esos siguen mirando a
+            `canManagePlan`. */}
+        {caps.canCreateTasks && (
           <Button size="sm" onClick={() => setDialogOpen(true)}><Plus /> Nueva tarea</Button>
         )}
       </div>
@@ -382,9 +387,11 @@ export function TaskBoard({
           description={
             caps.canManagePlan
               ? 'Crea las tareas del plan de trabajo. Más adelante podrás partir de una plantilla por tipo de trabajo.'
-              : 'Cuando la dirección planifique el trabajo, verás aquí tus tareas.'
+              : caps.canCreateTasks
+                ? 'Apunta lo que tengas que hacer: las tareas que crees serán tuyas. La dirección añadirá las del plan.'
+                : 'Cuando la dirección planifique el trabajo, verás aquí tus tareas.'
           }
-          action={caps.canManagePlan && <Button size="sm" onClick={() => setDialogOpen(true)}><Plus /> Nueva tarea</Button>}
+          action={caps.canCreateTasks && <Button size="sm" onClick={() => setDialogOpen(true)}><Plus /> Nueva tarea</Button>}
         />
       ) : view === 'kanban' ? (
         <>
@@ -956,6 +963,12 @@ export function TaskBoard({
         work={work}
         onSaved={invalidate}
         puedeAsignar={caps.canManagePlan}
+        // QUIEN NO PLANIFICA, SE LA APUNTA A SI MISMO. No es una comodidad:
+        // `tasks_insert` solo admite el alta del alumno con
+        // `assignee_id = app.uid()`, asi que una tarea «sin asignar» creada
+        // por el alumno la rechazaria la base de datos. Dejar el desplegable
+        // en «Sin asignar» seria ofrecer un formulario que no puede guardar.
+        responsableFijo={caps.canManagePlan ? null : userId}
       />
 
       {/* El MISMO formulario para crear y para editar, montado dos veces con
@@ -1258,6 +1271,7 @@ function TaskCard({
  */
 function TaskDialog({
   open, onOpenChange, work, task = null, onSaved, onDone, puedeAsignar,
+  responsableFijo = null,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
@@ -1270,6 +1284,11 @@ function TaskDialog({
    * El campo se enseña igual, para que se vea de quién es, pero bloqueado.
    */
   puedeAsignar: boolean
+  /**
+   * De quién es la tarea que se está creando, cuando no se puede elegir.
+   * Se usa solo en el alta: en la edición el responsable ya lo trae la tarea.
+   */
+  responsableFijo?: string | null
   /** Se llama tras guardar, para que el llamante decida dónde deja al usuario. */
   onDone?: () => void
 }) {
@@ -1288,12 +1307,12 @@ function TaskDialog({
     form.reset({
       title: task?.title ?? '',
       description: task?.description ?? '',
-      assignee_id: task?.assignee_id ?? '',
+      assignee_id: task?.assignee_id ?? responsableFijo ?? '',
       priority: task?.priority ?? 'MEDIA',
       start_date: task?.start_date ?? '',
       due_date: task?.due_date ?? '',
     })
-  }, [open, task, form])
+  }, [open, task, form, responsableFijo])
 
   const guardar = useMutation({
     mutationFn: (values: TaskFormValues) => {
@@ -1375,7 +1394,9 @@ function TaskDialog({
               </Select>
               {!puedeAsignar && (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Lo decide quien planifica el trabajo.
+                  {!editando && responsableFijo !== null
+                    ? 'Esta tarea será tuya. Pasársela a otra persona lo decide quien dirige el trabajo.'
+                    : 'Lo decide quien planifica el trabajo.'}
                 </p>
               )}
             </div>

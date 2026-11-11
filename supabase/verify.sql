@@ -411,6 +411,46 @@ with comprobaciones as (
             from app.secretos where nombre = 'cartero')
 
   union all
+  -- 5.quaterdecies La 0033: el alumno apunta sus propias tareas. Un INSERT es
+  --            la operacion mas ancha que hay -no hay fila anterior, asi que
+  --            no hay disparador de alcance que lo acote: el de las tareas es
+  --            `before update`-, y TODO lo que limita esta concesion vive en el
+  --            `with check` de la politica. Se mira que las dos condiciones que
+  --            la acotan sigan ahi: que la tarea sea SUYA y que sea de primer
+  --            nivel. Sin la primera, cualquier alumno apuntaria trabajo a
+  --            nombre de su director; sin la segunda, escribiria en la lista de
+  --            comprobacion de un tercero. Y que el borrado siga siendo de
+  --            quien planifica. Nada de esto da error en ninguna pantalla.
+  select 24, 'migracion 0033: el alumno apunta tareas SUYAS, y nada mas',
+         case when (select coalesce(with_check,'') from pg_policies
+                     where schemaname = 'public' and tablename = 'tasks'
+                       and policyname = 'tasks_insert') like '%is_work_student%'
+                   and (select coalesce(with_check,'') from pg_policies
+                         where schemaname = 'public' and tablename = 'tasks'
+                           and policyname = 'tasks_insert') like '%assignee_id = app.uid()%'
+                   and (select coalesce(with_check,'') from pg_policies
+                         where schemaname = 'public' and tablename = 'tasks'
+                           and policyname = 'tasks_insert') like '%parent_task_id IS NULL%'
+                   and (select coalesce(qual,'') from pg_policies
+                         where schemaname = 'public' and tablename = 'tasks'
+                           and policyname = 'tasks_delete') not like '%is_work_student%'
+              then 'OK' else 'FALLO' end,
+         (select case when coalesce(with_check,'') like '%assignee_id = app.uid()%'
+                           and coalesce(with_check,'') like '%parent_task_id IS NULL%'
+                      then 'lo que apunta el alumno es suyo y de primer nivel'
+                      when coalesce(with_check,'') like '%is_work_student%'
+                      then 'EL ALTA DEL ALUMNO HA PERDIDO UN LIMITE: PODRIA APUNTAR TRABAJO A OTROS'
+                      else 'el alumno no puede apuntar tareas: revisa la 0033' end
+            from pg_policies
+           where schemaname = 'public' and tablename = 'tasks' and policyname = 'tasks_insert')
+         || ' · ' ||
+         (select case when coalesce(qual,'') not like '%is_work_student%'
+                      then 'quitar una tarea sigue siendo del plan'
+                      else 'EL BORRADO DEFINITIVO DE TAREAS SE HA ABIERTO AL ALUMNO' end
+            from pg_policies
+           where schemaname = 'public' and tablename = 'tasks' and policyname = 'tasks_delete')
+
+  union all
   -- 6. Y que ningun rol tenga capacidades que no deba: el estudiante, ninguna.
   --    SIGUE SIENDO VERDAD despues de la 0030: lo que esa migracion concede no
   --    pasa por los flags del catalogo de roles, sino por ser EL ALUMNO DE ESE
