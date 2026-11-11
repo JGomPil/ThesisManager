@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useLocation } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { BellRing, Laptop, Smartphone, Trash2 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
@@ -127,8 +128,29 @@ export function AvisosCard() {
       days_before: campo === 'days_before' ? (valor as number) : dias,
     })
 
+  /**
+   * Si se llega aqui desde la campana (`/perfil#avisos`), la pagina se coloca
+   * en esta tarjeta.
+   *
+   * NO LO HACE EL NAVEGADOR. Con rutas de cliente, cambiar de pagina no es
+   * cargar un documento, asi que el `#avisos` del enlace no desplaza nada: el
+   * navegador solo salta a un ancla cuando carga la pagina de verdad. Sin
+   * esto, pulsar en la campana parecia no hacer nada, porque la tarjeta
+   * quedaba mas abajo de lo que se ve.
+   */
+  const tarjeta = React.useRef<HTMLDivElement>(null)
+  const { hash, key } = useLocation()
+  React.useEffect(() => {
+    if (hash !== '#avisos') return
+    tarjeta.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    // `key` en las dependencias, y no solo `hash`: si YA estabas en el perfil,
+    // pulsar en la campana no cambia el hash ni vuelve a montar la pagina, asi
+    // que sin el no se movia nada y parecia que el enlace estaba roto. `key`
+    // cambia en cada navegacion, aunque el destino sea el mismo.
+  }, [hash, key])
+
   return (
-    <Card>
+    <Card id="avisos" ref={tarjeta} className="scroll-mt-20">
       <CardHeader className="pb-3">
         <CardTitle className="text-sm">Avisos</CardTitle>
         <CardDescription>

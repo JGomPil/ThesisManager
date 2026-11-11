@@ -1,7 +1,7 @@
 import * as React from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bell, CheckCheck, Trash2 } from 'lucide-react'
+import { Bell, CheckCheck, Settings, Trash2 } from 'lucide-react'
 import { formatDistanceToNow, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
@@ -173,15 +173,24 @@ export function NotificationsMenu() {
               </ul>
             )}
           </div>
-          <div className="border-t px-3 py-2">
-            <button
-              type="button"
-              className="text-xs text-muted-foreground underline-offset-2 hover:underline"
-              onClick={() => { setOpen(false); navigate('/perfil') }}
-            >
-              Que me avise también en el móvil y el ordenador
-            </button>
-          </div>
+          {/*
+            UN ENLACE DE VERDAD, no un `button` con `navigate`. Dos motivos, y
+            el segundo es el que lo rompia: un enlace se ve que es un enlace
+            -se puede abrir en otra pestana, el navegador lo subraya al pasar
+            por encima-, y lleva al ANCLA de la tarjeta. Antes navegaba al
+            perfil y se quedaba arriba, con la tarjeta de Avisos fuera de la
+            pantalla, de modo que pulsar aqui no se distinguia de que no
+            pasara nada. Y si ya estabas en el perfil, no pasaba nada de
+            verdad: navegar a la pagina en la que ya estas no mueve nada.
+          */}
+          <Link
+            to="/perfil#avisos"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 border-t px-3 py-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          >
+            <Settings className="size-3.5 shrink-0" aria-hidden />
+            Que me avise también en el móvil y el ordenador
+          </Link>
         </div>
       )}
     </div>
