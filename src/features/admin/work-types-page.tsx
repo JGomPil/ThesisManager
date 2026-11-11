@@ -15,6 +15,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import { ErrorPanel, FieldError, LoadingPanel } from '@/components/common/states'
+import { propsDeApertura } from '@/components/common/row-link'
 import { useToast } from '@/components/ui/toast'
 import { qk } from '@/lib/query-keys'
 import { errorMessage } from '@/lib/supabase'
@@ -94,34 +95,63 @@ export function WorkTypesPage() {
               <TableHead>Tipo</TableHead>
               <TableHead>Nivel</TableHead>
               <TableHead>Duración</TableHead>
-              <TableHead>Defensa</TableHead>
-              <TableHead>Depósito</TableHead>
-              <TableHead>Titulación</TableHead>
+              <TableHead title="Lo que este tipo exige: acto de defensa, depósito oficial y titulación o programa">
+                Requiere
+              </TableHead>
               <TableHead>Estados</TableHead>
-              <TableHead />
+              {/* LA COLUMNA DE ACCIONES SE NOMBRA. Sin encabezado, tres botones
+                  al borde derecho de una tabla ancha no se buscan: se descubren
+                  por casualidad. */}
+              <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.map((t) => (
-              <TableRow key={t.id} className={t.is_active ? '' : 'opacity-55'}>
+              /* LA FILA ENTERA ABRE EL EDITOR, no solo el botón del extremo.
+                 Con ocho columnas, la de acciones se iba fuera de la pantalla
+                 por la derecha y macOS esconde la barra de desplazamiento: los
+                 botones estaban, pero no existían para quien mira. Los
+                 controles de dentro se quedan con su clic
+                 (ver `propsDeApertura`). */
+              <TableRow
+                key={t.id}
+                className={t.is_active ? 'cursor-pointer' : 'cursor-pointer opacity-55'}
+                {...propsDeApertura(() => setEditing(t))}
+              >
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <ToneBadge tone={t.color}>{t.short_name}</ToneBadge>
                     <div className="min-w-0">
-                      <p className="truncate font-medium">{t.name}</p>
+                      {/* El nombre es un botón DE VERDAD: es lo que recibe el
+                          foco con el tabulador y lo que anuncia un lector de
+                          pantalla. El clic en el resto de la fila solo lo
+                          acompaña. */}
+                      <button
+                        type="button"
+                        className="block max-w-full truncate text-left font-medium hover:underline"
+                        onClick={() => setEditing(t)}
+                        title={`Editar «${t.name}»`}
+                      >
+                        {t.name}
+                      </button>
                       <p className="text-xs text-muted-foreground">{t.code}</p>
                     </div>
                     {!t.is_active && <Badge variant="secondary">inactivo</Badge>}
-                    {t.organization_id === null && <Badge variant="outline">global</Badge>}
+                    {t.organization_id === null && (
+                      <Badge
+                        variant="outline"
+                        title="Tipo precargado con la instalación: no es de ninguna organización en concreto. Se edita y se retira desde aquí, pero no se borra."
+                      >
+                        global
+                      </Badge>
+                    )}
                   </div>
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">{t.academic_level ?? '—'}</TableCell>
                 <TableCell className="text-sm tabular-nums text-muted-foreground">
                   {t.default_duration_months ? `${t.default_duration_months} meses` : '—'}
                 </TableCell>
-                <TableCell><Flag on={t.requires_defense} /></TableCell>
-                <TableCell><Flag on={t.requires_deposit} /></TableCell>
-                <TableCell><Flag on={t.requires_program} /></TableCell>
+                <TableCell><Requisitos t={t} /></TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {(() => {
                     const n = (mapeos.data ?? []).filter((m) => m.work_type_id === t.id).length
@@ -176,17 +206,27 @@ export function WorkTypesPage() {
         </Table>
       </Card>
 
-      <p className="text-xs text-muted-foreground">
-        Los tipos no se borran: se retiran. Un trabajo histórico debe conservar su tipo, y la
-        base de datos lo impone con <code>ON DELETE RESTRICT</code>. Un tipo retirado se queda en
-        esta lista, atenuado, con su botón <strong>Reactivar</strong>: retirar siempre tiene
-        vuelta. Los tipos marcados como
-        «global» vienen precargados: su nombre, su color, sus reglas y su ciclo de vida{' '}
-        <strong>sí</strong> se editan desde aquí, y también se pueden retirar, pero no borrar,
-        porque no son de ninguna organización en particular. Esos cambios los ven todas las
-        organizaciones (hoy solo hay una). El código no se cambia nunca: el catálogo inicial y
-        las migraciones casan por código.
-      </p>
+      {/* DOS PÁRRAFOS, NO UNO. Era un bloque de diez líneas donde la respuesta a
+          «¿qué es "global"?» quedaba enterrada en la mitad, y la pregunta se
+          hizo dos veces. Cada idea con su entradilla en negrita, que es lo que
+          encuentra el ojo cuando busca una palabra concreta. */}
+      <div className="space-y-1.5 text-xs text-muted-foreground">
+        <p>
+          <strong>La etiqueta «global»</strong> marca los tipos precargados con la instalación
+          (TFG, TFM, tesis, Academia): no son de ninguna organización en concreto, sino del
+          catálogo inicial del programa. Los que no la llevan los creó esta organización desde
+          esta pantalla. Un tipo global <strong>sí</strong> se edita desde aquí —nombre, color,
+          reglas y ciclo de vida— y también se puede retirar; lo único que no admite es
+          borrarse. Esos cambios los verían todas las organizaciones (hoy solo hay una).
+        </p>
+        <p>
+          <strong>Los tipos no se borran: se retiran.</strong> Un trabajo histórico debe
+          conservar su tipo, y la base de datos lo impone con <code>ON DELETE RESTRICT</code>.
+          Un tipo retirado se queda en esta lista, atenuado, con su botón{' '}
+          <strong>Reactivar</strong>: retirar siempre tiene vuelta. El código no se cambia
+          nunca: el catálogo inicial y las migraciones casan por código.
+        </p>
+      </div>
 
       <WorkTypeDialog
         open={creating || editing !== null}
@@ -225,11 +265,29 @@ export function WorkTypesPage() {
   )
 }
 
-function Flag({ on }: { on: boolean }) {
+/**
+ * LO QUE EL TIPO EXIGE, EN UNA SOLA COLUMNA.
+ *
+ * Eran tres columnas —«Defensa», «Depósito», «Titulación»— con un «Sí» o un
+ * «No» en cada una: unos 330 px de tabla para tres bits. Con ocho columnas, la
+ * de acciones se salía por la derecha en un portátil, y en macOS no se ve la
+ * barra de desplazamiento que lo delataría: el botón «Editar» estaba, pero
+ * fuera de la pantalla. Aquí se dice lo mismo en el ancho de una palabra, y lo
+ * que no se exige no ocupa sitio, que es como se lee una lista de requisitos.
+ */
+function Requisitos({ t }: { t: WorkTypeRow }) {
+  const req = [
+    t.requires_defense && 'Defensa',
+    t.requires_deposit && 'Depósito',
+    t.requires_program && 'Titulación',
+  ].filter((x): x is string => typeof x === 'string')
+
+  if (req.length === 0) return <span className="text-sm text-muted-foreground">Nada</span>
+
   return (
-    <span className={on ? 'text-sm font-medium text-emerald-600' : 'text-sm text-muted-foreground'}>
-      {on ? 'Sí' : 'No'}
-    </span>
+    <div className="flex flex-wrap gap-1">
+      {req.map((r) => <Badge key={r} variant="secondary">{r}</Badge>)}
+    </div>
   )
 }
 
