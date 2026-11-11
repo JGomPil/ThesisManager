@@ -11,6 +11,8 @@ import { qk } from '@/lib/query-keys'
 import { errorMessage } from '@/lib/supabase'
 import { notificationsRepo } from '@/data/repositories/notifications.repo'
 import { useToast } from '@/components/ui/toast'
+import { invitaAEncender } from '@/domain/avisos/estado-del-dispositivo'
+import { useEstadoDeAvisos } from '@/features/notifications/use-estado-de-avisos'
 
 /**
  * Buzón de notificaciones.
@@ -33,6 +35,7 @@ export function NotificationsMenu() {
   const qc = useQueryClient()
   const toast = useToast()
   const navigate = useNavigate()
+  const { estado } = useEstadoDeAvisos()
 
   const unread = useQuery({
     queryKey: qk.notifications.unread,
@@ -86,6 +89,11 @@ export function NotificationsMenu() {
 
   const count = unread.data ?? 0
   const rows = list.data ?? []
+
+  // La frase del pie cambia según el aparato, y la regla está en el dominio con
+  // sus pruebas: «que me avise también aquí» es una invitación, y donde no hay
+  // nada que encender el enlace se presenta como lo que es, los ajustes.
+  const invita = invitaAEncender(estado)
 
   return (
     <div className="relative" ref={ref}>
@@ -189,7 +197,9 @@ export function NotificationsMenu() {
             className="flex items-center gap-2 border-t px-3 py-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           >
             <Settings className="size-3.5 shrink-0" aria-hidden />
-            Que me avise también en el móvil y el ordenador
+            {invita
+              ? 'Que me avise también en el móvil y el ordenador'
+              : 'Ajustes de avisos y dispositivos'}
           </Link>
         </div>
       )}

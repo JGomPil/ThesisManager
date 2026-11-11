@@ -12,7 +12,7 @@ import { useToast } from '@/components/ui/toast'
 import { errorMessage } from '@/lib/supabase'
 import { qk } from '@/lib/query-keys'
 import { avisosConfigurados, pushRepo } from '@/data/repositories/push.repo'
-import { estadoDeAvisos } from '@/domain/avisos/estado-del-dispositivo'
+import { useEstadoDeAvisos } from '@/features/notifications/use-estado-de-avisos'
 import { useAuth } from '@/features/auth/auth-context'
 
 /**
@@ -38,15 +38,10 @@ export function AvisosCard() {
   const qc = useQueryClient()
   const toast = useToast()
 
-  // El soporte del navegador y el permiso no son estado de React: se leen del
-  // navegador. Se guardan en un contador para poder forzar la relectura después
-  // de suscribirse, porque `Notification.permission` cambia sin avisar a nadie.
-  const [vuelta, setVuelta] = React.useState(0)
-
-  const endpoint = useQuery({
-    queryKey: [...qk.notifications.dispositivos, 'actual', vuelta],
-    queryFn: () => pushRepo.endpointActual(),
-  })
+  // El estado de este aparato lo da el hook, que es el mismo que usa el pie de
+  // la campana: si se calculara aquí aparte, las dos pantallas podrían acabar
+  // diciendo cosas distintas del mismo dispositivo.
+  const { estado, endpointActual, recarga } = useEstadoDeAvisos()
 
   const dispositivos = useQuery({
     queryKey: qk.notifications.dispositivos,
@@ -58,22 +53,8 @@ export function AvisosCard() {
     queryFn: () => pushRepo.prefs(),
   })
 
-  const esIOS =
-    /iPad|iPhone|iPod/.test(navigator.userAgent)
-    // El iPad moderno se presenta como Mac; lo delata que tenga pantalla táctil.
-    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-
-  const estado = estadoDeAvisos({
-    soporta: pushRepo.soporta(),
-    permiso: pushRepo.permiso(),
-    suscrito: endpoint.data !== null && endpoint.data !== undefined,
-    esIOS,
-    instalada: window.matchMedia('(display-mode: standalone)').matches
-      || ('standalone' in navigator && navigator.standalone === true),
-  })
-
   const refresca = () => {
-    setVuelta((v) => v + 1)
+    recarga()
     void qc.invalidateQueries({ queryKey: qk.notifications.dispositivos })
   }
 
@@ -270,7 +251,7 @@ export function AvisosCard() {
                     <span className="min-w-0 flex-1">
                       <span className="block">{nombreDelAparato(d.user_agent)}</span>
                       <span className="block text-xs text-muted-foreground">
-                        {d.endpoint === endpoint.data ? 'Este mismo · ' : ''}
+                        {d.endpoint === endpointActual ? 'Este mismo · ' : ''}
                         {d.last_ok_at
                           ? `último aviso recibido el ${format(parseISO(d.last_ok_at), "d/MM/yyyy 'a las' HH:mm")}`
                           : 'todavía no ha recibido ninguno'}

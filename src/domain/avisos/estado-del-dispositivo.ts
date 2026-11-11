@@ -94,3 +94,16 @@ export function estadoDeAvisos(e: EntornoDeAvisos): EstadoDeAvisos {
     accion: 'encender',
   }
 }
+
+/**
+ * ¿Tiene sentido INVITAR a encenderlos, o solo ofrecer los ajustes?
+ *
+ * Lo usa el pie de la campana. «Que me avise también aquí» es una invitación, y
+ * en un aparato que ya recibe avisos no invita a nada: deja pensando que la
+ * aplicación no se ha enterado de que ya se dijo que sí. Solo se invita cuando
+ * hay algo que encender; con los avisos bloqueados en el navegador tampoco, por
+ * mucho que estén apagados, porque desde la aplicación no se puede hacer nada.
+ */
+export function invitaAEncender(e: EstadoDeAvisos): boolean {
+  return e.estado === 'apagado' || e.estado === 'instalar-primero'
+}

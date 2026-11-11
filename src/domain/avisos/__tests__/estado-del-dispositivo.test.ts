@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { estadoDeAvisos, type EntornoDeAvisos } from '@/domain/avisos/estado-del-dispositivo'
+import {
+  estadoDeAvisos, invitaAEncender, type EntornoDeAvisos,
+} from '@/domain/avisos/estado-del-dispositivo'
 
 const base: EntornoDeAvisos = {
   soporta: true, permiso: 'default', suscrito: false, esIOS: false, instalada: false,
@@ -51,5 +53,33 @@ describe('en que situacion esta este aparato', () => {
   it('bloqueado pesa mas que suscrito: una suscripcion vieja con el permiso retirado no sirve', () => {
     const r = estadoDeAvisos({ ...base, permiso: 'denied', suscrito: true })
     expect(r.estado).toBe('bloqueado')
+  })
+})
+
+describe('cuando invitar a encenderlos', () => {
+  const invita = (e: Partial<EntornoDeAvisos>) => invitaAEncender(estadoDeAvisos({ ...base, ...e }))
+
+  it('apagado: se invita, que es el caso para el que existe la frase', () => {
+    expect(invita({})).toBe(true)
+  })
+
+  it('un iPhone sin instalar: se invita, porque lo que falta se puede arreglar', () => {
+    expect(invita({ soporta: false, esIOS: true })).toBe(true)
+  })
+
+  it('YA ENCENDIDO: NO se invita', () => {
+    // El fallo que se corrige aqui: la campana seguia ofreciendo «que me avise
+    // tambien aqui» en un aparato que ya recibia avisos, lo que da a entender
+    // que la aplicacion no se ha enterado de que ya se dijo que si.
+    expect(invita({ permiso: 'granted', suscrito: true })).toBe(false)
+  })
+
+  it('bloqueado en el navegador: no se invita, aunque esten apagados', () => {
+    // Invitar aqui seria mandar a alguien a un boton que no puede funcionar.
+    expect(invita({ permiso: 'denied' })).toBe(false)
+  })
+
+  it('navegador sin soporte: no se invita', () => {
+    expect(invita({ soporta: false })).toBe(false)
   })
 })
