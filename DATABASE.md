@@ -243,6 +243,15 @@ del mismo trabajo.
   `with check` es lo único que acota el alta. Lo que no cambia: `tasks_delete` sigue pidiendo
   `can_manage_plan`, archivar lo rechaza el disparador, y el responsable de una tarea ya creada
   tampoco se toca. Comprobación 24 de `verify.sql`; pruebas `[196]`–`[199]`.
+- **Crear un trabajo es un permiso propio** (`0034`): `organization_members.can_create_works`
+  —apagado de serie, lo enciende quien administra— y `app.crear_trabajo(...)`, que inserta el
+  trabajo **y su dirección** en una sola operación. Las dos filas van juntas porque `works_select`
+  solo enseña los trabajos de los que eres miembro y `wm_write` solo deja añadir participantes a
+  quien ya administra ese trabajo: un trabajo sin dirección es invisible para quien lo acaba de
+  crear. Quien crea, dirige; solo la administración puede crear a nombre de otra persona. La
+  función es `security definer`, así que la puerta es `app.puede_crear_trabajos(org)`, lo primero
+  que comprueba. `works_insert` y `works_delete` **no se abren**: el alta directa y el borrado
+  siguen siendo de quien administra. Comprobación 25 de `verify.sql`; pruebas `[200]`–`[204]`.
 - `comments` polimórfico controlado: `work_id` obligatorio + `entity_type` (`WORK`/`TASK`/`DOCUMENT`/
   `MEETING`) + `entity_id`, `parent_comment_id`, `mentions uuid[]`. `work_id` siempre presente es lo
   que permite una política RLS única y eficiente para todos los comentarios.

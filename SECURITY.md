@@ -1332,6 +1332,43 @@ planifica, de modo que la fila dejaría de ser visible para quien la archiva y P
 del plan.** Es la segunda vez que la papelera decide un permiso, y la regla que deja escrita es la
 misma: un permiso que la base no puede dar sin romper otra garantía no es un permiso que falte.
 
+### 5.2.quintricies · Un permiso que no cabía en el papel administrativo
+
+Crear un trabajo exigía `app.is_org_admin` (`works_insert`, `0003`). En un grupo real eso significa
+que **una sola persona da de alta los trabajos de todo el mundo**, y la salida obvia —hacer
+administradora a cada profesora— es la que no se puede tomar: quien administra ve **todos** los
+trabajos del grupo, notas privadas de supervisión incluidas (§4). Repartir una carga de gestión no
+puede costar la privacidad de las tutorías ajenas, así que el permiso tenía que existir **por
+separado**: `organization_members.can_create_works`, apagado de serie y encendido una a una por la
+administración. Lo descartado, y por qué: *cualquiera del grupo* mete a los alumnos en el reparto
+—un TFG creándose su propio trabajo y dirigiéndolo—, y *quien ya dirija algo* deja a la recién
+llegada sin poder empezar.
+
+**Y abrir la política no habría bastado, habría sido peor.** Un trabajo no es una fila: es una fila
+más su dirección. `works_select` solo enseña los trabajos de los que eres miembro y `wm_write` solo
+deja añadir participantes a quien ya administra **ese** trabajo o tiene en él `can_manage_members`.
+Con `works_insert` abierta a secas, la profesora insertaría el trabajo y acto seguido no podría
+añadirse como directora, porque todavía no es miembro: el trabajo quedaría **invisible para quien
+lo acaba de crear**, una fila huérfana que solo un administrador podría rescatar. De ahí
+`app.crear_trabajo(...)`, que hace las dos inserciones o ninguna. La prueba `[201]` no comprueba que
+la fila entre —eso es lo fácil— sino que **quien la creó la ve**.
+
+Tres cosas que esa función tiene que vigilar por su cuenta, porque es `security definer` y dentro de
+ella no hay RLS:
+
+1. **La puerta va primero.** `app.puede_crear_trabajos(org)` es la primera línea; todo lo demás
+   ocurre después. `works_insert` y `works_delete` siguen pidiendo administración, de modo que el
+   camino directo no se ha ensanchado: defensa en profundidad.
+2. **Quien crea, dirige** —salvo la administración—. Sin esa regla, cualquiera con la casilla podría
+   crear un trabajo a nombre de un colega: se quedaría sin verlo y le habría adjudicado la dirección
+   de un trabajo sin que el otro dijera nada (`[203]`).
+3. **La dirección y el alumno, del grupo.** Sin comprobarlo se podría meter en un trabajo a
+   cualquier cuenta de la base de datos (`[204]`).
+
+Y la casilla no se la pone uno mismo: vive en `organization_members`, cuya escritura es solo de la
+administración desde la `0003`. Lo fija `[202]`, que mira **la fila y no el error**, porque un
+`UPDATE` que RLS filtra devuelve cero filas sin quejarse (§5.2.quatervicies).
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.

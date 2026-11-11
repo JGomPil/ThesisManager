@@ -46,9 +46,11 @@ export function WorkFormPage() {
   const people = useQuery({ queryKey: qk.people.directory, queryFn: peopleRepo.directory, enabled: !isEdit })
 
   // Las funciones se eligen por sus PROPIEDADES, no por un código fijo: son un
-  // catálogo editable y el usuario puede renombrarlas o añadir otras.
-  const supervisorRole = (roles.data ?? []).find((r) => r.is_supervisory && r.can_manage_members)
-  const studentRole = (roles.data ?? []).find((r) => r.is_student)
+  // catálogo editable y el usuario puede renombrarlas o añadir otras. Aquí solo
+  // sirve para NOMBRAR lo que va a pasar («se asigna como directora»): quien
+  // elige de verdad la función es `app.crear_trabajo`, con esta misma regla, y
+  // así la frase de la pantalla y la fila que se escribe no pueden discrepar.
+  const rolDeDireccion = (roles.data ?? []).find((r) => r.is_supervisory && r.can_manage_members)
 
   const existing = useQuery({
     queryKey: qk.works.detail(id ?? ''),
@@ -228,46 +230,38 @@ export function WorkFormPage() {
       }
       if (isEdit) return worksRepo.update(id!, payload)
       if (!organizationId) throw new Error('No tienes una organización activa.')
-      const work = await worksRepo.create({ ...payload, organization_id: organizationId, created_by: userId })
 
-      // Participantes iniciales. Van después de crear el trabajo porque
-      // necesitan su id, así que son dos operaciones y no una transacción: si
-      // la segunda falla, el trabajo queda creado sin participantes. En ese
-      // caso no se oculta el problema, se avisa y se lleva a la ficha, donde
-      // se puede completar a mano. Hacerlo atómico exigiría una función en la
-      // base de datos; no compensa para dos filas que se pueden añadir allí.
-      const pending: { user_id: string; work_role_id: string }[] = []
-      if (values.supervisor_id && supervisorRole) {
-        pending.push({ user_id: values.supervisor_id, work_role_id: supervisorRole.id })
-      }
-      if (values.student_id && studentRole) {
-        pending.push({ user_id: values.student_id, work_role_id: studentRole.id })
-      }
+      // EL TRABAJO Y SU DIRECCIÓN, DE UNA VEZ (migración 0034). Antes esto
+      // eran dos pasos —insertar el trabajo y añadir después a los
+      // participantes— y el comentario de aquí decía que hacerlo atómico
+      // exigiría una función en la base de datos. Hizo falta: `works_select`
+      // solo enseña los trabajos de los que eres miembro, así que un trabajo
+      // sin participantes es invisible para quien lo acaba de crear, y a quien
+      // no administra el grupo el segundo paso le fallaría siempre.
+      const workId = await worksRepo.crear({
+        ...payload,
+        organization_id: organizationId,
+        supervisor_id: values.supervisor_id || null,
+        student_id: values.student_id || null,
+      })
 
-      const failed: string[] = []
-      for (const m of pending) {
-        try {
-          await worksRepo.addMember({ ...m, work_id: work.id, is_primary: true })
-        } catch (e) {
-          failed.push(errorMessage(e))
-        }
-      }
       // El plan, al final y a propósito: después de la dirección, para que el
       // trabajo ya tenga a quien planifica, y después de todo lo demás porque
       // es lo único que se puede repetir sin consecuencias desde la ficha. La
       // llamada en sí SÍ es atómica —o el plan entero o nada, prueba [87]—, de
       // modo que aquí no puede quedar medio plan.
+      const failed: string[] = []
       let creadas = 0
       if (values.template_id) {
         try {
           creadas = await templatesRepo.apply(
-            work.id, values.template_id, values.start_date || undefined,
+            workId, values.template_id, values.start_date || undefined,
           )
         } catch (e) {
           failed.push(errorMessage(e))
         }
       }
-      return { work, failed, creadas }
+      return { work: { id: workId }, failed, creadas }
     },
     onSuccess: (result) => {
       void qc.invalidateQueries({ queryKey: qk.works.all })
@@ -491,7 +485,7 @@ export function WorkFormPage() {
                   ))}
                 </Select>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Se asigna como {supervisorRole?.name.toLowerCase() ?? 'dirección'} del trabajo.
+                  Se asigna como {rolDeDireccion?.name.toLowerCase() ?? 'dirección'} del trabajo.
                   Los codirectores se añaden después, desde la ficha.
                 </p>
               </div>

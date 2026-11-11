@@ -61,6 +61,15 @@ export type OrganizationMemberRow = {
   user_id: string
   role: 'OWNER' | 'ADMIN' | 'MEMBER'
   is_active: boolean
+  /**
+   * Puede crear trabajos sin administrar el grupo (migración 0034).
+   *
+   * Es un permiso DEL GRUPO y no un rasgo de la persona, de ahí que viva aquí
+   * y no en `profiles`. Nace apagado, y lo enciende quien administra desde la
+   * ficha de la persona. Quien administra no lo necesita: `app.crear_trabajo`
+   * pregunta por las dos cosas.
+   */
+  can_create_works: boolean
   created_at: string
 }
 
@@ -610,7 +619,7 @@ export type Database = {
     Tables: {
       profiles: Table<ProfileRow, Auto<ProfileRow, 'avatar_url' | 'department' | 'position' | 'orcid' | 'bio' | 'is_active' | 'created_at' | 'updated_at'>>
       organizations: Table<OrganizationRow, Auto<OrganizationRow, 'id' | 'created_at' | 'updated_at'>>
-      organization_members: Table<OrganizationMemberRow, Auto<OrganizationMemberRow, 'id' | 'is_active' | 'created_at'>>
+      organization_members: Table<OrganizationMemberRow, Auto<OrganizationMemberRow, 'id' | 'is_active' | 'can_create_works' | 'created_at'>>
       research_groups: Table<ResearchGroupRow, Auto<ResearchGroupRow, 'id' | 'acronym' | 'is_active' | 'created_at' | 'updated_at'>>
       academic_levels: Table<AcademicLevelRow, Auto<AcademicLevelRow, 'display_order'>>
       academic_years: Table<AcademicYearRow, Auto<AcademicYearRow, 'id' | 'is_current'>>
@@ -700,6 +709,43 @@ export type Database = {
       mover_tarea_de_trabajo: {
         Args: { p_tarea: string; p_destino: string }
         Returns: void
+      }
+      /**
+       * Crea un trabajo CON SU DIRECCIÓN, de una vez (migración 0034).
+       *
+       * Son dos inserciones que tienen que ir juntas: `works_select` solo
+       * enseña los trabajos de los que eres miembro, así que un trabajo sin
+       * participantes es invisible para quien lo acaba de crear. Devuelve el id
+       * del trabajo nuevo.
+       *
+       * Quien crea, dirige —salvo que administre el grupo, que entonces puede
+       * poner a otra persona en `p_supervisor_id`—. El permiso lo da
+       * `organization_members.can_create_works`, y la función lo comprueba por
+       * dentro: es `security definer` y se salta RLS.
+       */
+      crear_trabajo: {
+        Args: {
+          p_organization_id: string
+          p_title: string
+          p_work_type_id: string
+          p_status_id: string
+          p_program_id?: string | null
+          p_academic_year_id?: string | null
+          p_research_line_id?: string | null
+          p_start_date?: string | null
+          p_expected_end_date?: string | null
+          p_actual_end_date?: string | null
+          p_defense_date?: string | null
+          p_progress_override?: number | null
+          p_description?: string | null
+          p_objectives?: string | null
+          p_hypothesis?: string | null
+          p_methodology?: string | null
+          p_keywords?: string[]
+          p_supervisor_id?: string | null
+          p_student_id?: string | null
+        }
+        Returns: string
       }
     }
     Enums: Record<string, never>

@@ -451,6 +451,47 @@ with comprobaciones as (
            where schemaname = 'public' and tablename = 'tasks' and policyname = 'tasks_delete')
 
   union all
+  -- 5.quindecies La 0034: crear un trabajo es un permiso propio. Se comprueba
+  --            que la puerta exista -sin ella, la casilla no sirve de nada y
+  --            solo crean trabajos los administradores-, que `anon` no la
+  --            pueda empujar, y las dos cosas que NO se han abierto: el alta
+  --            directa en `academic_works` y el borrado siguen siendo de quien
+  --            administra. Y de paso cuantas personas tienen la casilla, que
+  --            es un dato que conviene mirar de vez en cuando.
+  select 25, 'migracion 0034: crear un trabajo es un permiso propio, y nace con su direccion',
+         case when (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                     where p.proname = 'crear_trabajo' and n.nspname in ('app','public')) = 2
+                   and (select count(*) from information_schema.columns
+                         where table_schema = 'public' and table_name = 'organization_members'
+                           and column_name = 'can_create_works') = 1
+                   and (select coalesce(with_check,'') from pg_policies
+                         where schemaname = 'public' and tablename = 'academic_works'
+                           and policyname = 'works_insert') like '%is_org_admin%'
+                   and (select coalesce(qual,'') from pg_policies
+                         where schemaname = 'public' and tablename = 'academic_works'
+                           and policyname = 'works_delete') like '%is_org_admin%'
+                   and (select pg_get_functiondef(p.oid) from pg_proc p
+                         join pg_namespace n on n.oid = p.pronamespace
+                        where n.nspname = 'app' and p.proname = 'crear_trabajo')
+                       like '%work_members%'
+              then 'OK' else 'FALLO' end,
+         (select case when count(*) = 2 then 'la puerta de crear trabajos esta puesta'
+                      else 'FALTA LA FUNCION DE ALTA: solo crearan trabajos los administradores' end
+            from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+           where p.proname = 'crear_trabajo' and n.nspname in ('app','public'))
+         || ' · ' ||
+         (select case when count(*) = 0 then 'nadie mas que la administracion, por ahora'
+                      else count(*) || ' persona(s) pueden crear trabajos sin administrar' end
+            from organization_members where can_create_works)
+         || ' · ' ||
+         (select case when coalesce(with_check,'') like '%is_org_admin%'
+                      then 'el alta directa sigue siendo de quien administra'
+                      else 'WORKS_INSERT SE HA ABIERTO: UN TRABAJO PUEDE NACER SIN DIRECCION' end
+            from pg_policies
+           where schemaname = 'public' and tablename = 'academic_works'
+             and policyname = 'works_insert')
+
+  union all
   -- 6. Y que ningun rol tenga capacidades que no deba: el estudiante, ninguna.
   --    SIGUE SIENDO VERDAD despues de la 0030: lo que esa migracion concede no
   --    pasa por los flags del catalogo de roles, sino por ser EL ALUMNO DE ESE

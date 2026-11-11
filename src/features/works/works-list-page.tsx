@@ -30,7 +30,7 @@ import type { ColumnaOrden, Orden } from '@/domain/works/list-order'
 
 export function WorksListPage() {
   const [params, setParams] = useSearchParams()
-  const { userId, isOrgAdmin } = useAuth()
+  const { userId, isOrgAdmin, canCreateWorks } = useAuth()
   const qc = useQueryClient()
   const toast = useToast()
   // La fila entera abre el trabajo, no solo el título. Ver `useRowLink`.
@@ -181,7 +181,9 @@ export function WorksListPage() {
               : 'Todos los trabajos a los que tienes acceso.'
         }
         actions={
-          isOrgAdmin && (
+          /* CREAR NO ES ADMINISTRAR (0034): tambien lo ve quien tiene el
+             permiso de crear trabajos sin administrar el grupo. */
+          canCreateWorks && (
             <Button asChild>
               <Link to="/trabajos/nuevo"><Plus /> Nuevo trabajo</Link>
             </Button>
@@ -241,12 +243,12 @@ export function WorksListPage() {
           icon={BookOpen}
           title="No hay trabajos que mostrar"
           description={
-            isOrgAdmin
+            canCreateWorks
               ? 'Crea el primer trabajo o ajusta los filtros.'
               : 'Cuando te asignen a un trabajo, aparecerá aquí.'
           }
           action={
-            isOrgAdmin && (
+            canCreateWorks && (
               <Button asChild size="sm"><Link to="/trabajos/nuevo"><Plus /> Nuevo trabajo</Link></Button>
             )
           }

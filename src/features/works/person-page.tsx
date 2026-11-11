@@ -70,6 +70,28 @@ export function PersonPage() {
     enabled: isOrgAdmin && organizationId !== null,
   })
 
+  /**
+   * CREAR TRABAJOS SIN ADMINISTRAR EL GRUPO (migracion 0034).
+   *
+   * Va en esta misma tarjeta porque es la misma pregunta -que puede esta
+   * persona en el grupo- y la misma tabla. Y es un permiso APARTE del papel
+   * administrativo a proposito: administrar abre todos los trabajos y todas
+   * las notas privadas de supervision, asi que repartir la carga de dar de
+   * alta los trabajos no puede costar la privacidad de las tutorias ajenas.
+   */
+  const cambiarPuedeCrear = useMutation({
+    mutationFn: (valor: boolean) =>
+      peopleRepo.setPuedeCrearTrabajos(organizationId!, id, valor),
+    onSuccess: (_d, valor) => {
+      void qc.invalidateQueries({ queryKey: qk.people.orgMembers(organizationId ?? '') })
+      // Igual que con el papel: si uno se lo cambia a si mismo, lo que decide
+      // si se dibuja «Nuevo trabajo» es `memberships` del contexto.
+      void qc.invalidateQueries({ queryKey: qk.myMemberships })
+      toast.push('success', valor ? 'Ya puede crear trabajos.' : 'Ya no puede crear trabajos.')
+    },
+    onError: (e) => toast.push('error', errorMessage(e)),
+  })
+
   const cambiarPapel = useMutation({
     mutationFn: (role: OrgRole) => peopleRepo.setOrgRole(organizationId!, id, role),
     onSuccess: (_d, role) => {
@@ -109,6 +131,7 @@ export function PersonPage() {
   const suMembresia = miembros.find((m) => m.user_id === p.id)
   const administran = miembros.filter((m) => m.role !== 'MEMBER')
   const esUltimoAdmin = administran.length === 1 && administran[0]?.user_id === p.id
+  const esAdministracion = suMembresia !== undefined && suMembresia.role !== 'MEMBER'
 
   // Todas sus participaciones en trabajos visibles, las vigentes primero. Las
   // pasadas NO se esconden: saber quién dirigió un trabajo que ya acabó es
@@ -259,6 +282,30 @@ export function PersonPage() {
                       <option value="OWNER">Propietario</option>
                     </Select>
                   </div>
+
+                  {/* La casilla, debajo del papel y no en otra tarjeta: es la
+                      misma pregunta. Para quien administra se ensena marcada y
+                      bloqueada, porque ya puede crear y la casilla no le anade
+                      nada: `app.crear_trabajo` pregunta por las dos cosas, de
+                      modo que apagarsela no le quitaria el permiso y la
+                      pantalla estaria mintiendo. */}
+                  <label className="flex items-start gap-2.5">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 size-4 rounded border-input"
+                      checked={esAdministracion || suMembresia.can_create_works}
+                      disabled={esAdministracion || cambiarPuedeCrear.isPending}
+                      onChange={(e) => cambiarPuedeCrear.mutate(e.target.checked)}
+                    />
+                    <span>
+                      Puede crear trabajos
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        {esAdministracion
+                          ? 'Quien administra el grupo ya puede crear trabajos: esto va aparte para poder darlo SIN hacer a nadie administrador.'
+                          : 'Crea trabajos en el grupo y queda como su dirección. No ve los trabajos de los demás, solo los suyos.'}
+                      </span>
+                    </span>
+                  </label>
 
                   <p className="text-muted-foreground">
                     Administrar el grupo <strong>no es</strong> dirigir trabajos: son dos cosas

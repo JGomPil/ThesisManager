@@ -2,7 +2,6 @@ import { supabase } from '@/lib/supabase'
 import { DOCS_BUCKET } from '@/data/repositories/documents.repo'
 import type { AcademicWorkRow, Database, TaskStatus, WorkMemberRow } from '@/data/types/database'
 
-type WorkInsert = Database['public']['Tables']['academic_works']['Insert']
 type WorkUpdate = Database['public']['Tables']['academic_works']['Update']
 type MemberInsert = Database['public']['Tables']['work_members']['Insert']
 
@@ -87,8 +86,64 @@ export const worksRepo = {
     return (data as unknown as WorkWithRelations) ?? null
   },
 
-  create: async (input: WorkInsert): Promise<AcademicWorkRow> => {
-    const { data, error } = await supabase.from('academic_works').insert(input).select('*').single()
+  /**
+   * Crea un trabajo CON SU DIRECCIÓN, en una sola operación (migración 0034).
+   *
+   * NO ES UN `insert`, Y ES LA DECISIÓN. Un trabajo no es una fila: es una fila
+   * más su dirección. `works_select` solo enseña los trabajos de los que eres
+   * miembro, así que insertar el trabajo y añadir después a su directora —que
+   * es lo que hacía esta pantalla— tiene dos problemas: si el segundo paso
+   * falla, el trabajo queda sin participantes, y a quien no administra el grupo
+   * le fallaría siempre, porque `wm_write` solo deja añadir participantes a
+   * quien ya administra ESE trabajo. Resultado: una fila invisible para quien
+   * la acaba de crear. La función de la base de datos hace las dos cosas o
+   * ninguna.
+   *
+   * Devuelve el id del trabajo nuevo. El plan (la plantilla) va aparte y
+   * después, porque se puede repetir sin consecuencias desde la ficha.
+   */
+  crear: async (input: {
+    organization_id: string
+    title: string
+    work_type_id: string
+    status_id: string
+    program_id: string | null
+    academic_year_id: string | null
+    research_line_id: string | null
+    start_date: string | null
+    expected_end_date: string | null
+    actual_end_date: string | null
+    defense_date: string | null
+    progress_override: number | null
+    description: string | null
+    objectives: string | null
+    hypothesis: string | null
+    methodology: string | null
+    keywords: string[]
+    supervisor_id: string | null
+    student_id: string | null
+  }): Promise<string> => {
+    const { data, error } = await supabase.rpc('crear_trabajo', {
+      p_organization_id: input.organization_id,
+      p_title: input.title,
+      p_work_type_id: input.work_type_id,
+      p_status_id: input.status_id,
+      p_program_id: input.program_id,
+      p_academic_year_id: input.academic_year_id,
+      p_research_line_id: input.research_line_id,
+      p_start_date: input.start_date,
+      p_expected_end_date: input.expected_end_date,
+      p_actual_end_date: input.actual_end_date,
+      p_defense_date: input.defense_date,
+      p_progress_override: input.progress_override,
+      p_description: input.description,
+      p_objectives: input.objectives,
+      p_hypothesis: input.hypothesis,
+      p_methodology: input.methodology,
+      p_keywords: input.keywords,
+      p_supervisor_id: input.supervisor_id,
+      p_student_id: input.student_id,
+    })
     if (error) throw error
     return data
   },

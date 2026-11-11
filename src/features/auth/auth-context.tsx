@@ -15,6 +15,16 @@ type AuthValue = {
   organizationId: string | null
   /** OWNER o ADMIN en la organización activa. Independiente de lo académico. */
   isOrgAdmin: boolean
+  /**
+   * ¿Puede crear trabajos académicos? (migración 0034)
+   *
+   * NO ES LO MISMO QUE ADMINISTRAR, y de eso iba la migración: administrar el
+   * grupo abre todos los trabajos y todas las notas privadas de supervisión,
+   * así que repartir la carga de dar de alta los trabajos no puede costar la
+   * privacidad de las tutorías ajenas. Quien administra puede, además de quien
+   * tenga la casilla encendida en su pertenencia.
+   */
+  canCreateWorks: boolean
   /** Autenticado pero sin fila en organization_members: no ve nada todavía. */
   isPendingApproval: boolean
   loading: boolean
@@ -71,6 +81,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     memberships,
     organizationId: active?.organization_id ?? null,
     isOrgAdmin: active?.role === 'OWNER' || active?.role === 'ADMIN',
+    canCreateWorks:
+      active?.role === 'OWNER' || active?.role === 'ADMIN' || active?.can_create_works === true,
     isPendingApproval:
       userId !== null && !membershipsQuery.isLoading && !membershipsQuery.isError && memberships.length === 0,
     loading: initialising || (userId !== null && (profileQuery.isLoading || membershipsQuery.isLoading)),

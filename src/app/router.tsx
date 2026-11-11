@@ -75,6 +75,28 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+/**
+ * Crear un trabajo ya no es cosa solo de la administracion (migracion 0034).
+ *
+ * Guardia aparte y no `RequireAdmin`: administrar el grupo abre todos los
+ * trabajos y todas las notas privadas de supervision, de modo que el permiso
+ * de crear tenia que poder darse sin eso. Esto no es la frontera -la frontera
+ * es `app.crear_trabajo`, que comprueba el permiso por dentro-; es para no
+ * ensenar un formulario que acabaria en un error de permisos.
+ */
+function RequirePuedeCrearTrabajos({ children }: { children: React.ReactNode }) {
+  const { canCreateWorks } = useAuth()
+  if (!canCreateWorks) {
+    return (
+      <EmptyState
+        title="No puedes crear trabajos en este grupo"
+        description="Quien administra el grupo puede darte permiso desde tu ficha de persona, sin hacerte administrador."
+      />
+    )
+  }
+  return <>{children}</>
+}
+
 function PublicOnly({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth()
   if (loading) return <div className="flex min-h-dvh items-center justify-center"><LoadingPanel /></div>
@@ -110,7 +132,10 @@ export function Router() {
           <Route element={<RequireAuth><AppShell /></RequireAuth>}>
             <Route index element={<DashboardPage />} />
             <Route path="trabajos" element={<WorksListPage />} />
-            <Route path="trabajos/nuevo" element={<RequireAdmin><WorkFormPage /></RequireAdmin>} />
+            <Route
+              path="trabajos/nuevo"
+              element={<RequirePuedeCrearTrabajos><WorkFormPage /></RequirePuedeCrearTrabajos>}
+            />
             <Route path="trabajos/:id" element={<WorkDetailPage />} />
             <Route path="trabajos/:id/editar" element={<WorkFormPage />} />
             <Route path="calendario" element={<CalendarPage />} />

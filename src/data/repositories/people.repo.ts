@@ -23,11 +23,12 @@ export type Membership = OrganizationMemberRow & {
 
 export type OrgRole = OrganizationMemberRow['role']
 
-/** Lo justo para saber quién administra el grupo. */
+/** Lo justo para saber quién administra el grupo y quién puede crear trabajos. */
 export type OrgMemberBrief = {
   user_id: string
   role: OrgRole
   is_active: boolean
+  can_create_works: boolean
 }
 
 export const peopleRepo = {
@@ -117,7 +118,7 @@ export const peopleRepo = {
   orgMembers: async (organizationId: string): Promise<OrgMemberBrief[]> => {
     const { data, error } = await supabase
       .from('organization_members')
-      .select('user_id, role, is_active')
+      .select('user_id, role, is_active, can_create_works')
       .eq('organization_id', organizationId)
       .eq('is_active', true)
     if (error) throw error
@@ -152,6 +153,33 @@ export const peopleRepo = {
     if (data === null) {
       throw new Error(
         'No se ha podido cambiar el papel: o esa persona ya no pertenece al grupo, o tu cuenta no ' +
+          'lo administra. Si deberías poder, lo más probable es que falte aplicar alguna migración.',
+      )
+    }
+  },
+
+  /**
+   * Enciende o apaga el permiso de crear trabajos (migración 0034).
+   *
+   * Es la misma tabla y la misma política que el papel administrativo
+   * (`org_members_write`, solo la administración), de ahí que se parezcan
+   * tanto. Y como allí, una respuesta vacía no es un error de red: es que la
+   * política no ha dejado tocar la fila.
+   */
+  setPuedeCrearTrabajos: async (
+    organizationId: string, userId: string, valor: boolean,
+  ): Promise<void> => {
+    const { data, error } = await supabase
+      .from('organization_members')
+      .update({ can_create_works: valor })
+      .eq('organization_id', organizationId)
+      .eq('user_id', userId)
+      .select('user_id')
+      .maybeSingle()
+    if (error) throw error
+    if (data === null) {
+      throw new Error(
+        'No se ha podido cambiar el permiso: o esa persona ya no pertenece al grupo, o tu cuenta no ' +
           'lo administra. Si deberías poder, lo más probable es que falte aplicar alguna migración.',
       )
     }
