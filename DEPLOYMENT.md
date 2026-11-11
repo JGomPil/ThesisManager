@@ -89,6 +89,23 @@ directorios que empiezan por `_`).
    sobre una base recién construida y falla si falta cualquiera.
 4. `Authentication → Providers`: dejar solo *Email*. **Desactivar el registro público**
    (`Allow new users to sign up` = off): las altas son por invitación.
+
+   **Dar de alta a una persona, de principio a fin** (la aplicación no manda
+   correos; ver SECURITY.md §7):
+   1. En la aplicación, *Administración → Invitaciones → Nueva invitación*. Esa
+      fila es lo que la autoriza: cuando entre por primera vez con **ese mismo
+      correo**, queda de alta en el grupo con la función prevista (migración
+      `0005`). Sin fila, una cuenta nueva no ve nada.
+   2. En Supabase, *Authentication → Users*: `Invite user` manda el correo de
+      Supabase (2–4 por hora en el plan gratuito, compartidos con los de
+      recuperación de contraseña) o `Add user` crea la cuenta con una
+      contraseña temporal que le dices tú.
+   3. En la aplicación, *«Escribir el correo»* en su fila: abre tu programa de
+      correo con el mensaje redactado. Luego *«Ya la he enviado»*.
+   4. La fila pasa **sola** a «Cuenta creada y de alta» cuando la cuenta existe
+      y entra. Mientras siga en «Marcada como enviada», la cuenta no está
+      creada en Supabase, y la persona no puede hacer nada aunque tenga el
+      correo.
 5. `Authentication → URL Configuration`:
    - *Site URL*: `https://jgompil.github.io/ThesisManager/`
    - *Redirect URLs*: `https://jgompil.github.io/ThesisManager/**` y `http://localhost:5173/**`

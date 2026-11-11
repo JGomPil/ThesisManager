@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Copy, ExternalLink, Plus, Trash2, Undo2 } from 'lucide-react'
+import { Check, Copy, ExternalLink, Mail, Plus, Trash2, Undo2 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { PageHeader } from '@/app/layout/app-shell'
@@ -26,6 +26,7 @@ import {
 import { invitationFormSchema, type InvitationFormValues } from '@/schemas/work'
 import { useAuth } from '@/features/auth/auth-context'
 import { PendingAccountsCard } from '@/features/admin/pending-accounts-card'
+import { enlaceMailto } from '@/domain/invitations/correo'
 import type { InvitationRow } from '@/data/types/database'
 
 /**
@@ -43,6 +44,9 @@ import type { InvitationRow } from '@/data/types/database'
  */
 export function InvitationsPage() {
   const [open, setOpen] = React.useState(false)
+  // Para firmar el correo con el nombre de quien invita, y no con un «Un
+  // saludo» anónimo que parece automático: el correo lo manda una persona.
+  const { profile } = useAuth()
   const invitations = useQuery({ queryKey: qk.invitations, queryFn: invitationsRepo.list })
   const qc = useQueryClient()
   const toast = useToast()
@@ -85,8 +89,8 @@ export function InvitationsPage() {
 
       <div className="grid grid-cols-3 gap-3">
         <Stat label="Pendientes de enviar" value={pending.length} tone="amber" />
-        <Stat label="Enviadas, sin aceptar" value={sent.length} tone="sky" />
-        <Stat label="Aceptadas" value={accepted.length} tone="green" />
+        <Stat label="Marcadas como enviadas" value={sent.length} tone="sky" />
+        <Stat label="Ya con cuenta" value={accepted.length} tone="green" />
       </div>
 
       <Card>
@@ -94,18 +98,34 @@ export function InvitationsPage() {
           <CardTitle className="text-sm">Cómo enviar las invitaciones</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 pt-0 text-sm text-muted-foreground">
+          <p className="text-foreground">
+            <strong>Desde esta pantalla no sale ningún correo</strong>, y «Marcada como enviada» es
+            una nota que te pones tú: la aplicación no puede enviarlos, porque hacerlo requiere una
+            clave privilegiada de Supabase que no puede vivir en un frontend público.
+          </p>
           <p>
-            La aplicación no puede enviar los correos por sí misma: hacerlo requiere una clave
-            privilegiada de Supabase, que no puede vivir en un frontend público. El envío se hace
-            desde el panel de Supabase, y aquí se lleva la cuenta.
+            Registrar la invitación aquí <strong>sí hace algo</strong>, y es lo importante: cuando
+            esa persona entre por primera vez con ese mismo correo, queda de alta en el grupo con la
+            función que le hayas puesto. Sin fila, una cuenta nueva no ve absolutamente nada.
           </p>
           <ol className="list-decimal space-y-1 pl-5">
-            <li>Copia el correo de una fila pendiente con el botón de copiar.</li>
+            <li>Registra la invitación aquí (es lo que la autoriza).</li>
             <li>
-              En Supabase: <em>Authentication → Users → Invite user</em>. Pega el correo y envía.
+              Crea la cuenta en Supabase: <em>Authentication → Users</em>. Con
+              <em> Invite user</em> Supabase le manda su propio correo; con <em>Add user</em> le
+              pones una contraseña temporal y se la dices tú.
             </li>
-            <li>Vuelve aquí y marca la fila como enviada.</li>
+            <li>
+              Avísale con <strong>«Escribir el correo»</strong>, que abre tu programa de correo con
+              el mensaje ya redactado —incluida la dirección exacta con la que tiene que entrar—, y
+              marca la fila como enviada.
+            </li>
           </ol>
+          <p>
+            <strong>La fila cambia sola a «Cuenta creada y de alta»</strong> en cuanto la cuenta
+            existe y entra. Es el único indicador fiable de esta pantalla: si sigue en «Marcada como
+            enviada», la cuenta todavía no está creada en Supabase.
+          </p>
           <p className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2.5 text-xs">
             <strong>Límite del plan gratuito:</strong> 2–4 correos por hora, compartidos con los de
             recuperación de contraseña. Con 30 altas, reparte los envíos en varias tandas. Si una
@@ -134,7 +154,9 @@ export function InvitationsPage() {
                 <TableHead>Correo</TableHead>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Función prevista</TableHead>
-                <TableHead>Estado</TableHead>
+                <TableHead title="«Marcada como enviada» la pones tú; «Cuenta creada y de alta» la pone la base de datos">
+                  Estado
+                </TableHead>
                 <TableHead>Fecha</TableHead>
                 <TableHead />
               </TableRow>
@@ -149,44 +171,85 @@ export function InvitationsPage() {
                     <TableCell className="text-sm text-muted-foreground">
                       {r.intended_role === 'MEMBER' ? 'Miembro' : r.intended_role === 'ADMIN' ? 'Administrador' : 'Propietario'}
                     </TableCell>
-                    <TableCell><ToneBadge tone={status.tone}>{status.label}</ToneBadge></TableCell>
+                    <TableCell>
+                      <ToneBadge tone={status.tone}>{status.label}</ToneBadge>
+                      {/* La pista que ahorra el viaje a Supabase: mientras la
+                          fila no pase sola a «Cuenta creada», la cuenta no
+                          existe, y por tanto no hay nada que esa persona pueda
+                          hacer aunque haya recibido el correo. */}
+                      {r.status === 'SENT' && (
+                        <span className="mt-0.5 block text-xs text-muted-foreground">
+                          la cuenta aún no existe en Supabase
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {format(parseISO(r.accepted_at ?? r.sent_at ?? r.created_at), 'd MMM yyyy', { locale: es })}
                     </TableCell>
+                    {/*
+                      BOTONES CON TEXTO, Y NO SOLO ICONOS. Tenian `title` y
+                      `aria-label`, que es lo que lee un lector de pantalla,
+                      pero el `title` del navegador solo aparece si dejas el
+                      raton quieto un segundo y EN UNA TABLET O UN MOVIL NO
+                      EXISTE: no hay «pasar por encima». Tres iconos seguidos
+                      sin rotulo, en una pantalla que se usa dos veces al ano,
+                      son tres adivinanzas. El texto cuesta ancho y lo vale.
+                    */}
                     <TableCell>
-                      <div className="flex justify-end gap-1">
+                      <div className="flex flex-wrap justify-end gap-1">
+                        {r.status !== 'ACCEPTED' && (
+                          <Button variant="outline" size="sm" asChild>
+                            {/*
+                              EL CORREO LO MANDA UNA PERSONA, no la aplicacion:
+                              esto abre el programa de correo con el mensaje ya
+                              escrito. Sale del buzon de quien invita, con su
+                              nombre, y sin ninguna credencial de por medio. El
+                              texto vive en `domain/invitations/correo.ts` con
+                              sus pruebas, porque lleva dos datos que no se
+                              pueden olvidar: la direccion exacta con la que hay
+                              que entrar y como conseguir la contrasena.
+                            */}
+                            <a
+                              href={enlaceMailto({
+                                nombre: r.full_name,
+                                correo: r.email,
+                                quienInvita: profile?.full_name ?? null,
+                                url: direccionDeLaAplicacion(),
+                              })}
+                            >
+                              <Mail /> Escribir el correo
+                            </a>
+                          </Button>
+                        )}
                         <CopyButton value={r.email} />
                         {r.status === 'PENDING' && (
                           <Button
                             variant="ghost"
-                            size="icon"
+                            size="sm"
                             title="Marcar como enviada"
                             onClick={() => setStatus.mutate({ id: r.id, status: 'SENT' })}
-                            aria-label="Marcar como enviada"
                           >
-                            <Check />
+                            <Check /> Ya la he enviado
                           </Button>
                         )}
                         {r.status === 'SENT' && (
                           <Button
                             variant="ghost"
-                            size="icon"
+                            size="sm"
                             title="Volver a pendiente"
                             onClick={() => setStatus.mutate({ id: r.id, status: 'PENDING' })}
-                            aria-label="Volver a pendiente"
                           >
-                            <Undo2 />
+                            <Undo2 /> Volver a pendiente
                           </Button>
                         )}
                         {r.status !== 'ACCEPTED' && (
                           <Button
                             variant="ghost"
-                            size="icon"
-                            title="Eliminar"
+                            size="sm"
+                            title="Borrar la invitación"
                             onClick={() => remove.mutate(r.id)}
-                            aria-label="Eliminar invitación"
                           >
-                            <Trash2 />
+                            <Trash2 /> Borrar
                           </Button>
                         )}
                       </div>
@@ -202,6 +265,18 @@ export function InvitationsPage() {
       <InvitationDialog open={open} onOpenChange={setOpen} onCreated={invalidate} />
     </div>
   )
+}
+
+/**
+ * La dirección de la aplicación, tal y como hay que teclearla.
+ *
+ * `BASE_URL` es la ruta base que inyecta Vite —«/ThesisManager/» en Pages, «/»
+ * en local—, y sin ella el enlace del correo llevaría a la raíz del dominio,
+ * que en GitHub Pages es la página de otra cosa. No va en el dominio puro
+ * porque mira `window`.
+ */
+function direccionDeLaAplicacion(): string {
+  return new URL(import.meta.env.BASE_URL, window.location.origin).href
 }
 
 function Stat({ label, value, tone }: { label: string; value: number; tone: string }) {
@@ -231,8 +306,8 @@ function CopyButton({ value }: { value: string }) {
   }
 
   return (
-    <Button variant="ghost" size="icon" onClick={() => void copy()} title="Copiar correo" aria-label="Copiar correo">
-      {done ? <Check className="text-emerald-600" /> : <Copy />}
+    <Button variant="ghost" size="sm" onClick={() => void copy()} title="Copiar la dirección al portapapeles">
+      {done ? <><Check className="text-emerald-600" /> Copiado</> : <><Copy /> Copiar correo</>}
     </Button>
   )
 }

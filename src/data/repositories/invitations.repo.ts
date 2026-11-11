@@ -53,9 +53,25 @@ export const invitationsRepo = {
   },
 }
 
+/**
+ * LOS RÓTULOS DICEN QUIÉN HACE QUÉ, y no es un detalle de redacción.
+ *
+ * «Enviada» era mentira a medias: la aplicación no envía ningún correo, así que
+ * ese estado solo significa que quien administra marcó la fila a mano después
+ * de enviarlo por su cuenta. Leído en una tabla, «Enviada» se entiende como
+ * «el sistema la ha enviado», y lo que se concluye cuando la persona no recibe
+ * nada es que el envío ha fallado —cuando lo que pasa es que nunca hubo envío—.
+ *
+ * «Aceptada» tampoco decía lo que significa: la pone la base de datos
+ * (migración 0005) cuando la cuenta existe y entra por primera vez, y con ella
+ * la persona queda de alta en el grupo con su función prevista. O sea que no es
+ * que haya «aceptado» nada: es que YA TIENE CUENTA. Y eso convierte el estado
+ * en el único indicador fiable de la pantalla: una fila que no pasa sola a
+ * «Cuenta creada» es una cuenta que todavía no existe en Supabase.
+ */
 export const INVITATION_STATUS_LABELS: Record<InvitationStatus, { label: string; tone: string }> = {
   PENDING: { label: 'Pendiente de enviar', tone: 'amber' },
-  SENT: { label: 'Enviada', tone: 'sky' },
-  ACCEPTED: { label: 'Aceptada', tone: 'green' },
+  SENT: { label: 'Marcada como enviada', tone: 'sky' },
+  ACCEPTED: { label: 'Cuenta creada y de alta', tone: 'green' },
   CANCELLED: { label: 'Cancelada', tone: 'slate' },
 }
