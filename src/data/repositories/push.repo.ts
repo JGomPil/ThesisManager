@@ -109,6 +109,40 @@ export const pushRepo = {
   },
 
   /** Mis aparatos. RLS no deja ver los de nadie más. */
+  /**
+   * Un aviso que NO SALE DE ESTE APARATO.
+   *
+   * PARA QUE SIRVE: la cadena de un aviso tiene tres tramos -la base de datos
+   * lo encola, el reparto lo firma y lo entrega al servicio de push, y el
+   * aparato lo ensena-, y cuando no suena nada los tres parecen iguales desde
+   * fuera. El reparto ya dice lo suyo: cuenta los envios y los codigos HTTP, y
+   * un `201` significa que Google o Apple se quedaron el mensaje. Lo que no
+   * decia nadie era si ESTE aparato sabe ensenar un aviso.
+   *
+   * Esto lo contesta sin red: se lo pide al propio service worker, que es el
+   * mismo codigo que atiende los avisos de verdad. Si aparece, el navegador y
+   * el sistema operativo estan en orden y lo que falla esta en el camino; si
+   * no aparece aunque el permiso este dado, el problema es del sistema -en
+   * macOS, Chrome y Safari necesitan ADEMAS permiso en Ajustes del sistema, y
+   * el «No molestar» silencia sin avisar de que silencia-.
+   */
+  avisoDePrueba: async (): Promise<void> => {
+    if (!('serviceWorker' in navigator)) {
+      throw new Error('Este navegador no tiene service worker, asi que no puede recibir avisos')
+    }
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+      throw new Error('Este navegador todavia no tiene permiso para avisarte')
+    }
+    const reg = await navigator.serviceWorker.ready
+    await reg.showNotification('Aviso de prueba', {
+      body: 'Si ves esto, este aparato sabe ensenarte los avisos de Thesis Manager.',
+      icon: 'icon-192.png',
+      badge: 'icon-192.png',
+      tag: 'prueba',
+      data: { url: '/perfil' },
+    })
+  },
+
   misDispositivos: async (): Promise<PushSubscriptionRow[]> => {
     const { data, error } = await supabase
       .from('push_subscriptions').select('*').order('created_at')

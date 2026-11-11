@@ -85,6 +85,22 @@ export function AvisosCard() {
     onError: (e) => toast.push('error', errorMessage(e)),
   })
 
+  /**
+   * EL BOTON DE PROBAR, y por que hace falta uno.
+   *
+   * Un aviso pasa por tres manos: la base de datos lo encola, el reparto lo
+   * firma y lo entrega al servicio de push, y el aparato lo ensena. Cuando no
+   * suena nada, los tres tramos se parecen desde fuera. Del segundo ya hay
+   * dato -el reparto cuenta envios y codigos, y un `201` quiere decir que el
+   * servicio se quedo el mensaje- y del tercero no habia ninguno. Este boton
+   * lo da sin red: si el aviso de prueba aparece, este aparato sabe ensenarlos.
+   */
+  const probar = useMutation({
+    mutationFn: () => pushRepo.avisoDePrueba(),
+    onSuccess: () => toast.push('success', 'Enviado a este aparato. Si no aparece, el sistema lo esta silenciando.'),
+    onError: (e) => toast.push('error', errorMessage(e)),
+  })
+
   const guardar = useMutation({
     mutationFn: (v: { on_dates: boolean; on_comments: boolean; days_before: number }) =>
       pushRepo.guardarPrefs(userId!, v),
@@ -162,12 +178,25 @@ export function AvisosCard() {
               Avisarme en este dispositivo
             </Button>
           ) : estado.accion === 'apagar' ? (
-            <Button
-              size="sm" variant="outline" className="mt-2" loading={apagar.isPending}
-              onClick={() => apagar.mutate()}
-            >
-              Dejar de avisarme aquí
-            </Button>
+            <>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" loading={probar.isPending}
+                  onClick={() => probar.mutate()}>
+                  Probar aquí mismo
+                </Button>
+                <Button size="sm" variant="outline" loading={apagar.isPending}
+                  onClick={() => apagar.mutate()}>
+                  Dejar de avisarme aquí
+                </Button>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                La prueba no sale de este aparato: la lanza la propia aplicación. Sirve para saber
+                si el navegador y el sistema te enseñan los avisos. Si la prueba se ve y los avisos
+                de verdad no llegan, el problema está en el camino; si no se ve ni la prueba, mira
+                los permisos del sistema —en macOS, Chrome y Safari necesitan además permiso en
+                Ajustes del sistema— y el «No molestar».
+              </p>
+            </>
           ) : null}
         </div>
 
