@@ -324,8 +324,12 @@ export function TaskBoard({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex rounded-md border p-0.5">
+      {/* `flex-wrap`: «Kanban», «Lista» y «Nueva tarea» con rótulo suman unos
+          340 px, y el ancho útil de un teléfono —dentro de la tarjeta o a
+          pantalla completa— son unos 350. Iba sin margen ninguno, y cualquier
+          rótulo un poco más largo sacaba el botón de crear fuera. */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex shrink-0 rounded-md border p-0.5">
           <Button
             variant={view === 'kanban' ? 'secondary' : 'ghost'}
             size="sm"

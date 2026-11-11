@@ -38,22 +38,35 @@ export function FullscreenPanel({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* `max-w-none` anula el `max-w-lg` del diálogo normal; `flex` sustituye
-          a su `grid` para que el contenido pueda crecer y desplazarse dentro.
-          `dvh` y no `vh` por lo de siempre: en iOS la barra de direcciones. */}
-      <DialogContent className="flex h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-none flex-col gap-3 p-3 sm:p-4">
-        {/* `pr-10`: la «✕» del diálogo va en posición absoluta en la esquina
-            (`right-4 top-4`), así que sin este hueco se le montaría encima el
-            botón de salir. */}
-        <div className="flex items-start justify-between gap-2 pr-10">
+      {/* `max-w-none` anula el `max-w-lg` del diálogo normal y `inset-x-2`
+          su margen de 1 rem: a pantalla completa se quiere TODO el ancho.
+          Ninguno de los dos mide la ventana con `vw` —ver `DialogContent`—.
+          `flex` sustituye a su `grid` para que el contenido pueda crecer y
+          desplazarse dentro. `dvh` y no `vh` por lo de siempre: en iOS la
+          barra de direcciones. */}
+      {/* `max-h-none` NO SOBRA: el diálogo normal trae `max-h-[calc(100dvh-2rem)]`
+          y, como es otro grupo de clases, convivía con el `h-` de aquí y ganaba.
+          El panel medía 1 rem menos de lo que decía medir. Con esto el margen
+          es el mismo medio rem por los cuatro lados. */}
+      <DialogContent className="flex h-[calc(100dvh-1rem)] max-h-none max-w-none flex-col gap-3 inset-x-2 p-3 sm:p-4">
+        {/* EN UN TELÉFONO, EL TÍTULO Y EL BOTÓN NO CABEN EN LA MISMA LÍNEA.
+            «Salir de pantalla completa» mide unos 205 px y no se encoge; con
+            el hueco de la «✕» (`pr-10`) dejaba al título unos 100 px de los
+            350 que tiene un móvil, así que el nombre del trabajo caía en
+            cuatro o cinco líneas de dos palabras. Apilado arriba y el botón
+            debajo, a la derecha; desde `sm` vuelven a compartir línea. */}
+        <div className="flex flex-col items-start gap-2 pr-10 sm:flex-row sm:items-start sm:justify-between">
           {/* `break-words`: el título lleva el nombre del trabajo, que lo
               escribe una persona y puede ser largo. */}
           <DialogTitle className="min-w-0 break-words text-base">{title}</DialogTitle>
           {/* Botón CON TEXTO, además de la «✕» de la esquina: la aspa sola no
               dice de qué se sale, y de una pantalla completa hay que poder
-              salir sin adivinar nada. */}
-          <Button variant="outline" size="sm" className="shrink-0" onClick={() => onOpenChange(false)}>
-            <Minimize2 /> Salir de pantalla completa
+              salir sin adivinar nada. En móvil el texto se acorta —«Salir»—,
+              que con el icono y junto al título ya no se confunde con nada. */}
+          <Button variant="outline" size="sm" className="shrink-0 self-end sm:self-auto" onClick={() => onOpenChange(false)}>
+            <Minimize2 />
+            <span className="hidden sm:inline">Salir de pantalla completa</span>
+            <span className="sm:hidden">Salir</span>
           </Button>
         </div>
         <div className="min-h-0 flex-1 overflow-auto">{children}</div>

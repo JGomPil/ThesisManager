@@ -152,7 +152,9 @@ export function WorkDetailPage() {
           w.academic_year?.code,
         ].filter(Boolean).join(' · ')}
         actions={
-          <div className="flex items-center gap-2">
+          // `flex-wrap`: tres botones con rótulo no caben en un móvil, y el
+          // tercero —«Archivar»— se salía por la derecha. Ver `PageHeader`.
+          <div className="flex flex-wrap items-center gap-2">
             {/* El alumno también entra a «Editar», pero allí solo ve el
                 contenido académico: lo demás se lo frena el disparador
                 `enforce_work_update_scope` (0030) y el formulario ni se lo

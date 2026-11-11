@@ -175,6 +175,24 @@ export const KIND_LABELS: Record<EventKind, string> = {
   MILESTONE: 'Hito',
 }
 
+/**
+ * LOS MISMOS CUATRO TIPOS, EN UNA PALABRA CADA UNO.
+ *
+ * `KIND_LABELS` describe UN evento («Vencimiento de tarea») y así tiene que
+ * seguir: es lo que se lee en la agenda, en el `title` de un enlace y en la
+ * descripción del fichero `.ics`. Pero las pastillas de la barra de filtros son
+ * otra cosa —un interruptor para una categoría— y ahí esos rótulos sumaban unos
+ * 400 px: en un teléfono de 390 px se salían por la derecha, y al ensanchar la
+ * página descolocaban todo lo demás. En plural, porque lo que se enciende y se
+ * apaga es el conjunto, no un evento.
+ */
+export const KIND_LABELS_FILTRO: Record<EventKind, string> = {
+  TASK_START: 'Inicios',
+  TASK_DUE: 'Vencimientos',
+  MEETING: 'Reuniones',
+  MILESTONE: 'Hitos',
+}
+
 export const KIND_TONES: Record<EventKind, string> = {
   TASK_START: 'slate',
   TASK_DUE: 'amber',

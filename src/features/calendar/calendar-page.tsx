@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils'
 import { useIsPhone } from '@/hooks/use-media-query'
 import { qk } from '@/lib/query-keys'
 import {
-  groupByDay, KIND_LABELS, KIND_TONES, monthGrid, weekDays,
+  groupByDay, KIND_LABELS, KIND_LABELS_FILTRO, KIND_TONES, monthGrid, weekDays,
   type CalendarEvent, type EventKind,
 } from '@/domain/plan/calendar'
 import { calendarRepo } from '@/data/repositories/calendar.repo'
@@ -148,17 +148,22 @@ export function CalendarPage() {
 
       <Card>
         <CardContent className="space-y-3 p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="icon" onClick={() => mover(-1)} aria-label="Anterior">
-              <ChevronLeft />
-            </Button>
-            <Button variant="outline" size="icon" onClick={() => mover(1)} aria-label="Siguiente">
-              <ChevronRight />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setAncla(new Date())}>Hoy</Button>
-            <span className="text-sm font-medium capitalize">{titulo}</span>
+          {/* DOS BLOQUES, Y EN UN MÓVIL DOS FILAS: a la izquierda moverse por
+              el tiempo, a la derecha filtrar. Era todo una sola fila con un
+              `ml-auto`, y en un teléfono se desbordaba por la derecha. */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <Button variant="outline" size="icon" onClick={() => mover(-1)} aria-label="Anterior">
+                <ChevronLeft />
+              </Button>
+              <Button variant="outline" size="icon" onClick={() => mover(1)} aria-label="Siguiente">
+                <ChevronRight />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setAncla(new Date())}>Hoy</Button>
+              <span className="min-w-0 text-sm font-medium capitalize">{titulo}</span>
+            </div>
 
-            <div className="ml-auto flex flex-wrap items-center gap-1.5">
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:ml-auto sm:justify-end">
               {TIPOS.map((k) => {
                 const activo = !ocultos.includes(k)
                 return (
@@ -166,6 +171,11 @@ export function CalendarPage() {
                     key={k}
                     type="button"
                     aria-pressed={activo}
+                    // El rótulo largo —«Vencimiento de tarea»— se queda en el
+                    // `title` y para el lector de pantalla: lo que se ve es
+                    // una palabra, que es lo que cabe. Ver `KIND_LABELS_FILTRO`.
+                    title={`Mostrar u ocultar: ${KIND_LABELS[k]}`}
+                    aria-label={KIND_LABELS[k]}
                     onClick={() =>
                       setOcultos((prev) => (activo ? [...prev, k] : prev.filter((x) => x !== k)))
                     }
@@ -174,16 +184,22 @@ export function CalendarPage() {
                       activo ? 'border-primary bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent',
                     )}
                   >
-                    {KIND_LABELS[k]}
+                    {KIND_LABELS_FILTRO[k]}
                   </button>
                 )
               })}
               {trabajos.length > 1 && (
+                /* UN `select` NO SE ENCOGE SOLO: el navegador lo dibuja tan
+                   ancho como su opción más larga, y aquí las opciones son
+                   títulos de trabajos de ochenta caracteres. Eso era lo que
+                   ensanchaba la página en el móvil. Con un ancho declarado
+                   —toda la fila en el teléfono, un tope de 16 rem a partir de
+                   `sm`— el texto se recorta dentro y la página no se mueve. */
                 <select
                   value={trabajo}
                   onChange={(e) => setTrabajo(e.target.value)}
                   aria-label="Filtrar por trabajo"
-                  className="h-7 rounded-md border border-input bg-background px-2 text-xs"
+                  className="h-7 w-full min-w-0 truncate rounded-md border border-input bg-background px-2 text-xs sm:w-auto sm:max-w-[16rem]"
                 >
                   <option value="">Todos los trabajos</option>
                   {trabajos.map(([id, t]) => (

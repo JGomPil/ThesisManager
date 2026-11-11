@@ -154,7 +154,18 @@ export function AppShell() {
 
         {open && <div className="fixed inset-0 z-20 bg-black/40 lg:hidden" onClick={() => setOpen(false)} />}
 
-        <main className="min-w-0 flex-1 p-4 lg:p-6 print:p-0">
+        {/* `overflow-x-clip` ES UNA RED, NO LA SOLUCIÓN. Cada desbordamiento se
+            arregla donde nace —una fila que envuelve, un `select` con ancho,
+            un panel con su propio desplazamiento— y para eso están los
+            comentarios de cada sitio. Esto es lo que impide que el siguiente
+            descuadre la pantalla entera: en un móvil, un solo elemento más
+            ancho que la ventana ensancha el lienzo, y entonces se mueve TODO,
+            incluidos los diálogos `fixed`, que aparecen descentrados y salidos
+            por la derecha sin que les pase nada a ellos. Síntoma del 11 de
+            noviembre de 2026: la ficha de una tarea «no queda centrada».
+            `clip` y no `hidden` a propósito: `hidden` crearía un contenedor de
+            desplazamiento y rompería los `position: sticky` de dentro. */}
+        <main className="min-w-0 flex-1 overflow-x-clip p-4 lg:p-6 print:p-0">
           <div className="mx-auto max-w-7xl space-y-4">
             {isOrgAdmin && <KeepaliveBanner />}
             {/* La mayoría de las pantallas se cargan al entrar en ellas
@@ -206,7 +217,16 @@ export function PageHeader({
         <h1 className="break-words text-xl font-semibold tracking-tight">{title}</h1>
         {description && <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>}
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      {/* `flex-wrap` Y NO `shrink-0` EN MÓVIL. Una cabecera con tres acciones
+          —«Editar», «Dar por terminado», «Archivar» son unos 400 px— no cabe
+          en un teléfono, y sin envolver la última se salía por la derecha:
+          inalcanzable, y además ensanchando la página, que es lo que descoloca
+          los diálogos (ver `DialogContent`). Desde `sm` la cabecera ya es una
+          fila y ahí `shrink-0` sigue siendo lo correcto, para que las acciones
+          no se estrujen contra un título largo. */}
+      {actions && (
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">{actions}</div>
+      )}
     </div>
   )
 }

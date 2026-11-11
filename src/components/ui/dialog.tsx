@@ -16,7 +16,24 @@ export const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed left-1/2 top-1/2 z-50 grid w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4',
+        // CENTRADO CON MÁRGENES, NO CON `100vw` NI `translateX`.
+        //
+        // Era `left-1/2 w-[calc(100vw-2rem)] -translate-x-1/2`, y en un móvil
+        // la ficha de una tarea se salía por la derecha. La culpa la reparten
+        // dos cosas: `100vw` NO es el ancho que queda —incluye la barra de
+        // desplazamiento donde la hay— y, sobre todo, en cuanto algo de la
+        // página de debajo se desborda a lo ancho, el navegador del móvil
+        // ensancha el lienzo y un elemento `fixed` centrado al 50 % se va con
+        // él. El ancho del diálogo quedaba bien y su posición no.
+        //
+        // `inset-x-4` + `mx-auto` + `max-w-lg` dice lo mismo sin medir la
+        // ventana: ocupa lo que queda entre dos márgenes de 1 rem, nunca más
+        // de 32 rem, y se centra con márgenes automáticos. Eso no depende de
+        // `vw` ni de ninguna transformación, así que no hay nada que se
+        // descuadre. Quien necesite otro ancho pasa su `inset-x-*` y su
+        // `max-w-*`: `tailwind-merge` sustituye el de aquí (lo hace
+        // `FullscreenPanel`).
+        'fixed inset-x-4 top-1/2 z-50 mx-auto grid max-w-lg -translate-y-1/2 gap-4',
         // `[&>*]:min-w-0` tiene más fondo del que parece: los hijos de un grid
         // valen `min-width: auto`, o sea que NO se encogen por debajo de su
         // contenido. Un nombre largo sin espacios, una tabla o una fila de
