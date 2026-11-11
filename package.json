@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Gesti\u00f3n y supervisi\u00f3n de trabajos acad\u00e9micos (GIB-UVa)",
+  "description": "Gestión y supervisión de trabajos académicos (GIB-UVa)",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -70,7 +70,8 @@
     "typescript": "^5.6.2",
     "typescript-eslint": "^8.7.0",
     "vite": "^5.4.8",
-    "vitest": "^2.1.1"
+    "vitest": "^2.1.1",
+    "web-push": "^3.6.7"
   },
   "engines": {
     "node": ">=22"

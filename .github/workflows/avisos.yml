@@ -1,0 +1,118 @@
+# =============================================================================
+# El cartero: lleva al movil y al ordenador lo que ya esta en la campana
+#
+# POR QUE AQUI Y NO EN SUPABASE. Firmar un «push» exige una clave privada
+# (VAPID) y cifrar el contenido para cada dispositivo. Desde el navegador es
+# imposible -la clave acabaria en el bundle, que es publico- y un disparador de
+# PostgreSQL no sabe firmar ECDSA. Hacia falta algo que corra fuera y a solas, y
+# este repositorio ya tenia el sitio hecho: `keepalive.yml`.
+#
+# ENTRA CON LA CLAVE ANON, COMO EL KEEPALIVE, NUNCA CON `service_role`. Lo que
+# le da acceso a los avisos de otras personas es un TOKEN que solo abre cuatro
+# puertas estrechas, acotadas a 72 horas (migracion 0032; el razonamiento
+# completo esta en SECURITY.md §5.2.tertricies). Si este workflow se filtrara
+# entero, lo peor que se podria hacer con el es leer el texto de los avisos
+# pendientes de los ultimos tres dias. Con `service_role` se habria llevado el
+# expediente academico del grupo entero.
+#
+# SECRETOS QUE NECESITA (Settings -> Secrets and variables -> Actions):
+#   SUPABASE_URL          · ya existe, lo usa el keepalive
+#   SUPABASE_ANON_KEY     · ya existe, es publica por diseno
+#   AVISOS_TOKEN          · lo que devuelve `select app.nuevo_token_del_cartero();`
+#   VAPID_PUBLIC_KEY      · publica; va tambien al build como VITE_VAPID_PUBLIC_KEY
+#   VAPID_PRIVATE_KEY     · privada: solo aqui, nunca en el repositorio
+#   VAPID_SUBJECT         · opcional, un `mailto:` de contacto
+# Se generan con:  npx -y web-push generate-vapid-keys
+#
+# SI FALTA ALGUN SECRETO NO FALLA: no hace nada y lo dice. Un workflow en rojo
+# cada media hora durante el tiempo que se tarde en configurarlo ensena a no
+# mirar los rojos, y entonces el dia que falle de verdad no se entera nadie.
+# =============================================================================
+name: Avisos al movil y al ordenador
+
+on:
+  schedule:
+    # Cada media hora, en minutos raros: GitHub acumula retrasos en el minuto
+    # en punto, donde se concentran todos los cron del mundo.
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+
+# Una pasada a la vez. Dos carteros simultaneos mandarian el mismo aviso dos
+# veces: el primero no ha marcado todavia lo que el segundo ya ha leido.
+concurrency:
+  group: avisos
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  repartir:
+    name: Repartir los avisos pendientes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      # `npm ci` completo y no `npm i web-push`: asi la version que reparte es
+      # exactamente la del `package-lock.json`, igual que en el despliegue. Una
+      # libreria de criptografia no es sitio para «la ultima que haya hoy».
+      - run: npm ci
+
+      - name: Comprobar que estan los secretos
+        id: secretos
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          AVISOS_TOKEN: ${{ secrets.AVISOS_TOKEN }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+        run: |
+          set -uo pipefail
+          faltan=""
+          [ -z "${SUPABASE_URL:-}" ]      && faltan="$faltan SUPABASE_URL"
+          [ -z "${SUPABASE_ANON_KEY:-}" ] && faltan="$faltan SUPABASE_ANON_KEY"
+          [ -z "${AVISOS_TOKEN:-}" ]      && faltan="$faltan AVISOS_TOKEN"
+          [ -z "${VAPID_PUBLIC_KEY:-}" ]  && faltan="$faltan VAPID_PUBLIC_KEY"
+          [ -z "${VAPID_PRIVATE_KEY:-}" ] && faltan="$faltan VAPID_PRIVATE_KEY"
+          if [ -n "$faltan" ]; then
+            echo "::warning::Los avisos al dispositivo no estan configurados todavia. Faltan:$faltan"
+            echo "listo=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "listo=si" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Repartir
+        if: steps.secretos.outputs.listo == 'si'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          AVISOS_TOKEN: ${{ secrets.AVISOS_TOKEN }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+        # El script no imprime ni un titulo ni un endpoint: este repositorio es
+        # publico y con el los registros de Actions. Todo lo que sale son
+        # numeros y codigos HTTP.
+        run: node scripts/enviar-avisos.mjs | tee "$RUNNER_TEMP/salida.txt"
+
+      - name: Resumen
+        if: always()
+        run: |
+          {
+            echo "### Reparto de avisos"
+            echo ""
+            if [ "${{ steps.secretos.outputs.listo }}" != "si" ]; then
+              echo "Sin configurar: faltan secretos. Nada que repartir."
+            else
+              echo '```'
+              cat "$RUNNER_TEMP/salida.txt" 2>/dev/null || echo "sin salida"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

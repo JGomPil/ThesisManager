@@ -81,6 +81,12 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           # Para https://<usuario>.github.io/ThesisManager/
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
+          # La clave PUBLICA de los avisos (0032). Tambien es publica por
+          # diseno: con ella el navegador acepta mensajes firmados por
+          # nosotros, no sirve para firmarlos. La privada solo la ve
+          # avisos.yml. Si falta, la tarjeta de Avisos del perfil lo dice y no
+          # ofrece el boton, en vez de ofrecer uno que no podria funcionar.
+          VITE_VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
         run: npm run build
 
       - name: Comprobar que los colores del catálogo han sobrevivido al build

@@ -1339,6 +1339,9 @@ regla y no anade ningun disparador sobre `meeting_private_notes`.
 `VITE_SUPABASE_URL` | GitHub Variables + `.env.local` | — (no es secreto) |
 `VITE_SUPABASE_ANON_KEY` | GitHub Secrets + `.env.local` | Es pública por diseño; aparece en el *bundle* |
 `service_role` key | **En ningún sitio del proyecto** | Repositorio, frontend, workflows, Actions |
+`AVISOS_TOKEN` | GitHub Secrets; su `sha256` en `app.secretos` | Repositorio, frontend. Abre cuatro funciones y 72 h, nada más (§5.2.tertricies) |
+`VAPID_PRIVATE_KEY` | GitHub Secrets | Repositorio, frontend. Con ella se firman los avisos de este sitio |
+`VAPID_PUBLIC_KEY` | GitHub Secrets + el *bundle* | — (es pública por diseño, como la clave anon) |
 SMTP institucional | Panel de Supabase | Repositorio |
 Clave de IA (Fase 6) | *Secrets* de Supabase Edge Functions | Repositorio, frontend |
 

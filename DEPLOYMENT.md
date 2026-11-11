@@ -103,8 +103,12 @@ directorios que empiezan por `_`).
 
 | Nombre | Valor | Uso |
 |---|---|---|
-`SUPABASE_URL` | `https://<ref>.supabase.co` | `deploy.yml` y `keepalive.yml` |
-`SUPABASE_ANON_KEY` | clave anon/publishable | `deploy.yml` y `keepalive.yml` |
+`SUPABASE_URL` | `https://<ref>.supabase.co` | `deploy.yml`, `keepalive.yml` y `avisos.yml` |
+`SUPABASE_ANON_KEY` | clave anon/publishable | `deploy.yml`, `keepalive.yml` y `avisos.yml` |
+`AVISOS_TOKEN` | lo que devuelve `select app.nuevo_token_del_cartero();` | `avisos.yml` |
+`VAPID_PUBLIC_KEY` | clave pública de los avisos | `avisos.yml` y el *build* |
+`VAPID_PRIVATE_KEY` | clave privada de los avisos | solo `avisos.yml` |
+`VAPID_SUBJECT` | opcional, un `mailto:` de contacto | `avisos.yml` |
 
 Ambos terminan en el *bundle* público, lo cual es correcto y esperado: la clave anon está diseñada
 para ser pública y la protección real la ejerce RLS. Se guardan como *secrets* por higiene, no
@@ -112,15 +116,48 @@ porque sean confidenciales.
 
 En local, `.env.local` (ignorado por Git) a partir de `.env.example`.
 
+### 6.bis. Los avisos al móvil y al ordenador (migración `0032`)
+
+Cuatro pasos, una vez:
+
+1. **Aplicar la `0032`** (y antes la `0031`, por orden) en el editor SQL del panel.
+2. **Generar el token del cartero**, que es lo que le permite repartir sin la clave `service_role`:
+   ```sql
+   select app.nuevo_token_del_cartero();
+   ```
+   Devuelve el token **una sola vez** —de él solo se guarda el `sha256`— y va al *secret*
+   `AVISOS_TOKEN`. Volver a ejecutar esa línea lo revoca y da uno nuevo.
+3. **Generar el par de claves VAPID**:
+   ```bash
+   npx -y web-push generate-vapid-keys
+   ```
+   La pública va a `VAPID_PUBLIC_KEY` y la privada a `VAPID_PRIVATE_KEY`. La pública, además, tiene
+   que llegar al *build* como `VITE_VAPID_PUBLIC_KEY`: ya está puesta en `deploy.yml`, leyendo ese
+   mismo *secret*. **Si se cambian las claves, todas las suscripciones existentes dejan de valer**
+   (el navegador ata la suscripción a la clave con la que se creó) y hay que volver a dar permiso en
+   cada aparato; el síntoma es un `403` en el reparto.
+4. **Comprobar** que `supabase/verify.sql` devuelve **23** filas en `OK`. La 23 falla mientras no
+   exista el token, y es a propósito: sin él el reparto no da error, simplemente no reparte, y eso
+   no se nota.
+
+Después, `avisos.yml` se puede lanzar a mano desde la pestaña Actions. Su resumen dice cuántos
+recordatorios se han creado, cuántos avisos se han entregado y, si algo falla, con qué código. El
+primer fallo típico es un `403`: la clave VAPID del *secret* no es la que usó el navegador al
+suscribirse.
+
+Mientras falte cualquiera de esos secretos, `avisos.yml` **no falla**: avisa y no hace nada. Un
+workflow en rojo cada media hora enseña a no mirar los rojos.
+
 ## 7. Despliegue automático y workflows
 
-Tres workflows, independientes entre sí:
+Cuatro workflows, independientes entre sí:
 
 | Workflow | Cuándo | Para qué |
 |---|---|---|
 `deploy.yml` | *push* a `main` y manual | Construir y publicar el frontend |
 `keepalive.yml` | cada 8 h (`17 */8 * * *`) y manual | Evitar que Supabase pause el proyecto |
 `repo-activity.yml` | día 3 de cada mes y manual | Evitar que GitHub desactive los *cron* |
+`avisos.yml` | cada media hora (`7,37 * * * *`) y manual | Llevar los avisos de la campana al móvil y al ordenador |
 
 `deploy.yml` ignora los cambios en `maintenance/**` y en los `*.md`, de modo que el *commit*
 mensual de `repo-activity.yml` no provoca un redespliegue. `repo-activity.yml` es, además, el único
