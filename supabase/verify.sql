@@ -492,6 +492,35 @@ with comprobaciones as (
              and policyname = 'works_insert')
 
   union all
+  -- 5.sedecies Las 0035 y 0036: las dos columnas que existian desde el
+  --            principio y no escribia nadie. Lo que se vigila es lo mismo en
+  --            las dos, y es lo que una clave ajena NO comprueba: que el hito
+  --            sea del trabajo de la tarea, y que la respuesta viva en el hilo
+  --            de su padre. Sin los disparadores, las dos cosas se pueden
+  --            escribir desde PostgREST sin que nada falle.
+  select 26, 'migraciones 0035 y 0036: el hito y la respuesta, atados a su sitio',
+         case when (select count(*) from pg_trigger
+                     where tgrelid = 'public.tasks'::regclass
+                       and tgname = 'tasks_milestone_same_work') = 1
+                   and (select count(*) from pg_trigger
+                         where tgrelid = 'public.comments'::regclass
+                           and tgname = 'comments_parent_valido') = 1
+                   and (select pg_get_functiondef(p.oid) from pg_proc p
+                         join pg_namespace n on n.oid = p.pronamespace
+                        where n.nspname = 'app' and p.proname = 'notify_comment_reply')
+                       like '%ha respondido a tu comentario%'
+              then 'OK' else 'FALLO' end,
+         (select case when count(*) = 1 then 'la tarea cuelga de un hito de su trabajo'
+                      else 'FALTA EL DISPARADOR DEL HITO: una tarea puede colgar del hito de otro trabajo' end
+            from pg_trigger
+           where tgrelid = 'public.tasks'::regclass and tgname = 'tasks_milestone_same_work')
+         || ' · ' ||
+         (select case when count(*) = 1 then 'la respuesta, en el hilo de su padre'
+                      else 'FALTA EL DISPARADOR DE LAS RESPUESTAS: una respuesta puede colgar de otro hilo' end
+            from pg_trigger
+           where tgrelid = 'public.comments'::regclass and tgname = 'comments_parent_valido')
+
+  union all
   -- 6. Y que ningun rol tenga capacidades que no deba: el estudiante, ninguna.
   --    SIGUE SIENDO VERDAD despues de la 0030: lo que esa migracion concede no
   --    pasa por los flags del catalogo de roles, sino por ser EL ALUMNO DE ESE

@@ -33,6 +33,7 @@ import {
   type BoardColumn,
 } from '@/domain/plan/board'
 import { moveItem, reorderWrites } from '@/domain/plan/reorder'
+import { milestonesRepo } from '@/data/repositories/milestones.repo'
 import type { WorkWithRelations } from '@/data/repositories/works.repo'
 import type { BoardColumnRow, TaskStatus } from '@/data/types/database'
 import { taskFormSchema, type TaskFormValues } from '@/schemas/work'
@@ -1296,7 +1297,10 @@ function TaskDialog({
   const editando = task !== null
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
-    defaultValues: { title: '', description: '', assignee_id: '', priority: 'MEDIA', start_date: '', due_date: '' },
+    defaultValues: {
+      title: '', description: '', assignee_id: '', milestone_id: '',
+      priority: 'MEDIA', start_date: '', due_date: '',
+    },
   })
 
   // Al abrirse se vuelca la tarea en el formulario, y al cerrarse se limpia.
@@ -1308,11 +1312,21 @@ function TaskDialog({
       title: task?.title ?? '',
       description: task?.description ?? '',
       assignee_id: task?.assignee_id ?? responsableFijo ?? '',
+      milestone_id: task?.milestone_id ?? '',
       priority: task?.priority ?? 'MEDIA',
       start_date: task?.start_date ?? '',
       due_date: task?.due_date ?? '',
     })
   }, [open, task, form, responsableFijo])
+
+  // Los hitos del trabajo, para poder enganchar la tarea a una fecha (0035).
+  // Misma clave de consulta que la tarjeta de Hitos, asi que no es una peticion
+  // mas: es la misma, ya en cache.
+  const hitos = useQuery({
+    queryKey: qk.milestones.byWork(work.id),
+    queryFn: () => milestonesRepo.byWork(work.id),
+    enabled: open,
+  })
 
   const guardar = useMutation({
     mutationFn: (values: TaskFormValues) => {
@@ -1320,6 +1334,7 @@ function TaskDialog({
         title: values.title,
         description: values.description || null,
         assignee_id: values.assignee_id || null,
+        milestone_id: values.milestone_id || null,
         priority: values.priority,
         start_date: values.start_date || null,
         due_date: values.due_date || null,
@@ -1400,6 +1415,27 @@ function TaskDialog({
                 </p>
               )}
             </div>
+            {/* EL HITO, Y SOLO SI HAY HITOS. Un desplegable con una unica
+                opcion vacia no es una eleccion, es un hueco que hay que leer
+                para descartarlo. Quien no haya puesto fechas en el plan no ve
+                este campo. */}
+            {(hitos.data ?? []).length > 0 && (
+              <div>
+                <Label htmlFor="task-milestone">Hito</Label>
+                <Select id="task-milestone" className="mt-1.5" {...form.register('milestone_id')}>
+                  <option value="">Sin hito</option>
+                  {(hitos.data ?? []).map((h) => (
+                    <option key={h.id} value={h.id}>
+                      {h.name} · {format(parseISO(h.due_date), 'd MMM yyyy', { locale: es })}
+                    </option>
+                  ))}
+                </Select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Para ver, delante de cada fecha del plan, qué queda por hacer para llegar.
+                </p>
+              </div>
+            )}
+
             <div>
               <Label htmlFor="task-priority">Prioridad</Label>
               <Select id="task-priority" className="mt-1.5" {...form.register('priority')}>

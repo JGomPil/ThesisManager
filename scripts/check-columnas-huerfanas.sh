@@ -89,9 +89,10 @@ ACEPTADAS = {
 # ya permite y la interfaz no ofrece.
 # -----------------------------------------------------------------------------
 PENDIENTES = {
-    'comments.parent_comment_id': 'responder a un comentario concreto: el hilo es plano en pantalla',
-    'milestones.phase_id':        'colgar un hito de una fase del plan',
-    'tasks.milestone_id':         'enganchar una tarea a un hito (la columna la protege el disparador)',
+    # `comments.parent_comment_id` y `tasks.milestone_id` salieron de esta lista
+    # el 11-11-2026 (migraciones 0035 y 0036): ya se responde a un comentario
+    # concreto y una tarea cuelga de su hito.
+    'milestones.phase_id':        'colgar un hito de una fase del plan: no hay pantalla de fases, y la columna del tablero y el hito cubren hoy lo mismo',
     # REGLA MUERTA: esta en el catalogo, se puede rellenar y no la hace cumplir
     # nadie. Peor que faltar, porque quien la rellena cree haber decidido algo.
     # (`max_supervisors` estaba aqui y salio de la lista el 10-11-2026: ahora

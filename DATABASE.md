@@ -252,6 +252,18 @@ del mismo trabajo.
   función es `security definer`, así que la puerta es `app.puede_crear_trabajos(org)`, lo primero
   que comprueba. `works_insert` y `works_delete` **no se abren**: el alta directa y el borrado
   siguen siendo de quien administra. Comprobación 25 de `verify.sql`; pruebas `[200]`–`[204]`.
+- **Una tarea cuelga de su hito** (`0035`): `app.enforce_task_milestone_same_work()`,
+  `before insert or update on tasks`, exige que el hito sea del mismo trabajo. La clave ajena no lo
+  comprueba —`milestone_id references milestones(id)` admite el hito de cualquier trabajo— y un
+  `check` de tabla no puede consultar otra tabla. Quién puede escribir la columna no cambia: lo
+  decide el disparador de alcance desde la `0030`. Coherente con la `0031`, que al mudar una tarea
+  de trabajo **suelta** el hito.
+- **Una respuesta vive en el hilo de su padre** (`0036`): `app.enforce_comment_parent()`,
+  `before insert or update on comments`, exige que el padre exista, no esté borrado, sea del mismo
+  trabajo y de la misma entidad, y **no sea él mismo una respuesta**: el hilo tiene dos niveles por
+  decisión, y con un solo nivel una cadena de padres no puede tener ciclos. `notify_comment_reply`
+  distingue ahora al autor del comentario contestado («ha respondido a tu comentario») del resto del
+  hilo. Comprobación 26 de `verify.sql`; pruebas `[205]`–`[208]`.
 - `comments` polimórfico controlado: `work_id` obligatorio + `entity_type` (`WORK`/`TASK`/`DOCUMENT`/
   `MEETING`) + `entity_id`, `parent_comment_id`, `mentions uuid[]`. `work_id` siempre presente es lo
   que permite una política RLS única y eficiente para todos los comentarios.

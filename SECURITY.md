@@ -1369,6 +1369,38 @@ Y la casilla no se la pone uno mismo: vive en `organization_members`, cuya escri
 administración desde la `0003`. Lo fija `[202]`, que mira **la fila y no el error**, porque un
 `UPDATE` que RLS filtra devuelve cero filas sin quejarse (§5.2.quatervicies).
 
+### 5.2.sextricies · Dos columnas que llevaban años sin dueño
+
+`tasks.milestone_id` existe desde la `0002` y `comments.parent_comment_id` desde la `0005`, y hasta
+las `0035` y `0036` **no las escribía nadie**. El guarda `check:columnas` las cantaba en cada
+ejecución, que es para lo que está. Al ponerlas en marcha apareció el mismo agujero en las dos, y
+es un agujero que no se ve mirando el esquema:
+
+**Una clave ajena no comprueba el trabajo.** `milestone_id references milestones(id)` admite el hito
+de **cualquier** trabajo, y `parent_comment_id references comments(id)` el comentario de cualquier
+hilo. La pantalla ofrece solo lo del trabajo que se está mirando, pero la pantalla no es la frontera:
+una petición a PostgREST podía colgar una tarea del depósito de la tesis de otra persona, o una
+respuesta del comentario de un trabajo ajeno. **Nada de eso da un error.** Lo que se ve después es
+un hito con tareas que nadie de ese trabajo reconoce, o una respuesta que no se dibuja en ningún
+sitio. Los dos casos se cierran con un disparador `before insert or update` —y tiene que ser un
+disparador, porque una restricción `check` de tabla no puede consultar otra tabla— y las pruebas
+`[205]` y `[207]` atacan **las dos puertas**: el alta y la edición. La segunda es la que se olvida:
+la fila ya existe y solo se cambia una columna.
+
+Dos decisiones que conviene dejar escritas:
+
+1. **El hilo tiene dos niveles, y lo dice la base de datos.** De una respuesta no cuelga nada. No es
+   una limitación de la pantalla que la base tolere: `app.enforce_comment_parent()` la rechaza. Y
+   trae de regalo una garantía estructural —**una cadena de padres puede tener ciclos; con un solo
+   nivel el ciclo no se puede ni escribir**, porque la raíz de una respuesta tiene el padre a nulo
+   por definición—. Sin eso habría que vigilar los bucles al leer, que es el sitio donde un bucle se
+   convierte en una pantalla colgada.
+2. **Quién puede escribir estas columnas no lo cambia ninguna de las dos migraciones.** `milestone_id`
+   sigue en la lista de columnas protegidas de `app.enforce_task_update_scope` (`0026`, `0030`) y una
+   respuesta sigue necesitando `comments_insert`, o sea ser miembro del trabajo. Son migraciones de
+   **integridad**, no de permisos, y mezclar las dos cosas en una habría sido la manera de colar un
+   permiso sin discutirlo.
+
 ## 6. Autenticación y alta de usuarios
 
 - Supabase Auth, correo + contraseña, con `flowType: 'pkce'`.

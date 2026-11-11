@@ -115,6 +115,9 @@ export const taskFormSchema = z
     title: z.string().trim().min(3, 'Indica un título').max(300),
     description: z.string().max(3000).optional(),
     assignee_id: z.string().uuid().or(z.literal('')).optional(),
+    // El hito del que cuelga la tarea (0035). Vacío es «sin hito», que es lo
+    // normal: la mayoría de las tareas no se enganchan a una fecha concreta.
+    milestone_id: z.string().uuid().or(z.literal('')).optional(),
     priority: z.enum(['BAJA', 'MEDIA', 'ALTA', 'URGENTE']),
     start_date: z.string().optional(),
     due_date: z.string().optional(),

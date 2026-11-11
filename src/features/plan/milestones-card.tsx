@@ -13,7 +13,9 @@ import { qk } from '@/lib/query-keys'
 import { cn } from '@/lib/utils'
 import { errorMessage } from '@/lib/supabase'
 import { milestonesRepo } from '@/data/repositories/milestones.repo'
+import { fraseDeHito, resumenDeHito } from '@/domain/plan/hitos'
 import type { WorkCapabilities } from '@/domain/permissions/work-capabilities'
+import type { TaskStatus } from '@/data/types/database'
 
 /**
  * Hitos del trabajo: las fechas que no son tareas sino compromisos (depósito,
@@ -30,10 +32,19 @@ import type { WorkCapabilities } from '@/domain/permissions/work-capabilities'
  * carga el hito en el formulario de abajo, que cambia de rótulo y lo dice.
  */
 export function MilestonesCard({
-  workId, caps,
+  workId, caps, tareas,
 }: {
   workId: string
   caps: WorkCapabilities
+  /**
+   * Las tareas del trabajo, YA CARGADAS por la ficha (0035).
+   *
+   * Se reciben en vez de pedirlas: la ficha ya las tiene, y dos listas de las
+   * mismas tareas pueden discrepar durante unos milisegundos —el progreso del
+   * trabajo se calcula con la primera—. Es la misma razón por la que el
+   * cronograma las recibe igual.
+   */
+  tareas: { milestone_id: string | null; parent_task_id: string | null; status: TaskStatus }[]
 }) {
   const qc = useQueryClient()
   const toast = useToast()
@@ -110,7 +121,7 @@ export function MilestonesCard({
           <p className="text-sm text-muted-foreground">
             Sin hitos.{' '}
             {caps.canManageMilestones
-              ? 'Un hito es una fecha que hay que cumplir: depósito, defensa, envío de un artículo.'
+              ? 'Un hito es una fecha que hay que cumplir: depósito, defensa, envío de un artículo. Las tareas del plan pueden engancharse a él.'
               : 'La dirección los fija; aquí los verás con su fecha.'}
           </p>
         ) : (
@@ -118,6 +129,10 @@ export function MilestonesCard({
             {rows.map((h) => {
               const dias = differenceInCalendarDays(parseISO(h.due_date), new Date())
               const vencido = !h.is_met && dias < 0
+              // QUE QUEDA PARA LLEGAR A ESTA FECHA. Es lo que la 0035 vino a
+              // contestar, y la regla de que cuenta vive en el dominio con sus
+              // pruebas: las subtareas no suman, y lo hecho sigue en el total.
+              const trabajo = fraseDeHito(resumenDeHito(tareas, h.id))
               return (
                 <li key={h.id} className="flex items-start gap-2 text-sm">
                   <input
@@ -143,6 +158,7 @@ export function MilestonesCard({
                       {!h.is_met && dias >= 0 && dias <= 30 && (
                         <ToneBadge tone="amber">en {dias} día(s)</ToneBadge>
                       )}
+                      {trabajo && <span>· {trabajo}</span>}
                     </span>
                   </label>
                   {caps.canManageMilestones && (

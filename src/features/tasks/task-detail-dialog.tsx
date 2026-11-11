@@ -1,8 +1,8 @@
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Check, ChevronDown, ChevronUp, GripVertical, ListChecks, MessageSquare, Palette, Paperclip,
-  FolderInput, Pencil, Plus, Trash2, X,
+  Check, ChevronDown, ChevronUp, Flag, GripVertical, ListChecks, MessageSquare, Palette,
+  Paperclip, FolderInput, Pencil, Plus, Trash2, X,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -21,6 +21,7 @@ import {
 } from '@/data/repositories/tasks.repo'
 import { daysUntil } from '@/domain/works/progress'
 import { moveItem, reorderWrites } from '@/domain/plan/reorder'
+import { milestonesRepo } from '@/data/repositories/milestones.repo'
 import type { BoardColumn } from '@/domain/plan/board'
 import { DocumentsCard } from '@/features/documents/documents-card'
 import { CommentsThread } from '@/features/comments/comments-thread'
@@ -136,6 +137,22 @@ export function TaskDetailDialog({
     (w) => w.id !== workId
       && resolveWorkCapabilities(w.members ?? [], userId, isOrgAdmin).canManagePlan,
   )
+
+  /**
+   * El hito del que cuelga la tarea (0035).
+   *
+   * Se piden los hitos del trabajo y se busca el suyo, en lugar de traerlo
+   * embebido en la consulta de tareas: es la MISMA consulta que ya usan la
+   * tarjeta de Hitos y el cronograma -misma clave, ya en cache-, mientras que
+   * un embed nuevo en `tasks` seria una columna mas en una consulta que se
+   * pide en cada tablero.
+   */
+  const hitos = useQuery({
+    queryKey: qk.milestones.byWork(workId),
+    queryFn: () => milestonesRepo.byWork(workId),
+    enabled: open,
+  })
+  const hito = (hitos.data ?? []).find((h) => h.id === task?.milestone_id) ?? null
 
   const mudar = useMutation({
     mutationFn: (destinoId: string) => tasksRepo.moverDeTrabajo(task!.id, destinoId),
@@ -312,6 +329,23 @@ export function TaskDetailDialog({
                 {late && ' (vencida)'}
               </p>
             </div>
+            {/* EL HITO, solo si cuelga de uno (0035). La fecha del hito va
+                también: una tarea que vence el 2 de junio colgada de un
+                depósito que es el 1 es un problema, y aquí se ve de un
+                vistazo sin abrir el cronograma. */}
+            {hito && (
+              <div className="col-span-2">
+                <p className="text-xs text-muted-foreground">Hito</p>
+                <p className="flex flex-wrap items-center gap-1.5">
+                  <Flag className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                  {hito.name}
+                  <span className="text-xs text-muted-foreground">
+                    {format(parseISO(hito.due_date), "d MMM yyyy", { locale: es })}
+                  </span>
+                  {hito.is_met && <ToneBadge tone="green">cumplido</ToneBadge>}
+                </p>
+              </div>
+            )}
           </section>
 
           {/* El material de la plantilla va ANTES de la lista de comprobación:

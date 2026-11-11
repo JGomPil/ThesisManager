@@ -334,7 +334,7 @@ export function WorkDetailPage() {
             </CardContent>
           </Card>
 
-          <MilestonesCard workId={w.id} caps={caps} />
+          <MilestonesCard workId={w.id} caps={caps} tareas={tasks.data ?? []} />
           <WorkMembersCard work={w} caps={caps} />
           <DocumentsCard workId={w.id} caps={caps} userId={userId} />
 
